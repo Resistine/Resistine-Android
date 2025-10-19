@@ -39,6 +39,7 @@ IntelliJ / Android Studio project files
 !.idea/runConfigurations/
 !.idea/runConfigurations.xml
 !.idea/.name
+!.idea/.gitignore
 !.idea/vcs.xml
 
 # Gradle
@@ -53,5 +54,3 @@ captures/
 # Local machine settings
 local.properties
 .DS_Store
-
-
