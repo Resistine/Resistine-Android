@@ -1,3 +1,6 @@
+# Project specific files
+app/src/main/assets/
+
 # Compiled class file
 *.class
 
@@ -25,3 +28,30 @@ replay_pid*
 
 # Kotlin Gradle plugin data, see https://kotlinlang.org/docs/whatsnew20.html#new-directory-for-kotlin-data-in-gradle-projects
 .kotlin/
+
+IntelliJ / Android Studio project files
+*.iml
+.idea/
+!.idea/codeStyles/
+!.idea/inspectionProfiles/
+!.idea/dictionaries/
+!.idea/copyright/
+!.idea/runConfigurations/
+!.idea/runConfigurations.xml
+!.idea/.name
+!.idea/vcs.xml
+
+# Gradle
+.gradle/
+build/
+externalNativeBuild/
+.externalNativeBuild
+.cxx/
+captures/
+.cxx
+
+# Local machine settings
+local.properties
+.DS_Store
+
+

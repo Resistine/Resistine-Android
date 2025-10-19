@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">ResistineAndroidApp</string>
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+    <string name="nav_header_title">Resistine App</string>
+    <string name="nav_header_subtitle">android@resistine.com</string>
+    <string name="nav_header_desc">Navigation header</string>
+    <string name="action_settings">Settings</string>
+    <string name="app_icon">Icon</string>
+    <string name="menu_home">Resistine</string>
+    <string name="menu_gallery">Gallery</string>
+    <string name="menu_slideshow">Slideshow</string>
+    <string name="menu_vpn">VPN</string>
+    <string name="menu_apps">Apps</string>
+    <string name="version_label">Version: %1$s</string>
+</resources>

@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <TextView
+        android:id="@+id/textViewVpnStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="VPN není připojena"
+        android:textSize="18sp"
+        android:layout_marginBottom="24dp"/>
+
+    <Button
+        android:id="@+id/buttonVpnToggle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Připojit VPN" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="16dp"
+        android:background="#CCCCCC" />
+
+    <LinearLayout
+        android:layout_marginTop="20dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="10dp"
+        android:background="@drawable/background_home">
+        <TextView
+            android:gravity="center_horizontal"
+            android:id="@+id/SystemInformation"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="System Information"
+            android:textSize="32sp"
+            android:layout_marginBottom="30dp"/>
+        <TextView
+            android:id="@+id/textViewIpAddress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="IP Address: Loading..."
+            android:textSize="16sp"
+            android:layout_marginBottom="8dp"/>
+
+        <TextView
+            android:id="@+id/textViewAndroidVersion"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Android Version: Loading..."
+            android:textSize="16sp"
+            android:layout_marginBottom="8dp"/>
+
+        <TextView
+            android:id="@+id/textViewBatteryLevel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Battery Level: Loading..."
+            android:textSize="16sp"
+            android:layout_marginBottom="8dp"/>
+
+        <TextView
+            android:id="@+id/textViewDeviceModel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Device Model: Loading..."
+            android:textSize="16sp"
+            android:layout_marginBottom="8dp"/>
+
+        <TextView
+            android:id="@+id/textViewLocation"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Location: Loading..."
+            android:textSize="16sp"
+            android:layout_marginBottom="8dp"/>
+    </LinearLayout>
+</LinearLayout>
