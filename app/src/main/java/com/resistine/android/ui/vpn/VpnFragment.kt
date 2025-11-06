@@ -8,21 +8,22 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.viewModels
+import androidx.fragment.app.activityViewModels
+import com.resistine.android.R
 import com.resistine.android.databinding.FragmentVpnBinding
 
 class VpnFragment : Fragment() {
 
     private var _binding: FragmentVpnBinding? = null
     private val binding get() = _binding!!
-    private val viewModel: VpnViewModel by viewModels()
+    private val viewModel: VpnViewModel by activityViewModels()
 
     private val vpnPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
                 viewModel.toggleVpn(requireContext())
             } else {
-                binding.textViewVpnStatus.text = "Access to VPN not given"
+                binding.textViewVpnStatus.text = getString(R.string.VPN_access_denied)
             }
         }
 

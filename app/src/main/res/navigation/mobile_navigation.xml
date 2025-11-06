@@ -3,7 +3,23 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/mobile_navigation"
-    app:startDestination="@+id/nav_home">
+    app:startDestination="@+id/nav_router">
+
+    <fragment
+        android:id="@+id/nav_router"
+        android:name="com.resistine.android.ui.RouterFragment"
+        tools:layout="@layout/fragment_router">
+        <action
+            android:id="@+id/action_router_to_home"
+            app:destination="@id/nav_home"
+            app:popUpTo="@id/nav_router"
+            app:popUpToInclusive="true" />
+        <action
+            android:id="@+id/action_router_to_welcome"
+            app:destination="@id/nav_welcome"
+            app:popUpTo="@id/nav_router"
+            app:popUpToInclusive="true" />
+    </fragment>
 
     <fragment
         android:id="@+id/nav_home"
@@ -22,4 +38,42 @@
         android:name="com.resistine.android.ui.apps.AppsFragment"
         android:label="@string/menu_apps"
         tools:layout="@layout/fragment_apps" />
+    <fragment
+        android:id="@+id/nav_chat"
+        android:name="com.resistine.android.ui.chat.ChatFragment"
+        android:label="Chat"
+        tools:layout="@layout/fragment_chat" />
+
+    <fragment
+        android:id="@+id/nav_welcome"
+        android:name="com.resistine.android.ui.login.WelcomeFragment"
+        android:label="Welcome">
+        <action
+            android:id="@+id/action_welcome_to_email"
+            app:destination="@id/nav_email" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/nav_email"
+        android:name="com.resistine.android.ui.login.EmailFragment"
+        android:label="Enter Email">
+        <action
+            android:id="@+id/action_email_to_otp"
+            app:destination="@id/nav_otp" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/nav_otp"
+        android:name="com.resistine.android.ui.login.OtpFragment"
+        android:label="Verify OTP">
+        <action
+            android:id="@+id/action_otp_to_email"
+            app:destination="@id/nav_email" />
+        <action
+            android:id="@+id/action_otpFragment_to_nav_home"
+            app:destination="@id/nav_home"
+            app:popUpTo="@id/nav_welcome"
+            app:popUpToInclusive="true" />
+    </fragment>
+
 </navigation>
