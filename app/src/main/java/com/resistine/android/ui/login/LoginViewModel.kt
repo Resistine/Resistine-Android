@@ -16,9 +16,14 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
     val loading = MutableLiveData<Boolean>()
     val errorMessage = MutableLiveData<String?>()
     val wireguardConfig = MutableLiveData<String?>()
+    val isRegistrationSkipped = MutableLiveData<Boolean>()
 
     companion object {
         private const val VPN_NAME = "testVPNapi"
+    }
+
+    fun skipRegistration() {
+        isRegistrationSkipped.postValue(true)
     }
 
     fun sendOtp(email: String) {
@@ -53,6 +58,7 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
                     CryptoManager.saveEncryptedConfig(getApplication(), formattedConfig)
                     wireguardConfig.postValue(formattedConfig)
                     loginSuccess.postValue(true)
+                    isRegistrationSkipped.postValue(false)
                 } catch (e: Exception) {
                     errorMessage.postValue(getApplication<Application>().getString(R.string.error_processing_config, e.message))
                 }

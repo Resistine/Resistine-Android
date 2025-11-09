@@ -60,6 +60,11 @@
         <action
             android:id="@+id/action_email_to_otp"
             app:destination="@id/nav_otp" />
+        <action
+            android:id="@+id/action_email_to_home"
+            app:destination="@id/nav_home"
+            app:popUpTo="@id/nav_welcome"
+            app:popUpToInclusive="true" />
     </fragment>
 
     <fragment

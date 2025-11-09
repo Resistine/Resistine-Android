@@ -6,22 +6,25 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import com.resistine.android.R
 import com.resistine.android.databinding.FragmentVpnBinding
+import com.resistine.android.ui.login.LoginViewModel
 
 class VpnFragment : Fragment() {
 
     private var _binding: FragmentVpnBinding? = null
     private val binding get() = _binding!!
-    private val viewModel: VpnViewModel by activityViewModels()
+    private val vpnViewModel: VpnViewModel by activityViewModels()
+    private val loginViewModel: LoginViewModel by activityViewModels()
 
     private val vpnPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
-                viewModel.toggleVpn(requireContext())
+                vpnViewModel.toggleVpn(requireContext())
             } else {
                 binding.textViewVpnStatus.text = getString(R.string.VPN_access_denied)
             }
@@ -37,39 +40,58 @@ class VpnFragment : Fragment() {
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        loginViewModel.isRegistrationSkipped.observe(viewLifecycleOwner) { isSkipped ->
+            if (isSkipped == true) {
+                binding.buttonVpnToggle.isEnabled = false
+                binding.textViewVpnStatus.text = "VPN is disabled. Please register to enable."
+                Toast.makeText(context, "VPN is disabled. Please register to enable.", Toast.LENGTH_LONG).show()
+            } else {
+                binding.buttonVpnToggle.isEnabled = true
+            }
+        }
+
         binding.buttonVpnToggle.setOnClickListener {
+            if (loginViewModel.isRegistrationSkipped.value == true) {
+                Toast.makeText(requireContext(), "VPN is disabled. Please register to enable.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
             val intent = VpnService.prepare(requireContext())
             if (intent != null) {
                 vpnPermissionLauncher.launch(intent)
             } else {
-                viewModel.toggleVpn(requireContext())
+                vpnViewModel.toggleVpn(requireContext())
             }
         }
 
-        viewModel.vpnStatus.observe(viewLifecycleOwner) { status ->
-            binding.textViewVpnStatus.text = status
+        vpnViewModel.vpnStatus.observe(viewLifecycleOwner) { status ->
+            if (loginViewModel.isRegistrationSkipped.value != true) {
+                binding.textViewVpnStatus.text = status
+            }
             binding.buttonVpnToggle.text =
                 if (status.contains("VPN connected", true)) "Disconnect VPN"
                 else "Connect VPN"
         }
 
-        viewModel.ipAddress.observe(viewLifecycleOwner) {
+        vpnViewModel.ipAddress.observe(viewLifecycleOwner) {
             binding.textViewIpAddress.text = it
         }
 
-        viewModel.deviceModel.observe(viewLifecycleOwner) {
+        vpnViewModel.deviceModel.observe(viewLifecycleOwner) {
             binding.textViewDeviceModel.text = it
         }
 
-        viewModel.androidVersion.observe(viewLifecycleOwner) {
+        vpnViewModel.androidVersion.observe(viewLifecycleOwner) {
             binding.textViewAndroidVersion.text = it
         }
 
-        viewModel.batteryLevel.observe(viewLifecycleOwner) {
+        vpnViewModel.batteryLevel.observe(viewLifecycleOwner) {
             binding.textViewBatteryLevel.text = it
         }
 
-        viewModel.locationString.observe(viewLifecycleOwner) {
+        vpnViewModel.locationString.observe(viewLifecycleOwner) {
             binding.textViewLocation.text = it
         }
     }

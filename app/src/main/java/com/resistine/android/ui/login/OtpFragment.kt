@@ -2,6 +2,8 @@ package com.resistine.android.ui.login
 
 import android.os.Bundle
 import android.os.CountDownTimer
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
@@ -18,18 +20,34 @@ class OtpFragment : Fragment(R.layout.fragment_otp) {
 
     private val viewModel: LoginViewModel by activityViewModels()
     private var timer: CountDownTimer? = null
+    private lateinit var otpFields: List<EditText>
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        val otpInput = view.findViewById<EditText>(R.id.otpInput)
+
+        otpFields = listOf(
+            view.findViewById(R.id.otp1),
+            view.findViewById(R.id.otp2),
+            view.findViewById(R.id.otp3),
+            view.findViewById(R.id.otp4),
+            view.findViewById(R.id.otp5),
+            view.findViewById(R.id.otp6)
+        )
+
         val verifyButton = view.findViewById<Button>(R.id.verifyOtpButton)
         val resendButton = view.findViewById<Button>(R.id.resendButton)
         val changeEmailButton = view.findViewById<Button>(R.id.changeEmailButton)
         val loadingIndicator = view.findViewById<ProgressBar>(R.id.loadingIndicator)
 
+        setupOtpFields()
+
         verifyButton.setOnClickListener {
-            val otp = otpInput.text.toString()
-            viewModel.verifyOtp(otp)
+            val otp = otpFields.joinToString("") { it.text.toString() }
+            if (otp.length == 6) {
+                viewModel.verifyOtp(otp)
+            } else {
+                Toast.makeText(context, "Please enter a 6-digit code", Toast.LENGTH_SHORT).show()
+            }
         }
 
         changeEmailButton.setOnClickListener {
@@ -59,16 +77,37 @@ class OtpFragment : Fragment(R.layout.fragment_otp) {
         }
 
         viewModel.loading.observe(viewLifecycleOwner) { isLoading ->
-            if (isLoading) {
-                loadingIndicator.visibility = View.VISIBLE
-                verifyButton.isEnabled = false
-            } else {
-                loadingIndicator.visibility = View.GONE
-                verifyButton.isEnabled = true
-            }
+            loadingIndicator.visibility = if (isLoading) View.VISIBLE else View.GONE
+            verifyButton.isEnabled = !isLoading
         }
 
         startResendCountdown(resendButton)
+    }
+
+    private fun setupOtpFields() {
+        for (i in otpFields.indices) {
+            otpFields[i].addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                    if (s?.length == 1 && i < otpFields.size - 1) {
+                        otpFields[i + 1].requestFocus()
+                    }
+                }
+
+                override fun afterTextChanged(s: Editable?) {}
+            })
+
+            otpFields[i].setOnKeyListener { _, keyCode, event ->
+                if (keyCode == android.view.KeyEvent.KEYCODE_DEL && event.action == android.view.KeyEvent.ACTION_DOWN) {
+                    if (otpFields[i].text.isEmpty() && i > 0) {
+                        otpFields[i - 1].requestFocus()
+                        otpFields[i - 1].text.clear()
+                    }
+                }
+                false
+            }
+        }
     }
 
     private fun startResendCountdown(button: Button) {
@@ -84,5 +123,10 @@ class OtpFragment : Fragment(R.layout.fragment_otp) {
                 button.text = getString(R.string.resend)
             }
         }.start()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        timer?.cancel()
     }
 }

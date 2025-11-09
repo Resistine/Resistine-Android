@@ -22,7 +22,7 @@
         android:layout_height="wrap_content"
         android:hint="@string/email_hint"
         android:inputType="textEmailAddress"
-        app:layout_constraintTop_toBottomOf="@id/emailTitle"
+        app:layout_constraintTop_toBottomOf="@+id/emailTitle"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginTop="16dp"/>
@@ -32,7 +32,7 @@
         android:layout_width="48dp"
         android:layout_height="48dp"
         android:visibility="gone"
-        app:layout_constraintTop_toBottomOf="@id/emailInput"
+        app:layout_constraintTop_toBottomOf="@+id/emailInput"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginTop="16dp"/>
@@ -42,8 +42,19 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="@string/send_code"
-        app:layout_constraintTop_toBottomOf="@id/progressBar"
+        app:layout_constraintTop_toBottomOf="@+id/progressBar"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginTop="16dp"/>
+
+    <Button
+        android:id="@+id/skipButton"
+        style="?android:attr/borderlessButtonStyle"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Skip Registration"
+        app:layout_constraintTop_toBottomOf="@+id/sendOtpButton"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="8dp"/>
 </androidx.constraintlayout.widget.ConstraintLayout>

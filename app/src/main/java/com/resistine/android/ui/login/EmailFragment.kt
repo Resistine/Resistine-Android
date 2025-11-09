@@ -16,6 +16,7 @@ class EmailFragment : Fragment(R.layout.fragment_email) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         val emailInput = view.findViewById<EditText>(R.id.emailInput)
         val sendButton = view.findViewById<Button>(R.id.sendOtpButton)
+        val skipButton = view.findViewById<Button>(R.id.skipButton)
         val progress = view.findViewById<ProgressBar>(R.id.progressBar)
 
         viewModel.loading.observe(viewLifecycleOwner) { progress.visibility = if (it) View.VISIBLE else View.GONE }
@@ -34,6 +35,11 @@ class EmailFragment : Fragment(R.layout.fragment_email) {
             } else {
                 Toast.makeText(context, getString(R.string.please_enter_email), Toast.LENGTH_SHORT).show()
             }
+        }
+
+        skipButton.setOnClickListener {
+            viewModel.skipRegistration()
+            findNavController().navigate(R.id.action_email_to_home)
         }
     }
 }

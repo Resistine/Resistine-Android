@@ -8,45 +8,69 @@
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:padding="24dp">
 
-        <EditText
-            android:id="@+id/otpInput"
-            android:layout_width="0dp"
+        <TextView
+            android:id="@+id/otpTitle"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="32dp"
-            android:layout_marginEnd="32dp"
-            android:layout_marginBottom="16dp"
-            android:hint="@string/enter_otp_code"
-            android:inputType="numberPassword"
-            android:maxLength="6"
-            android:textAlignment="center"
-            app:layout_constraintBottom_toTopOf="@+id/verifyOtpButton"
+            android:text="@string/enter_verification_code"
+            android:textSize="20sp"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent" />
+            app:layout_constraintBottom_toTopOf="@id/otpFieldsLayout"/>
+
+        <LinearLayout
+            android:id="@+id/otpFieldsLayout"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toTopOf="@id/verifyOtpButton">
+
+            <EditText
+                android:id="@+id/otp1"
+                style="@style/Widget.Resistine.OtpEditText"/>
+            <EditText
+                android:id="@+id/otp2"
+                style="@style/Widget.Resistine.OtpEditText"/>
+            <EditText
+                android:id="@+id/otp3"
+                style="@style/Widget.Resistine.OtpEditText"/>
+            <EditText
+                android:id="@+id/otp4"
+                style="@style/Widget.Resistine.OtpEditText"/>
+            <EditText
+                android:id="@+id/otp5"
+                style="@style/Widget.Resistine.OtpEditText"/>
+            <EditText
+                android:id="@+id/otp6"
+                style="@style/Widget.Resistine.OtpEditText"/>
+        </LinearLayout>
 
         <Button
             android:id="@+id/verifyOtpButton"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="32dp"
-            android:layout_marginEnd="32dp"
             android:text="@string/verify"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/otpFieldsLayout"/>
 
         <Button
             android:id="@+id/resendButton"
             style="?android:attr/borderlessButtonStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
             android:text="@string/resend"
-            app:layout_constraintEnd_toEndOf="@+id/verifyOtpButton"
-            app:layout_constraintStart_toStartOf="@+id/verifyOtpButton"
-            app:layout_constraintTop_toBottomOf="@+id/verifyOtpButton" />
+            app:layout_constraintTop_toBottomOf="@id/verifyOtpButton"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
 
         <Button
             android:id="@+id/changeEmailButton"
@@ -54,9 +78,9 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/change_email"
-            app:layout_constraintEnd_toEndOf="@+id/resendButton"
-            app:layout_constraintStart_toStartOf="@+id/resendButton"
-            app:layout_constraintTop_toBottomOf="@+id/resendButton" />
+            app:layout_constraintTop_toBottomOf="@id/resendButton"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

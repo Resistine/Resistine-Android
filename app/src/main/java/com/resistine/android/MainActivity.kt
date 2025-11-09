@@ -1,6 +1,8 @@
 package com.resistine.android
 
 import android.os.Bundle
+import android.view.Menu
+import android.view.MenuItem
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.drawerlayout.widget.DrawerLayout
@@ -51,6 +53,30 @@ class MainActivity : AppCompatActivity() {
             } else {
                 drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
             }
+            // Redraw the options menu on navigation change to show/hide login icon
+            invalidateOptionsMenu()
+        }
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.main_menu, menu)
+        return true
+    }
+
+    override fun onPrepareOptionsMenu(menu: Menu): Boolean {
+        val loginItem = menu.findItem(R.id.action_login)
+        val userEmail = CryptoManager.loadDecryptedEmail(this)
+        loginItem.isVisible = userEmail.isNullOrEmpty() // Show only if not logged in
+        return super.onPrepareOptionsMenu(menu)
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_login -> {
+                findNavController(R.id.nav_host_fragment_content_main).navigate(R.id.nav_email)
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
         }
     }
 
