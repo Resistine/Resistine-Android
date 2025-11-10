@@ -79,6 +79,9 @@ class OtpFragment : Fragment(R.layout.fragment_otp) {
         viewModel.loading.observe(viewLifecycleOwner) { isLoading ->
             loadingIndicator.visibility = if (isLoading) View.VISIBLE else View.GONE
             verifyButton.isEnabled = !isLoading
+            resendButton.isEnabled = !isLoading
+            changeEmailButton.isEnabled = !isLoading
+            otpFields.forEach { it.isEnabled = !isLoading }
         }
 
         startResendCountdown(resendButton)

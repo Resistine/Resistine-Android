@@ -19,7 +19,12 @@ class EmailFragment : Fragment(R.layout.fragment_email) {
         val skipButton = view.findViewById<Button>(R.id.skipButton)
         val progress = view.findViewById<ProgressBar>(R.id.progressBar)
 
-        viewModel.loading.observe(viewLifecycleOwner) { progress.visibility = if (it) View.VISIBLE else View.GONE }
+        viewModel.loading.observe(viewLifecycleOwner) { isLoading ->
+            progress.visibility = if (isLoading) View.VISIBLE else View.GONE
+            sendButton.isEnabled = !isLoading
+            skipButton.isEnabled = !isLoading
+            emailInput.isEnabled = !isLoading
+        }
         viewModel.otpSent.observe(viewLifecycleOwner) {
             if (it == true) {
                 findNavController().navigate(R.id.action_email_to_otp)
