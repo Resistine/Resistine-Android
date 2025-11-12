@@ -33,22 +33,22 @@
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toTopOf="@id/verifyOtpButton">
 
-            <EditText
+            <com.resistine.android.ui.login.OtpEditText
                 android:id="@+id/otp1"
                 style="@style/Widget.Resistine.OtpEditText"/>
-            <EditText
+            <com.resistine.android.ui.login.OtpEditText
                 android:id="@+id/otp2"
                 style="@style/Widget.Resistine.OtpEditText"/>
-            <EditText
+            <com.resistine.android.ui.login.OtpEditText
                 android:id="@+id/otp3"
                 style="@style/Widget.Resistine.OtpEditText"/>
-            <EditText
+            <com.resistine.android.ui.login.OtpEditText
                 android:id="@+id/otp4"
                 style="@style/Widget.Resistine.OtpEditText"/>
-            <EditText
+            <com.resistine.android.ui.login.OtpEditText
                 android:id="@+id/otp5"
                 style="@style/Widget.Resistine.OtpEditText"/>
-            <EditText
+            <com.resistine.android.ui.login.OtpEditText
                 android:id="@+id/otp6"
                 style="@style/Widget.Resistine.OtpEditText"/>
         </LinearLayout>

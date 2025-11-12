@@ -40,4 +40,5 @@
     <string name="location_loading">Location: Loading&#8230;</string>
     <string name="please_enter_email">Please enter an e-mail</string>
     <string name="enter_verification_code">Enter verification code</string>
+    <string name="please_enter_a_6_digit_code">Please enter a 6-digit code</string>
 </resources>

@@ -46,7 +46,7 @@ class OtpFragment : Fragment(R.layout.fragment_otp) {
             if (otp.length == 6) {
                 viewModel.verifyOtp(otp)
             } else {
-                Toast.makeText(context, "Please enter a 6-digit code", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, getString(R.string.please_enter_a_6_digit_code), Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -88,30 +88,47 @@ class OtpFragment : Fragment(R.layout.fragment_otp) {
     }
 
     private fun setupOtpFields() {
-        for (i in otpFields.indices) {
-            otpFields[i].addTextChangedListener(object : TextWatcher {
+        otpFields.forEachIndexed { index, editText ->
+            // Handle typing
+            editText.addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
 
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                    if (s?.length == 1 && i < otpFields.size - 1) {
-                        otpFields[i + 1].requestFocus()
+                    if (s?.length == 1 && index < otpFields.size - 1) {
+                        otpFields[index + 1].requestFocus()
                     }
                 }
 
                 override fun afterTextChanged(s: Editable?) {}
             })
 
-            otpFields[i].setOnKeyListener { _, keyCode, event ->
+            // Handle deleting
+            editText.setOnKeyListener { _, keyCode, event ->
                 if (keyCode == android.view.KeyEvent.KEYCODE_DEL && event.action == android.view.KeyEvent.ACTION_DOWN) {
-                    if (otpFields[i].text.isEmpty() && i > 0) {
-                        otpFields[i - 1].requestFocus()
-                        otpFields[i - 1].text.clear()
+                    if (editText.text.isEmpty() && index > 0) {
+                        otpFields[index - 1].requestFocus()
+                        otpFields[index - 1].setText("")
+                        return@setOnKeyListener true
                     }
                 }
                 false
             }
+
+            // Handle pasting
+            if (editText is OtpEditText) {
+                editText.setOnPasteListener { pastedText ->
+                    otpFields.forEachIndexed { i, field ->
+                        val textToSet = if (i < pastedText.length) pastedText[i].toString() else ""
+                        field.setText(textToSet)
+                    }
+                    val lastFilledIndex = (pastedText.length - 1).coerceIn(0, otpFields.size - 1)
+                    otpFields[lastFilledIndex].requestFocus()
+                    otpFields[lastFilledIndex].setSelection(otpFields[lastFilledIndex].text.length)
+                }
+            }
         }
     }
+
 
     private fun startResendCountdown(button: Button) {
         timer?.cancel()
