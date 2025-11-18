@@ -82,7 +82,8 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
 
         val interfaceAddress = interfaceJson.getString("Address")
         val dnsArray = interfaceJson.getJSONArray("DNS")
-        val dnsList = (0 until dnsArray.length()).map { dnsArray.getString(it) }
+        val dnsList = (0 until dnsArray.length()).map { dnsArray.getString(it) }.toMutableList()
+        dnsList.add("8.8.8.8")
         val interfaceDns = dnsList.joinToString(", ")
 
         return """
