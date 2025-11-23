@@ -32,6 +32,7 @@ class MainActivity : AppCompatActivity() {
         val navView: NavigationView = binding.navView
         val navController = findNavController(R.id.nav_host_fragment_content_main)
 
+        // Only nav_home is a top-level destination to show the hamburger menu.
         appBarConfiguration = AppBarConfiguration(
             setOf(R.id.nav_home),
             drawerLayout
@@ -43,17 +44,27 @@ class MainActivity : AppCompatActivity() {
         val headerView = navView.getHeaderView(0)
         val emailTextView = headerView.findViewById<TextView>(R.id.textView)
 
-        // Lock drawer for all destinations except home and update email
+        // Listener to control UI elements based on destination
         navController.addOnDestinationChangedListener { _, destination, _ ->
-            if (destination.id == R.id.nav_home) {
-                drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED)
-                // Update email when navigating to home
-                val userEmail = CryptoManager.loadDecryptedEmail(this)
-                emailTextView.text = userEmail
-            } else {
-                drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
+            when (destination.id) {
+                R.id.nav_home -> {
+                    // On home screen: unlock drawer, hamburger menu will be shown by AppBarConfiguration
+                    drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED)
+                    val userEmail = CryptoManager.loadDecryptedEmail(this)
+                    emailTextView.text = userEmail
+                }
+                R.id.nav_welcome -> {
+                    // On welcome screen: lock drawer and explicitly hide any nav icon (back arrow)
+                    drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
+                    supportActionBar?.setDisplayHomeAsUpEnabled(false)
+                }
+                else -> {
+                    // On all other screens: lock drawer, back arrow will be shown by AppBarConfiguration
+                    drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
+                    supportActionBar?.setDisplayHomeAsUpEnabled(true)
+                }
             }
-            // Redraw the options menu on navigation change to show/hide login icon
+            // Redraw the options menu to show/hide login icon
             invalidateOptionsMenu()
         }
     }
