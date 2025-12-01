@@ -55,6 +55,13 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         fetchLocationData()
     }
 
+    fun logout(context: Context) {
+        if (isVpnConnected) {
+            disconnectVpn()
+        }
+        CryptoManager.deleteStoredData(context)
+    }
+
     fun toggleVpn(context: Context) {
         if (isVpnConnected) {
             disconnectVpn()

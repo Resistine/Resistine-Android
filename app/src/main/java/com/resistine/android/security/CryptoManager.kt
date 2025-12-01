@@ -98,4 +98,15 @@ object CryptoManager {
             null
         }
     }
+
+    fun deleteStoredData(context: Context) {
+        val vpnFile = File(context.filesDir, VPN_CONFIG_FILENAME)
+        if (vpnFile.exists()) {
+            vpnFile.delete()
+        }
+        val emailFile = File(context.filesDir, EMAIL_FILENAME)
+        if (emailFile.exists()) {
+            emailFile.delete()
+        }
+    }
 }
