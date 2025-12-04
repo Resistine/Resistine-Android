@@ -12,6 +12,10 @@
     <string name="menu_apps">Apps</string>
     <string name="welcome_message">Welcome to our application</string>
     <string name="enter_your_email">Enter your email</string>
+    <string name="email_address">Email address</string>
+    <string name="enter_email">Enter email</string>
+    <string name="sign_in">Sign in</string>
+    <string name="skip_registration">Skip registration</string>
     <string name="send_code">Send code</string>
     <string name="enter_otp">Enter OTP</string>
     <string name="verify">Verify</string>
