@@ -29,24 +29,22 @@ class ChatAdapter(private val messages: MutableList<ChatMessage>) :
         val layoutParams = holder.binding.textViewMessage.layoutParams as ViewGroup.MarginLayoutParams
 
         if (message.isUser) {
+            // User message: keep the original style
             holder.binding.textViewMessage.setBackgroundResource(R.drawable.background_home2)
-            layoutParams.marginStart = 200  // mezera od levého okraje
+            layoutParams.marginStart = 200
             layoutParams.marginEnd = 0
             holder.binding.root.gravity = Gravity.END
-//            holder.binding.textViewMessage.gravity = Gravity.END
         } else {
-            holder.binding.textViewMessage.setBackgroundResource(R.drawable.background_home)
+            // Bot message: full width, no bubble
+            holder.binding.textViewMessage.background = null // Remove the bubble
             layoutParams.marginStart = 0
-            layoutParams.marginEnd = 200  // mezera od pravého okraje
+            layoutParams.marginEnd = 0 // Make it full width
             holder.binding.root.gravity = Gravity.START
-//            holder.binding.textViewMessage.gravity = Gravity.START
         }
 
         holder.binding.textViewMessage.layoutParams = layoutParams
     }
 
-
     override fun getItemCount(): Int = messages.size
-
 
 }

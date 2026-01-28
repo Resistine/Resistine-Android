@@ -1,27 +1,23 @@
 package com.resistine.android.ui.chat
 
-import com.resistine.android.BuildConfig
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.IOException
+import java.util.concurrent.TimeUnit
 
 object OpenAiClient {
 
-    private val client = OkHttpClient()
+    private val client = OkHttpClient.Builder()
+        .readTimeout(30, TimeUnit.SECONDS)
+        .build()
 
     fun getChatResponse(userText: String, callback: (String) -> Unit) {
-        val apiKey = BuildConfig.OPENAI_API_KEY
-        val url = "https://api.openai.com/v1/chat/completions"
-
-        if (apiKey.isBlank()) {
-            callback("Error: OpenAI API key not set. Please set it in your local.properties file.")
-            return
-        }
+        val url = "http://10.49.64.53:8001/v1/chat/completions"
 
         val jsonBody = JSONObject()
-        jsonBody.put("model", "gpt-3.5-turbo")
+        jsonBody.put("model", "ministral-3:14b")
         val messagesArray = JSONObject().apply {
             put("role", "user")
             put("content", userText)
@@ -30,14 +26,13 @@ object OpenAiClient {
 
         val request = Request.Builder()
             .url(url)
-            .addHeader("Authorization", "Bearer $apiKey")
             .addHeader("Content-Type", "application/json")
             .post(jsonBody.toString().toRequestBody("application/json".toMediaType()))
             .build()
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                callback("Error: Could not get response from AI. Please try again later.")
+                callback("Error: Could not get response from AI. Details: ${e.message}")
             }
 
             override fun onResponse(call: Call, response: Response) {
@@ -54,7 +49,7 @@ object OpenAiClient {
                         callback("Error: Could not parse AI response.")
                     }
                 } else {
-                    callback("Error: API request failed with code ${response.code}")
+                    callback("Error: API request failed with code ${response.code} and message: ${response.message}")
                 }
             }
         })
