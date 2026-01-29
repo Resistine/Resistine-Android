@@ -1,5 +1,6 @@
 package com.resistine.android.ui.chat
 
+import android.graphics.Color
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.ViewGroup
@@ -31,6 +32,7 @@ class ChatAdapter(private val messages: MutableList<ChatMessage>) :
         if (message.isUser) {
             // User message: keep the original style
             holder.binding.textViewMessage.setBackgroundResource(R.drawable.background_home2)
+            holder.binding.textViewMessage.setTextColor(Color.WHITE)
             layoutParams.marginStart = 200
             layoutParams.marginEnd = 0
             holder.binding.root.gravity = Gravity.END

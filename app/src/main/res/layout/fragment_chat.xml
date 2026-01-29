@@ -40,7 +40,7 @@
             android:insetBottom="0dp"
             android:contentDescription="@string/send_message"
             app:icon="@drawable/baseline_send_24"
-            app:iconTint="?attr/colorOnBackground"
+            app:iconTint="@color/white"
             app:cornerRadius="10dp"
             app:iconPadding="0dp"/>
     </LinearLayout>
