@@ -46,20 +46,25 @@
                 android:hint="@string/search_apps" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/sort_input_layout"
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/sort_input_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:hint="@string/sort_by"
+        app:endIconMode="dropdown_menu">
+
+        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+            android:id="@+id/sort_dropdown"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            app:endIconMode="dropdown_menu">
-
-            <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                android:id="@+id/sort_dropdown"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="@string/sort_by"
-                android:textSize="14sp" />
-        </com.google.android.material.textfield.TextInputLayout>
+            android:minHeight="56dp"
+            android:singleLine="true"
+            android:inputType="none"
+            android:textSize="14sp"
+            android:focusable="false"
+            android:cursorVisible="false" />
+    </com.google.android.material.textfield.TextInputLayout>
 
         <TextView
             android:id="@+id/risk_filter_label"

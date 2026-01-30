@@ -250,7 +250,7 @@ class AppsFragment : Fragment() {
     ) {
         val baseLabel = badgeBaseLabels[type] ?: type.name
         val count = counts[type] ?: 0
-        chip.text = \"$baseLabel ($count)\"
+        chip.text = "$baseLabel ($count)"
     }
 
     private fun selectedRiskVerdicts(): Set<RiskVerdict> {
