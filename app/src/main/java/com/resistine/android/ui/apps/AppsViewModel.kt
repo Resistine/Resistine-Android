@@ -15,6 +15,8 @@ import kotlinx.coroutines.launch
 
 class AppsViewModel(application: Application) : AndroidViewModel(application) {
 
+    private val prefs = application.getSharedPreferences(PREFS_NAME, 0)
+
     private val _apps = MutableLiveData<List<AppEntry>>()
     val apps: LiveData<List<AppEntry>> get() = _apps
 
@@ -24,6 +26,7 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
     private val _isScanning = MutableLiveData(false)
     val isScanning: LiveData<Boolean> get() = _isScanning
 
+
     private val _showSystemApps = MutableLiveData(false)
     val showSystemApps: LiveData<Boolean> get() = _showSystemApps
 
@@ -31,8 +34,19 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
     private var registryIndex: RegistryIndex? = null
     private val hashCache = HashMap<String, List<String>>()
     private var showSystemAppsFlag = false
+    private var lastScanAt: Long? = null
+    private var lastSummarySafe: Int = 0
+    private var lastSummaryWarning: Int = 0
+    private var lastSummaryRisk: Int = 0
+    private var lastSummaryTotal: Int = 0
 
     init {
+        val saved = prefs.getLong(KEY_LAST_SCAN_AT, 0L)
+        lastScanAt = if (saved > 0) saved else null
+        lastSummarySafe = prefs.getInt(KEY_LAST_SCAN_SAFE, 0)
+        lastSummaryWarning = prefs.getInt(KEY_LAST_SCAN_WARNING, 0)
+        lastSummaryRisk = prefs.getInt(KEY_LAST_SCAN_RISK, 0)
+        lastSummaryTotal = prefs.getInt(KEY_LAST_SCAN_TOTAL, 0)
         loadAllPackages()
     }
 
@@ -40,12 +54,17 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
         if (showSystemAppsFlag == enabled) return
         showSystemAppsFlag = enabled
         _showSystemApps.postValue(enabled)
-        loadAllPackages(resetSummary = true)
+        loadAllPackages(resetSummary = false)
     }
 
     private fun loadAllPackages(resetSummary: Boolean = true) {
         viewModelScope.launch(Dispatchers.Default) {
-            val allPackages = loadInstalledApps()
+            val existingResults = _apps.value
+                ?.associate { it.packageInfo.packageName to it.scanResult }
+                ?.filterValues { it != null }
+                ?.mapValues { it.value!! }
+                ?: emptyMap()
+            val allPackages = loadInstalledApps(existingResults)
 
             _apps.postValue(allPackages)
             if (resetSummary) {
@@ -55,10 +74,37 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
                         safe = 0,
                         warning = 0,
                         risk = 0,
-                        lastScanAt = null,
-                        isScanned = false
+                        lastScanAt = lastScanAt,
+                        isScanned = lastScanAt != null
                     )
                 )
+            } else {
+                val hasScans = allPackages.any { it.scanResult != null }
+                if (hasScans) {
+                    _scanSummary.postValue(buildSummary(allPackages))
+                } else if (lastScanAt != null) {
+                    _scanSummary.postValue(
+                        ScanSummary(
+                            total = if (lastSummaryTotal > 0) lastSummaryTotal else allPackages.size,
+                            safe = lastSummarySafe,
+                            warning = lastSummaryWarning,
+                            risk = lastSummaryRisk,
+                            lastScanAt = lastScanAt,
+                            isScanned = true
+                        )
+                    )
+                } else {
+                    _scanSummary.postValue(
+                        ScanSummary(
+                            total = allPackages.size,
+                            safe = 0,
+                            warning = 0,
+                            risk = 0,
+                            lastScanAt = null,
+                            isScanned = false
+                        )
+                    )
+                }
             }
         }
     }
@@ -84,7 +130,8 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 val localClonePackages = detectLocalClones(normalizedInstalled, officialPackages)
 
-                val scanned = currentApps.map { entry ->
+                val scanned = ArrayList<AppEntry>(currentApps.size)
+                currentApps.forEach { entry ->
                     val pkg = entry.packageInfo.packageName
                     val appInfo = entry.packageInfo.applicationInfo
                     val badges = ArrayList<Badge>()
@@ -93,7 +140,8 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
                     val registryEntry = registry.byPackage[pkg]
                     val versionCode = entry.packageInfo.longVersionCodeCompat()
 
-                    val isSideloaded = isSideloaded(appContext, pkg)
+                    val isSystemApp = appInfo != null && !isUserInstalled(appInfo)
+                    val isSideloaded = !isSystemApp && isSideloaded(appContext, pkg)
                     if (isSideloaded) {
                         badges.add(Badge(BadgeType.SIDELOADED, badgeLabel(appContext, BadgeType.SIDELOADED)))
                         score += 15
@@ -111,10 +159,15 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
                         score += 10
                     }
 
-                    val requestedPermissions = entry.packageInfo.requestedPermissions?.toSet().orEmpty()
-                    if (requestedPermissions.any { it in ScanUtils.highRiskPermissions }) {
-                        badges.add(Badge(BadgeType.HIGH_RISK_PERMISSION, badgeLabel(appContext, BadgeType.HIGH_RISK_PERMISSION)))
-                        score += 10
+                    val highRiskGranted = grantedHighRiskPermissions(entry.packageInfo)
+                    if (highRiskGranted.isNotEmpty()) {
+                        val label = appContext.getString(
+                            R.string.badge_high_risk_permission_count,
+                            highRiskGranted.size
+                        )
+                        val description = buildHighRiskDescription(appContext, highRiskGranted)
+                        badges.add(Badge(BadgeType.HIGH_RISK_PERMISSION, label, description))
+                        score += highRiskGranted.size * HIGH_RISK_PERMISSION_SCORE_PERM
                     }
 
                     if (registryEntry != null) {
@@ -141,7 +194,6 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
 
-                val isSystemApp = appInfo != null && !isUserInstalled(appInfo)
                 if (!isSystemApp && pkg in localClonePackages) {
                     val already = badges.any { it.type == BadgeType.LOOKALIKE_NAME }
                     if (!already) {
@@ -158,18 +210,31 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
                         else -> RiskVerdict.SAFE
                     }
 
-                    entry.copy(
+                    scanned.add(entry.copy(
                         scanResult = AppScanResult(
                             score = score,
                             verdict = verdict,
                             badges = badges,
                             apkSha256 = apkHashes
                         )
-                    )
-                }.sortedBy { it.label.lowercase() }
+                    ))
+                }
+                val sortedScanned = scanned.sortedBy { it.label.lowercase() }
 
-                val summary = buildSummary(scanned)
-                _apps.postValue(scanned)
+                lastScanAt = System.currentTimeMillis()
+                val summary = buildSummary(sortedScanned)
+                lastSummarySafe = summary.safe
+                lastSummaryWarning = summary.warning
+                lastSummaryRisk = summary.risk
+                lastSummaryTotal = summary.total
+                prefs.edit()
+                    .putLong(KEY_LAST_SCAN_AT, lastScanAt ?: 0L)
+                    .putInt(KEY_LAST_SCAN_SAFE, lastSummarySafe)
+                    .putInt(KEY_LAST_SCAN_WARNING, lastSummaryWarning)
+                    .putInt(KEY_LAST_SCAN_RISK, lastSummaryRisk)
+                    .putInt(KEY_LAST_SCAN_TOTAL, lastSummaryTotal)
+                    .apply()
+                _apps.postValue(sortedScanned)
                 _scanSummary.postValue(summary)
             } finally {
                 _isScanning.postValue(false)
@@ -177,7 +242,7 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun loadInstalledApps(): List<AppEntry> {
+    private fun loadInstalledApps(existingResults: Map<String, AppScanResult> = emptyMap()): List<AppEntry> {
         val pm = getApplication<Application>().packageManager
         val flags = PackageManager.GET_PERMISSIONS or PackageManager.GET_SIGNING_CERTIFICATES
         val allPackages = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -191,7 +256,8 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
             }
             .map { info ->
                 val label = info.applicationInfo?.loadLabel(pm)?.toString().orEmpty()
-                AppEntry(info, label)
+                val scanResult = existingResults[info.packageName]
+                AppEntry(info, label, scanResult)
             }
             .sortedBy { it.label.lowercase() }
         return allPackages
@@ -201,6 +267,7 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
         var safe = 0
         var warning = 0
         var risk = 0
+        var scanned = false
         for (entry in entries) {
             when (entry.scanResult?.verdict) {
                 RiskVerdict.SAFE -> safe++
@@ -208,14 +275,17 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
                 RiskVerdict.RISK -> risk++
                 else -> Unit
             }
+            if (entry.scanResult != null) {
+                scanned = true
+            }
         }
         return ScanSummary(
             total = entries.size,
             safe = safe,
             warning = warning,
             risk = risk,
-            lastScanAt = System.currentTimeMillis(),
-            isScanned = true
+            lastScanAt = if (scanned) lastScanAt else null,
+            isScanned = scanned
         )
     }
 
@@ -296,6 +366,30 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
         return context.getString(resId)
     }
 
+    private fun grantedHighRiskPermissions(info: android.content.pm.PackageInfo): List<String> {
+        val requested = info.requestedPermissions ?: return emptyList()
+        val flags = info.requestedPermissionsFlags
+        val results = ArrayList<String>()
+        for (i in requested.indices) {
+            val perm = requested[i]
+            if (perm !in ScanUtils.highRiskPermissions) continue
+            val granted = if (flags != null && flags.size > i) {
+                (flags[i] and android.content.pm.PackageInfo.REQUESTED_PERMISSION_GRANTED) != 0
+            } else {
+                true
+            }
+            if (granted) {
+                results.add(perm)
+            }
+        }
+        return results
+    }
+
+    private fun buildHighRiskDescription(context: Application, permissions: List<String>): String {
+        val lines = permissions.map { ScanUtils.permissionDisplayName(it) }
+        return context.getString(R.string.badge_desc_high_risk_permission) + "\n" + lines.joinToString("\n")
+    }
+
     private fun isUserInstalled(appInfo: ApplicationInfo): Boolean {
         val isSystem = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
         val isUpdatedSystem = (appInfo.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
@@ -305,6 +399,12 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
     private companion object {
         private const val REGISTRY_ASSET_NAME = "official_registry.jsonl"
         private const val PLAY_STORE_PACKAGE = "com.android.vending"
+        private const val HIGH_RISK_PERMISSION_SCORE_PERM = 5
+        private const val PREFS_NAME = "deceptive_scan_prefs"
+        private const val KEY_LAST_SCAN_AT = "last_scan_at"
+        private const val KEY_LAST_SCAN_SAFE = "last_scan_safe"
+        private const val KEY_LAST_SCAN_WARNING = "last_scan_warning"
+        private const val KEY_LAST_SCAN_RISK = "last_scan_risk"
+        private const val KEY_LAST_SCAN_TOTAL = "last_scan_total"
     }
 }
-

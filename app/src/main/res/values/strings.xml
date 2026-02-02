@@ -45,7 +45,7 @@
     <string name="please_enter_email">Please enter an e-mail</string>
     <string name="enter_verification_code">Enter verification code</string>
     <string name="please_enter_a_6_digit_code">Please enter a 6-digit code</string>
-    <string name="scan_button">Scan for deceptive apps</string>
+    <string name="scan_button">Scan</string>
     <string name="scan_in_progress">Scanning...</string>
     <string name="scan_not_run">Not scanned yet</string>
     <string name="scan_risk_label">Risk score: %1$d (%2$s)</string>
@@ -64,7 +64,8 @@
     <string name="badge_sideloaded">Sideloaded</string>
     <string name="badge_debuggable">Debuggable</string>
     <string name="badge_old_target_sdk">Old target SDK</string>
-    <string name="badge_high_risk_permission">High-risk permission</string>
+    <string name="badge_high_risk_permission">High-risk permissions</string>
+    <string name="badge_high_risk_permission_count">High-risk permissions (%1$d)</string>
     <string name="show_system_apps">Show system apps</string>
     <string name="badge_desc_signature_mismatch">App signer does not match the official registry.</string>
     <string name="badge_desc_lookalike_name">App name closely matches another app but package differs.</string>
@@ -72,7 +73,7 @@
     <string name="badge_desc_sideloaded">App was not installed from Google Play.</string>
     <string name="badge_desc_debuggable">App is built with debug enabled.</string>
     <string name="badge_desc_old_target_sdk">App targets Android 9 (SDK 28) or lower.</string>
-    <string name="badge_desc_high_risk_permission">App requests sensitive permissions.</string>
+    <string name="badge_desc_high_risk_permission">App uses sensitive permissions.</string>
     <string name="search_apps">Search apps</string>
     <string name="sort_by">Sort by</string>
     <string name="filter_risk_label">Filter by risk</string>

@@ -5,6 +5,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
+import android.widget.PopupWindow
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
@@ -12,6 +14,9 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 import androidx.appcompat.widget.TooltipCompat
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import android.view.Gravity
 import com.resistine.android.R
 
 class AppAdapter(
@@ -67,7 +72,15 @@ class AppAdapter(
                     chip.text = badge.label
                     chip.isClickable = false
                     chip.isCheckable = false
-                    TooltipCompat.setTooltipText(chip, badgeDescription(holder.itemView.context, badge.type))
+                    val description = badge.description ?: badgeDescription(holder.itemView.context, badge.type)
+                    if (description.contains('\n')) {
+                        chip.setOnLongClickListener {
+                            showScrollableTooltip(it, description)
+                            true
+                        }
+                    } else {
+                        TooltipCompat.setTooltipText(chip, description)
+                    }
                     holder.badges.addView(chip)
                 }
             }
@@ -99,5 +112,42 @@ class AppAdapter(
             BadgeType.HIGH_RISK_PERMISSION -> R.string.badge_desc_high_risk_permission
         }
         return context.getString(resId)
+    }
+
+    private fun showScrollableTooltip(anchor: View, text: CharSequence) {
+        val context = anchor.context
+        val scrollView = ScrollView(context)
+        val textView = TextView(context)
+        val padding = dpToPx(context, 12)
+        textView.setPadding(padding, padding, padding, padding)
+        textView.text = text
+        textView.setTextColor(Color.WHITE)
+        textView.textSize = 12f
+        scrollView.addView(textView)
+
+        val maxWidth = dpToPx(context, 280)
+        val maxHeight = dpToPx(context, 200)
+        scrollView.measure(
+            View.MeasureSpec.makeMeasureSpec(maxWidth, View.MeasureSpec.AT_MOST),
+            View.MeasureSpec.makeMeasureSpec(maxHeight, View.MeasureSpec.AT_MOST)
+        )
+        val popup = PopupWindow(
+            scrollView,
+            scrollView.measuredWidth,
+            scrollView.measuredHeight,
+            true
+        )
+        popup.isOutsideTouchable = true
+        popup.setBackgroundDrawable(ColorDrawable(0xCC000000.toInt()))
+
+        val location = IntArray(2)
+        anchor.getLocationOnScreen(location)
+        val x = location[0]
+        val y = location[1] - scrollView.measuredHeight
+        popup.showAtLocation(anchor, Gravity.NO_GRAVITY, x, y)
+    }
+
+    private fun dpToPx(context: android.content.Context, dp: Int): Int {
+        return (dp * context.resources.displayMetrics.density).toInt()
     }
 }

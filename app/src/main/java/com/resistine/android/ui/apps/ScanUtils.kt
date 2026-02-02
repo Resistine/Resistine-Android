@@ -12,7 +12,7 @@ import kotlin.math.abs
 import kotlin.math.max
 
 internal object ScanUtils {
-    const val LOOKALIKE_THRESHOLD = 0.95
+    const val LOOKALIKE_THRESHOLD = 0.97
     private const val NAME_KEY_PREFIX = 3
     private const val NAME_LEN_BUCKET = 5
 
@@ -31,6 +31,23 @@ internal object ScanUtils {
         "android.permission.READ_PHONE_STATE",
         "android.permission.CAMERA",
         "android.permission.ACCESS_FINE_LOCATION"
+    )
+
+    private val permissionLabels = mapOf(
+        "android.permission.READ_SMS" to "Read SMS",
+        "android.permission.RECEIVE_SMS" to "Receive SMS",
+        "android.permission.SEND_SMS" to "Send SMS",
+        "android.permission.BIND_ACCESSIBILITY_SERVICE" to "Accessibility service",
+        "android.permission.REQUEST_INSTALL_PACKAGES" to "Install apps",
+        "android.permission.SYSTEM_ALERT_WINDOW" to "Display over other apps",
+        "android.permission.READ_CALL_LOG" to "Read call log",
+        "android.permission.WRITE_CALL_LOG" to "Write call log",
+        "android.permission.RECORD_AUDIO" to "Record audio",
+        "android.permission.READ_CONTACTS" to "Read contacts",
+        "android.permission.WRITE_CONTACTS" to "Write contacts",
+        "android.permission.READ_PHONE_STATE" to "Read phone state",
+        "android.permission.CAMERA" to "Camera",
+        "android.permission.ACCESS_FINE_LOCATION" to "Precise location"
     )
 
     fun normalizeName(name: String): String {
@@ -182,6 +199,13 @@ internal object ScanUtils {
             result.append(Integer.toHexString(value))
         }
         return result.toString()
+    }
+
+    fun permissionDisplayName(permission: String): String {
+        return permissionLabels[permission] ?: permission.substringAfterLast('.')
+            .replace('_', ' ')
+            .lowercase()
+            .replaceFirstChar { it.uppercase() }
     }
 }
 

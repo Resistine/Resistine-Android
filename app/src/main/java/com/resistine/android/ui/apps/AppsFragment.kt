@@ -26,7 +26,7 @@ class AppsFragment : Fragment() {
     private var allApps: List<AppEntry> = emptyList()
     private var sortOption: SortOption = SortOption.NAME_ASC
     private var searchQuery: String = ""
-    private var filtersExpanded: Boolean = true
+    private var filtersExpanded: Boolean = false
     private val badgeBaseLabels: Map<BadgeType, String> by lazy {
         mapOf(
             BadgeType.SIGNATURE_MISMATCH to getString(R.string.badge_signature_mismatch),

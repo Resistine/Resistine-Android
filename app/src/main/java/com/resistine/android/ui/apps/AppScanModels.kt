@@ -21,7 +21,8 @@ enum class BadgeType {
 
 data class Badge(
     val type: BadgeType,
-    val label: String
+    val label: String,
+    val description: String? = null
 )
 
 data class AppScanResult(
