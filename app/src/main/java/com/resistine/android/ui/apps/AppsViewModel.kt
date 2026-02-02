@@ -12,6 +12,9 @@ import com.resistine.android.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import java.io.File
+import org.json.JSONArray
+import org.json.JSONObject
 
 class AppsViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -39,6 +42,7 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
     private var lastSummaryWarning: Int = 0
     private var lastSummaryRisk: Int = 0
     private var lastSummaryTotal: Int = 0
+    private var persistedScans: Map<String, PersistedScan> = emptyMap()
 
     init {
         val saved = prefs.getLong(KEY_LAST_SCAN_AT, 0L)
@@ -47,6 +51,7 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
         lastSummaryWarning = prefs.getInt(KEY_LAST_SCAN_WARNING, 0)
         lastSummaryRisk = prefs.getInt(KEY_LAST_SCAN_RISK, 0)
         lastSummaryTotal = prefs.getInt(KEY_LAST_SCAN_TOTAL, 0)
+        persistedScans = loadPersistedScans()
         loadAllPackages()
     }
 
@@ -64,7 +69,7 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
                 ?.filterValues { it != null }
                 ?.mapValues { it.value!! }
                 ?: emptyMap()
-            val allPackages = loadInstalledApps(existingResults)
+            val allPackages = loadInstalledApps(existingResults, persistedScans)
 
             _apps.postValue(allPackages)
             if (resetSummary) {
@@ -234,6 +239,7 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
                     .putInt(KEY_LAST_SCAN_RISK, lastSummaryRisk)
                     .putInt(KEY_LAST_SCAN_TOTAL, lastSummaryTotal)
                     .apply()
+                persistScans(sortedScanned)
                 _apps.postValue(sortedScanned)
                 _scanSummary.postValue(summary)
             } finally {
@@ -242,7 +248,10 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun loadInstalledApps(existingResults: Map<String, AppScanResult> = emptyMap()): List<AppEntry> {
+    private fun loadInstalledApps(
+        existingResults: Map<String, AppScanResult> = emptyMap(),
+        persisted: Map<String, PersistedScan> = emptyMap()
+    ): List<AppEntry> {
         val pm = getApplication<Application>().packageManager
         val flags = PackageManager.GET_PERMISSIONS or PackageManager.GET_SIGNING_CERTIFICATES
         val allPackages = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -257,6 +266,9 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
             .map { info ->
                 val label = info.applicationInfo?.loadLabel(pm)?.toString().orEmpty()
                 val scanResult = existingResults[info.packageName]
+                    ?: persisted[info.packageName]
+                        ?.takeIf { it.lastUpdateTime == info.lastUpdateTime }
+                        ?.toAppScanResult()
                 AppEntry(info, label, scanResult)
             }
             .sortedBy { it.label.lowercase() }
@@ -390,6 +402,71 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
         return context.getString(R.string.badge_desc_high_risk_permission) + "\n" + lines.joinToString("\n")
     }
 
+    private fun persistScans(scans: List<AppEntry>) {
+        val file = File(getApplication<Application>().filesDir, SCAN_RESULTS_FILE)
+        val entries = JSONArray()
+        for (entry in scans) {
+            val scan = entry.scanResult ?: continue
+            val obj = JSONObject()
+            obj.put("package", entry.packageInfo.packageName)
+            obj.put("lastUpdateTime", entry.packageInfo.lastUpdateTime)
+            obj.put("score", scan.score)
+            obj.put("verdict", scan.verdict.name)
+            val badges = JSONArray()
+            for (badge in scan.badges) {
+                val badgeObj = JSONObject()
+                badgeObj.put("type", badge.type.name)
+                badgeObj.put("label", badge.label)
+                badge.description?.let { badgeObj.put("description", it) }
+                badges.put(badgeObj)
+            }
+            obj.put("badges", badges)
+            entries.put(obj)
+        }
+        val root = JSONObject()
+        root.put("scans", entries)
+        runCatching { file.writeText(root.toString()) }
+        persistedScans = loadPersistedScans()
+    }
+
+    private fun loadPersistedScans(): Map<String, PersistedScan> {
+        val file = File(getApplication<Application>().filesDir, SCAN_RESULTS_FILE)
+        if (!file.exists()) return emptyMap()
+        return runCatching {
+            val root = JSONObject(file.readText())
+            val scans = root.optJSONArray("scans") ?: return@runCatching emptyMap()
+            val result = HashMap<String, PersistedScan>()
+            for (i in 0 until scans.length()) {
+                val obj = scans.optJSONObject(i) ?: continue
+                val pkg = obj.optString("package")
+                if (pkg.isBlank()) continue
+                val lastUpdate = obj.optLong("lastUpdateTime", 0L)
+                val score = obj.optInt("score", 0)
+                val verdictName = obj.optString("verdict", RiskVerdict.SAFE.name)
+                val verdict = runCatching { RiskVerdict.valueOf(verdictName) }.getOrDefault(RiskVerdict.SAFE)
+                val badgesArray = obj.optJSONArray("badges")
+                val badges = ArrayList<Badge>()
+                if (badgesArray != null) {
+                    for (j in 0 until badgesArray.length()) {
+                        val badgeObj = badgesArray.optJSONObject(j) ?: continue
+                        val typeName = badgeObj.optString("type")
+                        val type = runCatching { BadgeType.valueOf(typeName) }.getOrNull() ?: continue
+                        val label = badgeObj.optString("label")
+                        val description = badgeObj.optString("description", null)
+                        badges.add(Badge(type, label, description))
+                    }
+                }
+                result[pkg] = PersistedScan(
+                    score = score,
+                    verdict = verdict,
+                    badges = badges,
+                    lastUpdateTime = lastUpdate
+                )
+            }
+            result
+        }.getOrDefault(emptyMap())
+    }
+
     private fun isUserInstalled(appInfo: ApplicationInfo): Boolean {
         val isSystem = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
         val isUpdatedSystem = (appInfo.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
@@ -406,5 +483,22 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
         private const val KEY_LAST_SCAN_WARNING = "last_scan_warning"
         private const val KEY_LAST_SCAN_RISK = "last_scan_risk"
         private const val KEY_LAST_SCAN_TOTAL = "last_scan_total"
+        private const val SCAN_RESULTS_FILE = "scan_results.json"
+    }
+}
+
+private data class PersistedScan(
+    val score: Int,
+    val verdict: RiskVerdict,
+    val badges: List<Badge>,
+    val lastUpdateTime: Long
+) {
+    fun toAppScanResult(): AppScanResult {
+        return AppScanResult(
+            score = score,
+            verdict = verdict,
+            badges = badges,
+            apkSha256 = emptyList()
+        )
     }
 }
