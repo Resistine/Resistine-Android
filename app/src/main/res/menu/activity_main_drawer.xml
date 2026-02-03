@@ -20,6 +20,9 @@
             android:id="@+id/nav_chat"
             android:icon="@drawable/baseline_chat_24"
             android:title="@string/menu_chat"/>
-
+        <item
+            android:id="@+id/nav_log_viewer"
+            android:icon="@android:drawable/ic_menu_view"
+            android:title="@string/menu_log_viewer"/>
     </group>
 </menu>
