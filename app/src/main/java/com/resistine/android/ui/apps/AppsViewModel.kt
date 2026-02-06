@@ -164,7 +164,7 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
                         score += 10
                     }
 
-                    val highRiskGranted = grantedHighRiskPermissions(entry.packageInfo)
+                    val highRiskGranted = grantedHighRiskPermissions(entry.packageInfo, pkg, entry.label)
                     if (highRiskGranted.isNotEmpty()) {
                         val label = appContext.getString(
                             R.string.badge_high_risk_permission_count,
@@ -378,13 +378,19 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
         return context.getString(resId)
     }
 
-    private fun grantedHighRiskPermissions(info: android.content.pm.PackageInfo): List<String> {
+    private fun grantedHighRiskPermissions(
+        info: android.content.pm.PackageInfo,
+        packageName: String,
+        label: String
+    ): List<String> {
         val requested = info.requestedPermissions ?: return emptyList()
         val flags = info.requestedPermissionsFlags
+        val allowed = ScanUtils.allowedHighRiskPermissions(packageName, label)
         val results = ArrayList<String>()
         for (i in requested.indices) {
             val perm = requested[i]
             if (perm !in ScanUtils.highRiskPermissions) continue
+            if (perm in allowed) continue
             val granted = if (flags != null && flags.size > i) {
                 (flags[i] and android.content.pm.PackageInfo.REQUESTED_PERMISSION_GRANTED) != 0
             } else {

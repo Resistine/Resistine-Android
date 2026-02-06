@@ -33,6 +33,86 @@ internal object ScanUtils {
         "android.permission.ACCESS_FINE_LOCATION"
     )
 
+    data class PermissionProfile(
+        val id: String,
+        val packageKeywords: List<String> = emptyList(),
+        val labelKeywords: List<String> = emptyList(),
+        val allowedPermissions: Set<String>
+    ) {
+        fun matches(packageName: String, label: String): Boolean {
+            val pkg = packageName.lowercase()
+            val name = label.lowercase()
+            return packageKeywords.any { pkg.contains(it) } || labelKeywords.any { name.contains(it) }
+        }
+    }
+
+    private val permissionProfiles = listOf(
+        PermissionProfile(
+            id = "camera",
+            packageKeywords = listOf("camera", "photo", "photos", "gallery", "cam"),
+            labelKeywords = listOf("camera", "photo", "photos", "gallery"),
+            allowedPermissions = setOf(
+                "android.permission.CAMERA",
+                "android.permission.RECORD_AUDIO"
+            )
+        ),
+        PermissionProfile(
+            id = "messages",
+            packageKeywords = listOf("sms", "mms", "messaging", "messages"),
+            labelKeywords = listOf("sms", "mms", "message", "messages"),
+            allowedPermissions = setOf(
+                "android.permission.READ_SMS",
+                "android.permission.RECEIVE_SMS",
+                "android.permission.SEND_SMS"
+            )
+        ),
+        PermissionProfile(
+            id = "dialer",
+            packageKeywords = listOf("dialer", "phone", "call"),
+            labelKeywords = listOf("dialer", "phone", "call"),
+            allowedPermissions = setOf(
+                "android.permission.READ_CALL_LOG",
+                "android.permission.WRITE_CALL_LOG",
+                "android.permission.READ_PHONE_STATE"
+            )
+        ),
+        PermissionProfile(
+            id = "contacts",
+            packageKeywords = listOf("contacts", "people"),
+            labelKeywords = listOf("contacts", "people"),
+            allowedPermissions = setOf(
+                "android.permission.READ_CONTACTS",
+                "android.permission.WRITE_CONTACTS"
+            )
+        ),
+        PermissionProfile(
+            id = "maps",
+            packageKeywords = listOf("maps", "map", "navigation", "gps"),
+            labelKeywords = listOf("map", "maps", "navigation", "gps"),
+            allowedPermissions = setOf(
+                "android.permission.ACCESS_FINE_LOCATION"
+            )
+        ),
+        PermissionProfile(
+            id = "recorder",
+            packageKeywords = listOf("recorder", "voice", "audio"),
+            labelKeywords = listOf("recorder", "voice", "audio"),
+            allowedPermissions = setOf(
+                "android.permission.RECORD_AUDIO"
+            )
+        )
+    )
+
+    fun allowedHighRiskPermissions(packageName: String, label: String): Set<String> {
+        val allowed = HashSet<String>()
+        for (profile in permissionProfiles) {
+            if (profile.matches(packageName, label)) {
+                allowed.addAll(profile.allowedPermissions)
+            }
+        }
+        return allowed
+    }
+
     private val permissionLabels = mapOf(
         "android.permission.READ_SMS" to "Read SMS",
         "android.permission.RECEIVE_SMS" to "Receive SMS",
