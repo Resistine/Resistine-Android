@@ -1,28 +1,35 @@
 package com.resistine.android.ui.vpn
 
+import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.net.wifi.WifiInfo
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.Call
-import okhttp3.Callback
-import okhttp3.Response
-import java.io.IOException
-import org.json.JSONObject
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import com.resistine.android.R
 import com.resistine.android.security.CryptoManager
 import com.wireguard.android.backend.GoBackend
 import com.wireguard.android.backend.Tunnel
 import com.wireguard.android.backend.Tunnel.State
 import com.wireguard.config.Config
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import org.json.JSONObject
+import java.io.IOException
 
 class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -50,9 +57,13 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     private val _locationString = MutableLiveData<String>()
     val locationString: LiveData<String> = _locationString
 
+    private val _wifiSecurityAlert = MutableLiveData<WifiSecurityAlert>()
+    val wifiSecurityAlert: LiveData<WifiSecurityAlert> = _wifiSecurityAlert
+
     init {
         loadPhoneInfo()
         fetchLocationData()
+        refreshWifiSecurityAlert()
     }
 
     fun logout(context: Context) {
@@ -69,9 +80,15 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             connectVpn(context)
         }
     }
+
+    fun refreshWifiSecurityAlert() {
+        _wifiSecurityAlert.value = buildWifiSecurityAlert()
+    }
+
     private fun connectVpn(context: Context) {
-        if (backend == null)
+        if (backend == null) {
             backend = GoBackend(context.applicationContext)
+        }
         val config = loadWireGuardConfig(context) ?: run {
             _vpnStatus.value = "Error: Configuration not found"
             return
@@ -96,10 +113,11 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                         backend?.setState(tunnel!!, State.UP, config)
                         isVpnConnected = true
                         _vpnStatus.postValue("VPN connected")
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                        val reason = e::class.java.getDeclaredField("reason").apply { isAccessible = true }.get(e)?.toString()
-                        _vpnStatus.postValue("Error connecting VPN: ${reason ?: e.message ?: "Unknown error"}")
+                    } catch (retryException: Exception) {
+                        retryException.printStackTrace()
+                        val retryReason = retryException::class.java.getDeclaredField("reason").apply { isAccessible = true }
+                            .get(retryException)?.toString()
+                        _vpnStatus.postValue("Error connecting VPN: ${retryReason ?: retryException.message ?: "Unknown error"}")
                     }
                 }, 500)
             } else {
@@ -107,7 +125,6 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
-
 
     private fun disconnectVpn() {
         try {
@@ -132,7 +149,6 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             val decryptedText = CryptoManager.decryptData(encryptedConfig)
-
             val inputStream = decryptedText.byteInputStream(Charsets.UTF_8)
             Config.parse(inputStream)
         } catch (e: Exception) {
@@ -195,6 +211,86 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         })
     }
 
+    private fun buildWifiSecurityAlert(): WifiSecurityAlert {
+        val context = getApplication<Application>()
+        val connectivity = context.getSystemService(ConnectivityManager::class.java)
+            ?: return WifiSecurityAlert(
+                WifiAlertLevel.INFO,
+                context.getString(R.string.wifi_security_unavailable)
+            )
+
+        val active = connectivity.activeNetwork
+            ?: return WifiSecurityAlert(
+                WifiAlertLevel.INFO,
+                context.getString(R.string.wifi_security_no_network)
+            )
+
+        val caps = connectivity.getNetworkCapabilities(active)
+            ?: return WifiSecurityAlert(
+                WifiAlertLevel.INFO,
+                context.getString(R.string.wifi_security_unavailable)
+            )
+
+        if (!caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+            return WifiSecurityAlert(
+                WifiAlertLevel.INFO,
+                context.getString(R.string.wifi_security_not_wifi)
+            )
+        }
+
+        if (caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL)) {
+            return WifiSecurityAlert(
+                WifiAlertLevel.WARNING,
+                context.getString(R.string.wifi_security_captive_portal)
+            )
+        }
+
+        if (!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) {
+            return WifiSecurityAlert(
+                WifiAlertLevel.WARNING,
+                context.getString(R.string.wifi_security_unvalidated)
+            )
+        }
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            return WifiSecurityAlert(
+                WifiAlertLevel.INFO,
+                context.getString(R.string.wifi_security_legacy)
+            )
+        }
+
+        val wifiInfo = caps.transportInfo as? WifiInfo
+        if (wifiInfo == null) {
+            val message = if (hasLocationPermission(context)) {
+                context.getString(R.string.wifi_security_connected_unknown)
+            } else {
+                context.getString(R.string.wifi_security_missing_permission)
+            }
+            return WifiSecurityAlert(WifiAlertLevel.INFO, message)
+        }
+
+        return when (wifiInfo.currentSecurityType) {
+            WifiInfo.SECURITY_TYPE_OPEN,
+            WifiInfo.SECURITY_TYPE_WEP -> WifiSecurityAlert(
+                WifiAlertLevel.WARNING,
+                context.getString(R.string.wifi_security_open_or_wep)
+            )
+            WifiInfo.SECURITY_TYPE_UNKNOWN -> WifiSecurityAlert(
+                WifiAlertLevel.INFO,
+                context.getString(R.string.wifi_security_connected_unknown)
+            )
+            else -> WifiSecurityAlert(
+                WifiAlertLevel.SECURE,
+                context.getString(R.string.wifi_security_secure)
+            )
+        }
+    }
+
+    private fun hasLocationPermission(context: Application): Boolean {
+        return context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    }
+
     private fun getBatteryLevel(context: Context): Int {
         val batteryIntent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         val level = batteryIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
@@ -202,3 +298,14 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         return if (level != -1 && scale != -1) (level * 100 / scale.toFloat()).toInt() else -1
     }
 }
+
+enum class WifiAlertLevel {
+    SECURE,
+    WARNING,
+    INFO
+}
+
+data class WifiSecurityAlert(
+    val level: WifiAlertLevel,
+    val message: String
+)

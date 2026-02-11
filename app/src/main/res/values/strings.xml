@@ -87,4 +87,21 @@
     <string name="sort_risk_low_high">Risk score (low to high)</string>
     <string name="show_filters">Show filters</string>
     <string name="hide_filters">Hide filters</string>
+    <string name="wifi_security_title_secure">Wi-Fi safety: Good</string>
+    <string name="wifi_security_title_warning">Wi-Fi safety: Action needed</string>
+    <string name="wifi_security_title_info">Wi-Fi safety: Limited data</string>
+    <string name="wifi_security_unavailable">We couldn&apos;t inspect Wi-Fi security right now.</string>
+    <string name="wifi_security_no_network">No internet connection detected right now.</string>
+    <string name="wifi_security_not_wifi">You&apos;re not on Wi-Fi. Join a Wi-Fi network to run this check.</string>
+    <string name="wifi_security_captive_portal">This Wi-Fi uses a sign-in page (captive portal). Use caution until sign-in is complete.</string>
+    <string name="wifi_security_unvalidated">Android hasn&apos;t validated this Wi-Fi connection yet.</string>
+    <string name="wifi_security_connected_unknown">You&apos;re on Wi-Fi, but Android didn&apos;t expose encryption details.</string>
+    <string name="wifi_security_missing_permission">Enable Location permission to detect Wi-Fi encryption type on this Android version.</string>
+    <string name="wifi_security_open_or_wep">This Wi-Fi is open or uses weak encryption (WEP).</string>
+    <string name="wifi_security_secure">This Wi-Fi appears to use modern encryption.</string>
+    <string name="wifi_security_legacy">Encryption-type detection needs Android 12+; basic network checks still run.</string>
+    <string name="network_scan_refresh">Refresh network scan</string>
+    <string name="wifi_security_recommendation_secure">Recommendation: keep VPN on when using public networks.</string>
+    <string name="wifi_security_recommendation_warning">Recommendation: avoid sensitive actions and enable VPN before continuing.</string>
+    <string name="wifi_security_recommendation_info">Recommendation: refresh after connecting to Wi-Fi, and grant Location permission if prompted.</string>
 </resources>

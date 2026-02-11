@@ -94,6 +94,34 @@ class VpnFragment : Fragment() {
         vpnViewModel.locationString.observe(viewLifecycleOwner) {
             binding.textViewLocation.text = it
         }
+
+        binding.buttonRefreshNetworkScan.setOnClickListener {
+            vpnViewModel.refreshWifiSecurityAlert()
+            vpnViewModel.fetchLocationData()
+        }
+
+        vpnViewModel.wifiSecurityAlert.observe(viewLifecycleOwner) { alert ->
+            val titleRes = when (alert.level) {
+                WifiAlertLevel.SECURE -> R.string.wifi_security_title_secure
+                WifiAlertLevel.WARNING -> R.string.wifi_security_title_warning
+                WifiAlertLevel.INFO -> R.string.wifi_security_title_info
+            }
+            val recommendationRes = when (alert.level) {
+                WifiAlertLevel.SECURE -> R.string.wifi_security_recommendation_secure
+                WifiAlertLevel.WARNING -> R.string.wifi_security_recommendation_warning
+                WifiAlertLevel.INFO -> R.string.wifi_security_recommendation_info
+            }
+            binding.textViewWifiSecurityTitle.text = getString(titleRes)
+            binding.textViewWifiSecurityBody.text = alert.message
+            binding.textViewWifiSecurityRecommendation.text = getString(recommendationRes)
+        }
+
+        vpnViewModel.refreshWifiSecurityAlert()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        vpnViewModel.refreshWifiSecurityAlert()
     }
 
     override fun onDestroyView() {
