@@ -23,6 +23,13 @@ class HomeViewModel : ViewModel() {
                 iconResId = R.drawable.ic_menu_apps,
                 destinationFragmentId = R.id.nav_apps
 
+            ),
+            HomeCardItem(
+                title = "Chat",
+                summary = "Status",
+                status = "Online",
+                iconResId = R.drawable.baseline_chat_24,
+                destinationFragmentId = R.id.nav_chat
             )
         )
     }

@@ -15,18 +15,14 @@ import okhttp3.Callback
 import okhttp3.Response
 import java.io.IOException
 import org.json.JSONObject
-
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import com.resistine.android.NetworkUtils
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationServices
+import com.resistine.android.security.CryptoManager
 import com.wireguard.android.backend.GoBackend
 import com.wireguard.android.backend.Tunnel
 import com.wireguard.android.backend.Tunnel.State
 import com.wireguard.config.Config
-import java.io.InputStream
 
 class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -54,13 +50,8 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     private val _locationString = MutableLiveData<String>()
     val locationString: LiveData<String> = _locationString
 
-    private val fusedLocationClient: FusedLocationProviderClient =
-        LocationServices.getFusedLocationProviderClient(application)
-
     init {
-        _vpnStatus.value = "VPN disconnected"
         loadPhoneInfo()
-        fetchPublicIpAddress()
         fetchLocationData()
     }
 
@@ -91,7 +82,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             isVpnConnected = true
             _vpnStatus.postValue("VPN connected")
         } catch (e: Exception) {
-            val reason = e::class.java.getDeclaredField("reason")?.apply { isAccessible = true }?.get(e)?.toString()
+            val reason = e::class.java.getDeclaredField("reason").apply { isAccessible = true }.get(e)?.toString()
             if (reason?.contains("UNABLE_TO_START_VPN") == true) {
                 Handler(Looper.getMainLooper()).postDelayed({
                     try {
@@ -100,8 +91,8 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                         _vpnStatus.postValue("VPN connected")
                     } catch (e: Exception) {
                         e.printStackTrace()
-                        val reason = e::class.java.getDeclaredField("reason")?.apply { isAccessible = true }?.get(e)?.toString()
-                        _vpnStatus.postValue("Error connecting VPN: ${reason ?: e.message ?: "Unkown error"}")
+                        val reason = e::class.java.getDeclaredField("reason").apply { isAccessible = true }.get(e)?.toString()
+                        _vpnStatus.postValue("Error connecting VPN: ${reason ?: e.message ?: "Unknown error"}")
                     }
                 }, 500)
             } else {
@@ -126,8 +117,17 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun loadWireGuardConfig(context: Context): Config? {
         return try {
-            val inputStream: InputStream = context.assets.open("myvpn.conf")
-            inputStream.use { Config.parse(it) }
+            val encryptedConfig = CryptoManager.loadEncryptedConfig(context)
+
+            if (encryptedConfig.isNullOrBlank()) {
+                println("Failed to load configuration - no saved configuration found.")
+                return null
+            }
+
+            val decryptedText = CryptoManager.decryptData(encryptedConfig)
+
+            val inputStream = decryptedText.byteInputStream(Charsets.UTF_8)
+            Config.parse(inputStream)
         } catch (e: Exception) {
             e.printStackTrace()
             null
@@ -140,36 +140,33 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         _deviceModel.value = "Device: ${Build.MANUFACTURER} ${Build.MODEL}"
     }
 
-    private fun fetchPublicIpAddress() {
-        NetworkUtils.fetchPublicIp { ip ->
-            _ipAddress.postValue("Public IP Address: $ip")
-        }
-    }
-
     fun fetchLocationData() {
         val client = OkHttpClient()
         val request = Request.Builder()
-            .url("https://ipwho.is") // nebo https://ip-api.com/json/
+            .url("https://ipwho.is") // or https://ip-api.com/json/
             .build()
 
+        _ipAddress.postValue("Address: Fetching...")
         _locationString.postValue("Location: Fetching...")
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
                 _locationString.postValue("Location fetch error: ${e.message}")
+                _ipAddress.postValue("Address: Fetch error")
             }
 
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     if (!response.isSuccessful) {
                         _locationString.postValue("Location fetch failed")
+                        _ipAddress.postValue("Address: Fetch error")
                         return
                     }
 
                     val json = response.body?.string()
                     try {
                         val obj = JSONObject(json!!)
-                        val city = obj.optString("city")
+//                        val city = obj.optString("city")
                         val region = obj.optString("regionName")
                         val country = obj.optString("country")
                         val lat = obj.optDouble("lat")
@@ -181,10 +178,10 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                             if (region.isNotEmpty()) append(", $region")
                             if (!lat.isNaN() && !lon.isNaN()) append(" (Lat: $lat, Lon: $lon)")
                         }
-
+                        _ipAddress.postValue("Public IP Address: ${obj.optString("ip")}")
                         _locationString.postValue("Location: $text")
                     } catch (e: Exception) {
-                        _locationString.postValue("Location parse error")
+                        _locationString.postValue("Location parse error: ${e.message}")
                     }
                 }
             }
