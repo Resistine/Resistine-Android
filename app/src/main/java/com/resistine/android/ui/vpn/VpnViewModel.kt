@@ -1,13 +1,13 @@
 package com.resistine.android.ui.vpn
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
+import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.wifi.WifiInfo
 import android.os.BatteryManager
@@ -59,6 +59,8 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _wifiSecurityAlert = MutableLiveData<WifiSecurityAlert>()
     val wifiSecurityAlert: LiveData<WifiSecurityAlert> = _wifiSecurityAlert
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    private var isWifiMonitoringStarted = false
 
     init {
         loadPhoneInfo()
@@ -82,7 +84,53 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun refreshWifiSecurityAlert() {
-        _wifiSecurityAlert.value = buildWifiSecurityAlert()
+        _wifiSecurityAlert.postValue(buildWifiSecurityAlert())
+    }
+
+    fun startWifiMonitoring() {
+        if (isWifiMonitoringStarted) {
+            return
+        }
+        val context = getApplication<Application>()
+        val connectivityManager = context.getSystemService(ConnectivityManager::class.java) ?: return
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) = refreshWifiSecurityAlert()
+
+            override fun onLost(network: Network) = refreshWifiSecurityAlert()
+
+            override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
+                refreshWifiSecurityAlert()
+            }
+
+            override fun onUnavailable() = refreshWifiSecurityAlert()
+        }
+        try {
+            connectivityManager.registerDefaultNetworkCallback(callback)
+            networkCallback = callback
+            isWifiMonitoringStarted = true
+        } catch (_: Exception) {
+            networkCallback = null
+            isWifiMonitoringStarted = false
+        }
+        refreshWifiSecurityAlert()
+    }
+
+    fun stopWifiMonitoring() {
+        if (!isWifiMonitoringStarted) {
+            return
+        }
+        val context = getApplication<Application>()
+        val connectivityManager = context.getSystemService(ConnectivityManager::class.java)
+        val callback = networkCallback
+        if (connectivityManager != null && callback != null) {
+            try {
+                connectivityManager.unregisterNetworkCallback(callback)
+            } catch (_: Exception) {
+                // Ignore stale callback unregister exceptions.
+            }
+        }
+        networkCallback = null
+        isWifiMonitoringStarted = false
     }
 
     private fun connectVpn(context: Context) {
@@ -213,77 +261,58 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun buildWifiSecurityAlert(): WifiSecurityAlert {
         val context = getApplication<Application>()
+        val checkedAtMillis = currentTimeMillis()
         val connectivity = context.getSystemService(ConnectivityManager::class.java)
             ?: return WifiSecurityAlert(
-                WifiAlertLevel.INFO,
-                context.getString(R.string.wifi_security_unavailable)
+                level = WifiAlertLevel.INFO,
+                reason = WifiAlertReason.UNAVAILABLE,
+                message = context.getString(R.string.wifi_security_unavailable),
+                checkedAtMillis = checkedAtMillis
             )
 
         val active = connectivity.activeNetwork
             ?: return WifiSecurityAlert(
-                WifiAlertLevel.INFO,
-                context.getString(R.string.wifi_security_no_network)
+                level = WifiAlertLevel.INFO,
+                reason = WifiAlertReason.NO_NETWORK,
+                message = context.getString(R.string.wifi_security_no_network),
+                checkedAtMillis = checkedAtMillis
             )
 
         val caps = connectivity.getNetworkCapabilities(active)
             ?: return WifiSecurityAlert(
-                WifiAlertLevel.INFO,
-                context.getString(R.string.wifi_security_unavailable)
+                level = WifiAlertLevel.INFO,
+                reason = WifiAlertReason.UNAVAILABLE,
+                message = context.getString(R.string.wifi_security_unavailable),
+                checkedAtMillis = checkedAtMillis
             )
+        val supportsSecurityTypeDetection = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+        val hasLocationAccess = hasLocationPermission(context)
+        val wifiSecurityType = resolveWifiSecurityType(
+            caps = caps,
+            supportsSecurityTypeDetection = supportsSecurityTypeDetection,
+            hasLocationPermission = hasLocationAccess
+        )
 
-        if (!caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
-            return WifiSecurityAlert(
-                WifiAlertLevel.INFO,
-                context.getString(R.string.wifi_security_not_wifi)
+        val classification = WifiSecurityClassifier.classify(
+            WifiClassificationInput(
+                hasNetwork = true,
+                isWifi = caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI),
+                hasCaptivePortal = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL),
+                isValidated = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
+                supportsSecurityTypeDetection = supportsSecurityTypeDetection,
+                hasLocationPermission = hasLocationAccess,
+                securityType = wifiSecurityType
             )
-        }
+        )
 
-        if (caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL)) {
-            return WifiSecurityAlert(
-                WifiAlertLevel.WARNING,
-                context.getString(R.string.wifi_security_captive_portal)
-            )
-        }
-
-        if (!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) {
-            return WifiSecurityAlert(
-                WifiAlertLevel.WARNING,
-                context.getString(R.string.wifi_security_unvalidated)
-            )
-        }
-
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-            return WifiSecurityAlert(
-                WifiAlertLevel.INFO,
-                context.getString(R.string.wifi_security_legacy)
-            )
-        }
-
-        val wifiInfo = caps.transportInfo as? WifiInfo
-        if (wifiInfo == null) {
-            val message = if (hasLocationPermission(context)) {
-                context.getString(R.string.wifi_security_connected_unknown)
-            } else {
-                context.getString(R.string.wifi_security_missing_permission)
-            }
-            return WifiSecurityAlert(WifiAlertLevel.INFO, message)
-        }
-
-        return when (wifiInfo.currentSecurityType) {
-            WifiInfo.SECURITY_TYPE_OPEN,
-            WifiInfo.SECURITY_TYPE_WEP -> WifiSecurityAlert(
-                WifiAlertLevel.WARNING,
-                context.getString(R.string.wifi_security_open_or_wep)
-            )
-            WifiInfo.SECURITY_TYPE_UNKNOWN -> WifiSecurityAlert(
-                WifiAlertLevel.INFO,
-                context.getString(R.string.wifi_security_connected_unknown)
-            )
-            else -> WifiSecurityAlert(
-                WifiAlertLevel.SECURE,
-                context.getString(R.string.wifi_security_secure)
-            )
-        }
+        return WifiSecurityAlert(
+            level = classification.level,
+            reason = classification.reason,
+            message = context.getString(reasonMessageResId(classification.reason)),
+            securityType = wifiSecurityType,
+            checkedAtMillis = checkedAtMillis,
+            requiresLocationPermission = classification.requiresLocationPermission
+        )
     }
 
     private fun hasLocationPermission(context: Application): Boolean {
@@ -291,11 +320,57 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
     }
 
+    private fun resolveWifiSecurityType(
+        caps: NetworkCapabilities,
+        supportsSecurityTypeDetection: Boolean,
+        hasLocationPermission: Boolean
+    ): WifiSecurityType? {
+        if (!caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+            return null
+        }
+        if (!supportsSecurityTypeDetection || !hasLocationPermission) {
+            return null
+        }
+        val wifiInfo = caps.transportInfo as? WifiInfo ?: return WifiSecurityType.UNKNOWN
+        return wifiInfo.currentSecurityType.toWifiSecurityType()
+    }
+
+    private fun Int.toWifiSecurityType(): WifiSecurityType {
+        return when (this) {
+            WifiInfo.SECURITY_TYPE_OPEN -> WifiSecurityType.OPEN
+            WifiInfo.SECURITY_TYPE_WEP -> WifiSecurityType.WEP
+            WifiInfo.SECURITY_TYPE_UNKNOWN -> WifiSecurityType.UNKNOWN
+            else -> WifiSecurityType.SECURE
+        }
+    }
+
+    private fun reasonMessageResId(reason: WifiAlertReason): Int {
+        return when (reason) {
+            WifiAlertReason.UNAVAILABLE -> R.string.wifi_security_unavailable
+            WifiAlertReason.NO_NETWORK -> R.string.wifi_security_no_network
+            WifiAlertReason.NOT_WIFI -> R.string.wifi_security_not_wifi
+            WifiAlertReason.CAPTIVE_PORTAL -> R.string.wifi_security_captive_portal
+            WifiAlertReason.UNVALIDATED -> R.string.wifi_security_unvalidated
+            WifiAlertReason.LEGACY_NO_SECURITY_TYPE -> R.string.wifi_security_legacy
+            WifiAlertReason.MISSING_PERMISSION -> R.string.wifi_security_missing_permission
+            WifiAlertReason.OPEN_OR_WEP -> R.string.wifi_security_open_or_wep
+            WifiAlertReason.UNKNOWN_SECURITY -> R.string.wifi_security_connected_unknown
+            WifiAlertReason.SECURE -> R.string.wifi_security_secure
+        }
+    }
+
+    private fun currentTimeMillis(): Long = System.currentTimeMillis()
+
     private fun getBatteryLevel(context: Context): Int {
         val batteryIntent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         val level = batteryIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
         val scale = batteryIntent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
         return if (level != -1 && scale != -1) (level * 100 / scale.toFloat()).toInt() else -1
+    }
+
+    override fun onCleared() {
+        stopWifiMonitoring()
+        super.onCleared()
     }
 }
 
@@ -305,7 +380,31 @@ enum class WifiAlertLevel {
     INFO
 }
 
+enum class WifiAlertReason {
+    UNAVAILABLE,
+    NO_NETWORK,
+    NOT_WIFI,
+    CAPTIVE_PORTAL,
+    UNVALIDATED,
+    LEGACY_NO_SECURITY_TYPE,
+    MISSING_PERMISSION,
+    OPEN_OR_WEP,
+    UNKNOWN_SECURITY,
+    SECURE
+}
+
+enum class WifiSecurityType {
+    OPEN,
+    WEP,
+    UNKNOWN,
+    SECURE
+}
+
 data class WifiSecurityAlert(
     val level: WifiAlertLevel,
-    val message: String
+    val reason: WifiAlertReason,
+    val message: String,
+    val securityType: WifiSecurityType? = null,
+    val checkedAtMillis: Long = System.currentTimeMillis(),
+    val requiresLocationPermission: Boolean = false
 )

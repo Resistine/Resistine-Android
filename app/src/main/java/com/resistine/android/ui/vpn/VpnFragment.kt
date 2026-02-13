@@ -1,6 +1,8 @@
 package com.resistine.android.ui.vpn
 
+import android.Manifest
 import android.app.Activity
+import android.content.pm.PackageManager
 import android.net.VpnService
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -8,11 +10,14 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import com.resistine.android.R
 import com.resistine.android.databinding.FragmentVpnBinding
 import com.resistine.android.ui.login.LoginViewModel
+import java.text.DateFormat
+import java.util.Date
 
 class VpnFragment : Fragment() {
 
@@ -26,8 +31,20 @@ class VpnFragment : Fragment() {
             if (result.resultCode == Activity.RESULT_OK) {
                 vpnViewModel.toggleVpn(requireContext())
             } else {
-                binding.textViewVpnStatus.text = getString(R.string.VPN_access_denied)
+                binding.textViewVpnStatus.text = getString(R.string.vpn_access_denied)
             }
+        }
+    private val locationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+            val granted = permissions.any { it.value } || hasLocationPermission()
+            if (!granted) {
+                Toast.makeText(
+                    requireContext(),
+                    getString(R.string.wifi_security_permission_denied),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+            vpnViewModel.refreshWifiSecurityAlert()
         }
 
     override fun onCreateView(
@@ -41,12 +58,14 @@ class VpnFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        val disabledMessage = getString(R.string.vpn_disabled_register_required)
+        val connectedKeyword = getString(R.string.vpn_status_connected)
 
         loginViewModel.isRegistrationSkipped.observe(viewLifecycleOwner) { isSkipped ->
             if (isSkipped == true) {
                 binding.buttonVpnToggle.isEnabled = false
-                binding.textViewVpnStatus.text = "VPN is disabled. Please register to enable."
-                Toast.makeText(context, "VPN is disabled. Please register to enable.", Toast.LENGTH_LONG).show()
+                binding.textViewVpnStatus.text = disabledMessage
+                Toast.makeText(context, disabledMessage, Toast.LENGTH_LONG).show()
             } else {
                 binding.buttonVpnToggle.isEnabled = true
             }
@@ -54,7 +73,7 @@ class VpnFragment : Fragment() {
 
         binding.buttonVpnToggle.setOnClickListener {
             if (loginViewModel.isRegistrationSkipped.value == true) {
-                Toast.makeText(requireContext(), "VPN is disabled. Please register to enable.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), disabledMessage, Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
@@ -71,8 +90,8 @@ class VpnFragment : Fragment() {
                 binding.textViewVpnStatus.text = status
             }
             binding.buttonVpnToggle.text =
-                if (status.contains("VPN connected", true)) "Disconnect VPN"
-                else "Connect VPN"
+                if (status.contains(connectedKeyword, ignoreCase = true)) getString(R.string.disconnect_vpn)
+                else getString(R.string.connect_vpn)
         }
 
         vpnViewModel.ipAddress.observe(viewLifecycleOwner) {
@@ -99,6 +118,14 @@ class VpnFragment : Fragment() {
             vpnViewModel.refreshWifiSecurityAlert()
             vpnViewModel.fetchLocationData()
         }
+        binding.buttonGrantWifiPermission.setOnClickListener {
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
 
         vpnViewModel.wifiSecurityAlert.observe(viewLifecycleOwner) { alert ->
             val titleRes = when (alert.level) {
@@ -111,17 +138,94 @@ class VpnFragment : Fragment() {
                 WifiAlertLevel.WARNING -> R.string.wifi_security_recommendation_warning
                 WifiAlertLevel.INFO -> R.string.wifi_security_recommendation_info
             }
+            val (iconRes, iconDescRes) = when (alert.level) {
+                WifiAlertLevel.SECURE -> Pair(
+                    R.drawable.ic_wifi_status_safe,
+                    R.string.wifi_status_icon_safe_desc
+                )
+
+                WifiAlertLevel.WARNING -> Pair(
+                    R.drawable.ic_wifi_status_danger,
+                    R.string.wifi_status_icon_danger_desc
+                )
+
+                WifiAlertLevel.INFO -> Pair(
+                    R.drawable.ic_wifi_status_warning,
+                    R.string.wifi_status_icon_warning_desc
+                )
+            }
+            binding.imageViewWifiSecurityIcon.setImageResource(iconRes)
+            binding.imageViewWifiSecurityIcon.contentDescription = getString(iconDescRes)
             binding.textViewWifiSecurityTitle.text = getString(titleRes)
             binding.textViewWifiSecurityBody.text = alert.message
+            binding.textViewWifiSecurityType.text = getString(
+                R.string.wifi_security_type_line,
+                getString(securityTypeLabelRes(alert.securityType)),
+            )
+            binding.textViewWifiSecurityReason.text = getString(
+                R.string.wifi_security_reason_line,
+                getString(reasonLabelRes(alert.reason)),
+            )
+            binding.textViewWifiSecurityLastChecked.text = getString(
+                R.string.wifi_security_last_checked_line,
+                formatCheckedAt(alert.checkedAtMillis)
+            )
             binding.textViewWifiSecurityRecommendation.text = getString(recommendationRes)
+            binding.buttonGrantWifiPermission.visibility =
+                if (alert.requiresLocationPermission) View.VISIBLE else View.GONE
         }
 
         vpnViewModel.refreshWifiSecurityAlert()
     }
 
+    override fun onStart() {
+        super.onStart()
+        vpnViewModel.startWifiMonitoring()
+    }
+
+    override fun onStop() {
+        vpnViewModel.stopWifiMonitoring()
+        super.onStop()
+    }
+
     override fun onResume() {
         super.onResume()
         vpnViewModel.refreshWifiSecurityAlert()
+    }
+
+    private fun hasLocationPermission(): Boolean {
+        val context = requireContext()
+        return ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun securityTypeLabelRes(type: WifiSecurityType?): Int {
+        return when (type) {
+            WifiSecurityType.OPEN -> R.string.wifi_security_type_open
+            WifiSecurityType.WEP -> R.string.wifi_security_type_wep
+            WifiSecurityType.SECURE -> R.string.wifi_security_type_secure
+            WifiSecurityType.UNKNOWN,
+            null -> R.string.wifi_security_type_unknown
+        }
+    }
+
+    private fun reasonLabelRes(reason: WifiAlertReason): Int {
+        return when (reason) {
+            WifiAlertReason.UNAVAILABLE -> R.string.wifi_reason_unavailable
+            WifiAlertReason.NO_NETWORK -> R.string.wifi_reason_no_network
+            WifiAlertReason.NOT_WIFI -> R.string.wifi_reason_not_wifi
+            WifiAlertReason.CAPTIVE_PORTAL -> R.string.wifi_reason_captive_portal
+            WifiAlertReason.UNVALIDATED -> R.string.wifi_reason_unvalidated
+            WifiAlertReason.LEGACY_NO_SECURITY_TYPE -> R.string.wifi_reason_legacy
+            WifiAlertReason.MISSING_PERMISSION -> R.string.wifi_reason_missing_permission
+            WifiAlertReason.OPEN_OR_WEP -> R.string.wifi_reason_open_or_wep
+            WifiAlertReason.UNKNOWN_SECURITY -> R.string.wifi_reason_unknown_security
+            WifiAlertReason.SECURE -> R.string.wifi_reason_secure
+        }
+    }
+
+    private fun formatCheckedAt(timestampMs: Long): String {
+        return DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM).format(Date(timestampMs))
     }
 
     override fun onDestroyView() {
