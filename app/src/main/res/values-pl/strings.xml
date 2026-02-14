@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ResistineAndroidApp</string>
+    <string name="navigation_drawer_open">Otwórz panel nawigacji</string>
+    <string name="navigation_drawer_close">Zamknij panel nawigacji</string>
+    <string name="nav_header_title">Aplikacja Resistine</string>
+    <string name="nav_header_subtitle">android@resistine.com</string>
+    <string name="nav_header_desc">Nagłówek nawigacji</string>
+    <string name="action_settings">Ustawienia</string>
+    <string name="app_icon">Ikona</string>
+    <string name="menu_home">Resistine</string>
+    <string name="menu_gallery">Galeria</string>
+    <string name="menu_slideshow">Pokaz slajdów</string>
+    <string name="menu_vpn">VPN</string>
+    <string name="menu_apps">Aplikacje</string>
+    <string name="version_label">Wersja: %1$s</string>
+</resources>
