@@ -51,6 +51,7 @@ object NetworkClient {
             .put("otp", otp)
             .put("client_public_key", publicKey)
             .put("vpn_name", vpnName)
+            .put("host_url", "rfr1.resisti.net")
             .toString()
 
         val body = json.toRequestBody("application/json".toMediaTypeOrNull())
