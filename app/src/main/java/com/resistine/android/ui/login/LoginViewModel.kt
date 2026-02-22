@@ -75,9 +75,7 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
 
         val peerPublicKey = peer.getString("PublicKey")
         val endpoint = peer.getString("Endpoint")
-        val allowedIPsArray = peer.getJSONArray("AllowedIPs")
-        val allowedIPsList = (0 until allowedIPsArray.length()).map { allowedIPsArray.getString(it) }
-        val allowedIPs = allowedIPsList.joinToString(", ")
+        val allowedIPs = peer.getString("AllowedIPs")
 
 
         val interfaceAddress = interfaceJson.getString("Address")
