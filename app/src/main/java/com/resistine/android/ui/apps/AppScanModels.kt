@@ -29,7 +29,8 @@ data class AppScanResult(
     val score: Int,
     val verdict: RiskVerdict,
     val badges: List<Badge>,
-    val apkSha256: List<String>
+    val apkSha256: List<String>,
+    val highRiskPermissions: List<String> = emptyList()
 )
 
 data class AppEntry(
