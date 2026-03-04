@@ -18,9 +18,11 @@ import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.view.Gravity
 import com.resistine.android.R
+import com.google.android.material.button.MaterialButton
 
 class AppAdapter(
-    private val packageManager: PackageManager
+    private val packageManager: PackageManager,
+    private val onManagePermissionsClick: (AppEntry) -> Unit = {}
 ) : ListAdapter<AppEntry, AppAdapter.AppViewHolder>(DiffCallback()) {
 
     init {
@@ -34,6 +36,7 @@ class AppAdapter(
         val version: TextView = view.findViewById(R.id.app_version)
         val risk: TextView = view.findViewById(R.id.app_risk)
         val badges: ChipGroup = view.findViewById(R.id.badge_group)
+        val managePermissionsButton: MaterialButton = view.findViewById(R.id.button_manage_permissions)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AppViewHolder {
@@ -49,12 +52,14 @@ class AppAdapter(
         holder.icon.setImageDrawable(info.applicationInfo?.loadIcon(packageManager))
         holder.packageName.text = info.packageName
         holder.version.text = holder.itemView.context.getString(R.string.version_label, info.versionName ?: "?")
+        holder.managePermissionsButton.setOnClickListener(null)
 
         val scan = entry.scanResult
         if (scan == null) {
             holder.risk.text = holder.itemView.context.getString(R.string.scan_not_run)
             holder.badges.removeAllViews()
             holder.badges.visibility = View.GONE
+            holder.managePermissionsButton.visibility = View.GONE
         } else {
             val verdictLabel = scan.verdict.name.lowercase().replaceFirstChar { it.uppercase() }
             holder.risk.text = holder.itemView.context.getString(
@@ -83,6 +88,27 @@ class AppAdapter(
                     }
                     holder.badges.addView(chip)
                 }
+            }
+
+            val highRiskPermissions = scan.highRiskPermissions
+            if (highRiskPermissions.isNotEmpty()) {
+                holder.managePermissionsButton.visibility = View.VISIBLE
+                holder.managePermissionsButton.text = if (highRiskPermissions.size == 1) {
+                    holder.itemView.context.getString(
+                        R.string.manage_permission_single_button,
+                        ScanUtils.permissionDisplayName(highRiskPermissions.first())
+                    )
+                } else {
+                    holder.itemView.context.getString(
+                        R.string.manage_permissions_count_button,
+                        highRiskPermissions.size
+                    )
+                }
+                holder.managePermissionsButton.setOnClickListener {
+                    onManagePermissionsClick(entry)
+                }
+            } else {
+                holder.managePermissionsButton.visibility = View.GONE
             }
         }
     }

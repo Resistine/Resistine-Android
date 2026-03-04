@@ -56,5 +56,17 @@
             app:singleLine="false"
             app:chipSpacingHorizontal="6dp"
             app:chipSpacingVertical="4dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_manage_permissions"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minHeight="36dp"
+            android:text="@string/manage_permissions_button"
+            android:visibility="gone" />
     </LinearLayout>
 </LinearLayout>
