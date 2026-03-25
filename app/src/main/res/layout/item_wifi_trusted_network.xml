@@ -57,6 +57,27 @@
         android:text="@string/wifi_trusted_entry_body"
         android:textSize="13sp" />
 
+    <HorizontalScrollView
+        android:id="@+id/scrollViewTrustedNetworkChips"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:id="@+id/layoutTrustedNetworkChips"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" />
+    </HorizontalScrollView>
+
+    <LinearLayout
+        android:id="@+id/layoutTrustedNetworkTechnicalDetails"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone">
+
     <TextView
         android:id="@+id/textViewTrustedNetworkIdentity"
         android:layout_width="match_parent"
@@ -71,6 +92,22 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="3dp"
         android:text="@string/wifi_internet_access_line_default"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/textViewTrustedNetworkProfile"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:text="@string/wifi_security_profile_line_default"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/textViewTrustedNetworkBaseline"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:text="@string/wifi_trust_detail_default"
         android:textSize="12sp" />
 
     <TextView
@@ -96,6 +133,8 @@
         android:layout_marginTop="3dp"
         android:text="@string/wifi_trust_status_line_default"
         android:textSize="12sp" />
+
+    </LinearLayout>
 
     <Button
         android:id="@+id/buttonRemoveTrustedNetwork"

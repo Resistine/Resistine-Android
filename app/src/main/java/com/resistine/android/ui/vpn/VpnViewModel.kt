@@ -82,6 +82,8 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     val wifiRiskTransitionAlert: LiveData<WifiRiskTransitionAlert?> = _wifiRiskTransitionAlert
     private val _autoVpnPolicy = MutableLiveData(AutoVpnPolicy.OFF)
     val autoVpnPolicy: LiveData<AutoVpnPolicy> = _autoVpnPolicy
+    private val _autoProtectUnknownWifi = MutableLiveData(false)
+    val autoProtectUnknownWifi: LiveData<Boolean> = _autoProtectUnknownWifi
     private val _autoVpnActionMessageRes = MutableLiveData<Int?>()
     val autoVpnActionMessageRes: LiveData<Int?> = _autoVpnActionMessageRes
     private val _backgroundScanState = MutableLiveData(WifiBackgroundScanState())
@@ -97,12 +99,13 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         application.getSharedPreferences(WIFI_TRUST_PREFS, Context.MODE_PRIVATE)
     private var currentWifiSsid: String? = null
     private var currentWifiBssid: String? = null
-    private var currentWifiSecurityType: WifiSecurityType? = null
+    private var currentWifiSecurityProfile: WifiSecurityProfile? = null
 
     init {
         loadPhoneInfo()
         fetchLocationData()
         _autoVpnPolicy.value = loadAutoVpnPolicy()
+        _autoProtectUnknownWifi.value = loadAutoProtectUnknownWifi()
         createRiskNotificationChannelIfNeeded()
         updateBackgroundScanState()
         if (loadBackgroundScanEnabled()) {
@@ -171,6 +174,12 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun setAutoProtectUnknownWifi(enabled: Boolean) {
+        saveAutoProtectUnknownWifi(enabled)
+        _autoProtectUnknownWifi.postValue(enabled)
+        _wifiSafetyAssessment.value?.let { applyAutoVpnPolicy(it) }
+    }
+
     fun setBackgroundScanEnabled(enabled: Boolean) {
         saveBackgroundScanEnabled(enabled)
         if (enabled) {
@@ -190,15 +199,24 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun refreshWifiSecurityAlert(lightweight: Boolean = false) {
-        val alert = buildWifiSecurityAlert()
-        val nearbyState = buildNearbyWifiNetworksState(
+        var alert = buildWifiSecurityAlert()
+        var nearbyState = buildNearbyWifiNetworksState(
             currentAlert = alert,
             requestFreshScan = !lightweight
         )
-        val checks = buildAdvancedChecks(alert, nearbyState)
-        val assessment = buildSafetyAssessment(alert, checks)
+        var checks = buildAdvancedChecks(alert, nearbyState)
+        var assessment = buildSafetyAssessment(alert, checks)
         val previousRiskLevel = lastRiskLevel
-        maybeUpdateTrustedBaseline(alert, nearbyState)
+        val baselineUpdate = maybeUpdateTrustedBaseline(alert, nearbyState, assessment)
+        alert = baselineUpdate.alert
+        if (baselineUpdate.reassessRequired) {
+            nearbyState = buildNearbyWifiNetworksState(
+                currentAlert = alert,
+                requestFreshScan = false
+            )
+            checks = buildAdvancedChecks(alert, nearbyState)
+            assessment = buildSafetyAssessment(alert, checks)
+        }
         _wifiSecurityAlert.postValue(alert)
         _nearbyWifiNetworksState.postValue(nearbyState)
         _trustedWifiNetworks.postValue(loadTrustedProfiles().sortedBy { it.ssid.lowercase() })
@@ -214,16 +232,44 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun toggleCurrentNetworkTrusted(): Int {
+        val context = getApplication<Application>()
         val ssid = currentWifiSsid ?: return R.string.wifi_trust_unavailable
-        return if (getTrustedProfile(ssid) == null) {
+        if (!isTrustEligibleSsid(context, ssid)) {
+            return R.string.wifi_trust_identity_required
+        }
+        val trustedProfile = getTrustedProfile(ssid)
+        val currentNetwork = _nearbyWifiNetworksState.value?.networks?.firstOrNull { it.isCurrent }
+        val gateway = getCurrentGatewayAddress()
+        val securityProfile = currentWifiSecurityProfile ?: WifiSecurityProfile(mode = WifiSecurityMode.UNKNOWN)
+        return if (trustedProfile == null) {
             saveTrustedProfile(
                 ssid = ssid,
                 bssid = currentWifiBssid,
-                securityType = currentWifiSecurityType ?: WifiSecurityType.UNKNOWN,
-                knownBssids = mergeKnownBssids(emptySet(), currentWifiBssid)
+                securityProfile = securityProfile,
+                knownBssids = mergeKnownBssids(emptySet(), currentWifiBssid),
+                lastFrequencyMhz = currentNetwork?.frequencyMhz,
+                lastSeenMillis = currentTimeMillis(),
+                lastGateway = gateway
             )
             refreshWifiSecurityAlert()
             R.string.wifi_trust_added
+        } else if (_wifiSecurityAlert.value?.hasPendingTrustApproval == true) {
+            val observation = buildTrustedObservation(
+                bssid = currentWifiBssid,
+                securityProfile = currentWifiSecurityProfile,
+                frequencyMhz = currentNetwork?.frequencyMhz,
+                gateway = gateway
+            ) ?: return R.string.wifi_trust_unavailable
+            val approved = WifiTrustedBaselineManager.updateProfile(
+                profile = trustedProfile,
+                observation = observation,
+                allowLearning = true,
+                approveNow = true,
+                nowMillis = currentTimeMillis()
+            )
+            persistTrustedProfile(approved)
+            refreshWifiSecurityAlert()
+            R.string.wifi_trust_change_approved
         } else {
             removeTrustedProfile(ssid)
             refreshWifiSecurityAlert()
@@ -241,20 +287,31 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleTrustedNetwork(
         ssid: String,
         bssid: String?,
-        securityType: WifiSecurityType,
+        securityProfile: WifiSecurityProfile?,
+        frequencyMhz: Int?,
+        isCurrent: Boolean,
         currentlyTrusted: Boolean
     ): Int {
         if (ssid.isBlank()) return R.string.wifi_trust_unavailable
+        val context = getApplication<Application>()
         if (currentlyTrusted) {
             removeTrustedProfile(ssid)
             refreshWifiSecurityAlert()
             return R.string.wifi_trust_removed
         }
+        if (!isCurrent) {
+            return R.string.wifi_trust_current_only
+        }
+        if (!isTrustEligibleSsid(context, ssid)) {
+            return R.string.wifi_trust_identity_required
+        }
         saveTrustedProfile(
             ssid = ssid,
             bssid = bssid,
-            securityType = securityType,
-            knownBssids = mergeKnownBssids(emptySet(), bssid)
+            securityProfile = securityProfile ?: WifiSecurityProfile(mode = WifiSecurityMode.UNKNOWN),
+            knownBssids = mergeKnownBssids(emptySet(), bssid),
+            lastFrequencyMhz = frequencyMhz,
+            lastSeenMillis = currentTimeMillis()
         )
         refreshWifiSecurityAlert()
         return R.string.wifi_trust_added
@@ -447,16 +504,31 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 checkedAtMillis = checkedAtMillis
             )
 
+        val wifiManager = context.applicationContext.getSystemService(WifiManager::class.java)
+        val connectionInfo = runCatching { wifiManager?.connectionInfo }.getOrNull()
         val active = connectivity.activeNetwork
-            ?: return WifiSecurityAlert(
+        val wifiNetwork = findWifiTransportNetwork(
+            context = context,
+            connectivityManager = connectivity,
+            expectedSsid = normalizeSsid(connectionInfo?.ssid),
+            expectedBssid = normalizeBssid(connectionInfo?.bssid)
+        )
+        if (active == null && wifiNetwork == null) {
+            return WifiSecurityAlert(
                 level = WifiAlertLevel.INFO,
                 reason = WifiAlertReason.NO_NETWORK,
                 message = context.getString(R.string.wifi_security_no_network),
                 checkedAtMillis = checkedAtMillis
             )
+        }
 
-        val caps = connectivity.getNetworkCapabilities(active)
-            ?: return WifiSecurityAlert(
+        val activeCaps = active?.let { connectivity.getNetworkCapabilities(it) }
+        val wifiCaps = wifiNetwork?.let { connectivity.getNetworkCapabilities(it) }
+        val caps = when {
+            wifiCaps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true -> wifiCaps
+            activeCaps != null -> activeCaps
+            else -> null
+        } ?: return WifiSecurityAlert(
                 level = WifiAlertLevel.INFO,
                 reason = WifiAlertReason.UNAVAILABLE,
                 message = context.getString(R.string.wifi_security_unavailable),
@@ -472,14 +544,12 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         val wifiInfo = caps.transportInfo as? WifiInfo
         var ssid = normalizeSsid(wifiInfo?.ssid)
         var bssid = normalizeBssid(wifiInfo?.bssid)
-        val wifiSecurityType = resolveWifiSecurityType(
+        val wifiSecurityProfile = resolveWifiSecurityProfile(
             caps = caps,
             supportsSecurityTypeDetection = supportsSecurityTypeDetection,
             hasLocationPermission = canInspectWifiDetails
         )
         if (isWifi && (ssid == null || bssid == null)) {
-            val wifiManager = context.applicationContext.getSystemService(WifiManager::class.java)
-            val connectionInfo = runCatching { wifiManager?.connectionInfo }.getOrNull()
             if (ssid == null) {
                 ssid = normalizeSsid(connectionInfo?.ssid)
             }
@@ -490,10 +560,61 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         if (isWifi && ssid == null) {
             ssid = context.getString(R.string.wifi_network_current_unknown_ssid)
         }
+        val isTrustEligible = isTrustEligibleSsid(context, ssid)
 
         currentWifiSsid = ssid
         currentWifiBssid = bssid
-        currentWifiSecurityType = wifiSecurityType
+
+        val scanSnapshots = if (isWifi && canInspectWifiDetails) {
+            val wifiManager = context.applicationContext.getSystemService(WifiManager::class.java)
+            runCatching { wifiManager?.scanResults.orEmpty() }
+                .getOrElse { emptyList() }
+                .map { result ->
+                    WifiScanNetworkSnapshot(
+                        ssid = normalizeSsid(result.SSID),
+                        bssid = normalizeBssid(result.BSSID),
+                        capabilities = result.capabilities,
+                        frequencyMhz = result.frequency,
+                        signalLevel = result.level
+                    )
+                }
+        } else {
+            emptyList()
+        }
+        val currentMatch = when {
+            !isWifi -> WifiCurrentNetworkMatch(
+                matchedSnapshot = null,
+                confidence = WifiMatchConfidence.UNAVAILABLE,
+                detail = "",
+                sameSsidCandidates = 0
+            )
+
+            canInspectWifiDetails -> WifiCurrentNetworkMatcher.match(
+                currentSsid = ssid,
+                currentBssid = bssid,
+                scanResults = scanSnapshots
+            )
+
+            wifiSecurityProfile != null -> WifiCurrentNetworkMatch(
+                matchedSnapshot = null,
+                confidence = WifiMatchConfidence.WIFI_INFO_ONLY,
+                detail = "Android exposed the current Wi-Fi profile, but scan matching was unavailable.",
+                sameSsidCandidates = 0
+            )
+
+            else -> WifiCurrentNetworkMatch(
+                matchedSnapshot = null,
+                confidence = WifiMatchConfidence.UNAVAILABLE,
+                detail = "Current access point details were unavailable.",
+                sameSsidCandidates = 0
+            )
+        }
+        val currentSignals = currentMatch.matchedSnapshot?.capabilities?.let { securitySignalsFromCapabilities(it) }
+        val effectiveSecurityProfile = mergeSecurityProfiles(
+            primary = wifiSecurityProfile,
+            secondary = currentSignals?.profile
+        )
+        currentWifiSecurityProfile = effectiveSecurityProfile
 
         var classification = WifiSecurityClassifier.classify(
             WifiClassificationInput(
@@ -503,7 +624,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 isValidated = hasInternetAccess,
                 supportsSecurityTypeDetection = supportsSecurityTypeDetection,
                 hasLocationPermission = canInspectWifiDetails,
-                securityType = wifiSecurityType
+                securityType = effectiveSecurityProfile?.broadType
             )
         )
         if (isWifi && hasLocationAccess && !isLocationServicesEnabled) {
@@ -514,20 +635,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
 
-        if (isWifi && canInspectWifiDetails) {
-            val wifiManager = context.applicationContext.getSystemService(WifiManager::class.java)
-            val currentScanResult = runCatching { wifiManager?.scanResults.orEmpty() }
-                .getOrElse { emptyList() }
-                .firstOrNull { result ->
-                    val scanBssid = normalizeBssid(result.BSSID)
-                    val scanSsid = normalizeSsid(result.SSID)
-                    when {
-                        bssid != null && scanBssid != null -> bssid.equals(scanBssid, ignoreCase = true)
-                        ssid != null && scanSsid != null -> ssid.equals(scanSsid, ignoreCase = true)
-                        else -> false
-                    }
-                }
-            val currentSignals = securitySignalsFromCapabilities(currentScanResult?.capabilities)
+        if (currentSignals != null) {
             classification = when {
                 currentSignals.hasWeakCipher && classification.reason != WifiAlertReason.OPEN_OR_WEP -> classification.copy(
                     level = WifiAlertLevel.WARNING,
@@ -543,39 +651,70 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        val trustedProfile = if (isWifi && ssid != null) getTrustedProfile(ssid) else null
+        val baseClassification = classification
+        val trustedProfile = if (isWifi && isTrustEligible && ssid != null) getTrustedProfile(ssid) else null
+        val observation = buildTrustedObservation(
+            bssid = bssid,
+            securityProfile = effectiveSecurityProfile,
+            frequencyMhz = currentMatch.matchedSnapshot?.frequencyMhz ?: wifiInfo?.frequency,
+            gateway = getCurrentGatewayAddress()
+        )
+        val trustAssessment = if (trustedProfile != null) {
+            WifiTrustedBaselineManager.assess(
+                profile = trustedProfile,
+                observation = observation,
+                matchConfidence = currentMatch.confidence
+            )
+        } else {
+            WifiTrustAssessment(status = WifiTrustBaselineStatus.NOT_TRUSTED)
+        }
         if (trustedProfile != null) {
             classification = when {
-                isSecurityDowngrade(
-                    trustedType = trustedProfile.securityType,
-                    currentType = wifiSecurityType
-                ) -> classification.copy(
+                trustAssessment.shouldFlagDowngrade() -> classification.copy(
                     level = WifiAlertLevel.WARNING,
                     reason = WifiAlertReason.TRUSTED_SECURITY_DOWNGRADE
                 )
 
-                isTrustedBssidMismatch(trustedProfile, bssid) &&
-                    !isBenignTrustedBssidChange(trustedProfile, wifiSecurityType) -> classification.copy(
+                trustAssessment.shouldFlagFingerprintChange() -> classification.copy(
                     level = WifiAlertLevel.WARNING,
-                    reason = WifiAlertReason.TRUSTED_BSSID_MISMATCH
+                    reason = WifiAlertReason.TRUSTED_FINGERPRINT_CHANGED
                 )
 
                 else -> classification
             }
         }
 
+        val trustDetail = buildTrustDetail(
+            trustedProfile = trustedProfile,
+            trustAssessment = trustAssessment
+        )
+
         return WifiSecurityAlert(
             level = classification.level,
             reason = classification.reason,
             message = context.getString(reasonMessageResId(classification.reason)),
-            securityType = wifiSecurityType,
+            baseLevel = baseClassification.level,
+            baseReason = baseClassification.reason,
+            securityType = effectiveSecurityProfile?.broadType,
+            securityProfile = effectiveSecurityProfile,
             checkedAtMillis = checkedAtMillis,
             requiresLocationPermission = classification.requiresLocationPermission,
             ssid = ssid,
             bssid = bssid,
+            isOnWifi = isWifi,
             isTrustedNetwork = trustedProfile != null,
-            canToggleTrust = isWifi && ssid != null,
-            hasInternetAccess = if (isWifi) hasInternetAccess else null
+            canToggleTrust = isWifi && isTrustEligible && ssid != null,
+            hasInternetAccess = if (isWifi) hasInternetAccess else null,
+            matchConfidence = currentMatch.confidence,
+            matchDetail = currentMatch.detail.takeIf { it.isNotBlank() },
+            trustStatus = trustAssessment.status,
+            trustObservationCount = trustAssessment.observationCount,
+            trustObservationThreshold = trustAssessment.threshold,
+            hasPendingTrustApproval = (trustAssessment.shouldFlagFingerprintChange() ||
+                trustAssessment.status == WifiTrustBaselineStatus.PENDING_NEW_FINGERPRINT) &&
+                observation?.bssid != null &&
+                effectiveSecurityProfile != null,
+            trustDetail = trustDetail
         )
     }
 
@@ -584,7 +723,9 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         requestFreshScan: Boolean
     ): WifiNearbyNetworksState {
         val context = getApplication<Application>()
-        val trustedBySsid = loadTrustedProfiles().associateBy { it.ssid }
+        val trustedBySsid = loadTrustedProfiles()
+            .filter { profile -> isTrustEligibleSsid(context, profile.ssid) }
+            .associateBy { it.ssid }
         val currentFallback = buildCurrentWifiFallbackNetwork(currentAlert, trustedBySsid)
         val hasLocationAccess = hasLocationPermission(context)
         val locationServicesEnabled = isLocationServicesEnabled(context)
@@ -639,31 +780,87 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             val signals = securitySignalsFromCapabilities(result.capabilities)
             val securityType = signals.securityType
             val trustedProfile = trustedBySsid[ssid]
+            val isTrustEligible = isTrustEligibleSsid(context, ssid)
             val isCurrent = when {
                 currentBssid != null && bssid != null -> currentBssid.equals(bssid, ignoreCase = true)
-                currentAlert.ssid != null -> currentAlert.ssid.equals(ssid, ignoreCase = true)
+                currentAlert.matchConfidence == WifiMatchConfidence.SSID_ONLY_SINGLE &&
+                    currentAlert.ssid != null -> currentAlert.ssid.equals(ssid, ignoreCase = true)
                 else -> false
+            }
+            val matchConfidence = if (isCurrent) {
+                currentAlert.matchConfidence
+            } else if (bssid != null) {
+                WifiMatchConfidence.VERIFIED_BSSID
+            } else {
+                WifiMatchConfidence.SSID_ONLY_SINGLE
+            }
+            val trustAssessment = when {
+                isCurrent && currentAlert.isTrustedNetwork -> WifiTrustAssessment(
+                    status = currentAlert.trustStatus,
+                    observationCount = currentAlert.trustObservationCount,
+                    threshold = currentAlert.trustObservationThreshold
+                )
+
+                trustedProfile != null -> WifiTrustedBaselineManager.assess(
+                    profile = trustedProfile,
+                    observation = buildTrustedObservation(
+                        bssid = bssid,
+                        securityProfile = signals.profile,
+                        frequencyMhz = result.frequency,
+                        gateway = null
+                    ),
+                    matchConfidence = matchConfidence
+                )
+
+                else -> WifiTrustAssessment(status = WifiTrustBaselineStatus.NOT_TRUSTED)
             }
 
             val risk = classifyNearbyNetworkRisk(
+                securityProfile = signals.profile,
                 signals = signals,
-                trustedProfile = trustedProfile,
-                bssid = bssid,
+                trustAssessment = trustAssessment,
                 isCurrent = isCurrent,
                 currentAlertReason = currentAlert.reason
             )
+            val scorePreview = buildNearbyNetworkScorePreview(
+                ssid = ssid,
+                securityType = securityType,
+                securityProfile = signals.profile,
+                signals = signals,
+                reason = risk.reason,
+                isTrusted = trustedProfile != null,
+                trustAssessment = trustAssessment,
+                matchConfidence = matchConfidence,
+                hasInternetAccess = if (isCurrent) currentAlert.hasInternetAccess else null
+            )
+            val combinedRiskLevel = maxRiskLevel(risk.level, scorePreview.assessment.level)
 
             WifiNearbyNetwork(
                 ssid = ssid,
                 bssid = bssid,
                 securityType = securityType,
-                riskLevel = risk.level,
+                securityProfile = signals.profile,
+                riskLevel = combinedRiskLevel,
                 reason = risk.reason,
                 isTrusted = trustedProfile != null,
                 isCurrent = isCurrent,
                 hasInternetAccess = if (isCurrent) currentAlert.hasInternetAccess else null,
                 frequencyMhz = result.frequency,
-                capabilities = result.capabilities
+                capabilities = result.capabilities,
+                matchConfidence = matchConfidence,
+                trustStatus = trustAssessment.status,
+                score = scorePreview.assessment.score,
+                scoreLevel = scorePreview.assessment.level,
+                scoreSummary = scorePreview.assessment.summary,
+                isLimitedData = scorePreview.assessment.isLimitedData,
+                scoreUncertainties = scorePreview.assessment.uncertainties,
+                scoreDimensions = scorePreview.assessment.dimensions,
+                scoreChecks = scorePreview.checks,
+                canToggleTrust = WifiTrustPolicy.canToggleNearbyTrust(
+                    isCurrent = isCurrent,
+                    isTrusted = trustedProfile != null,
+                    isTrustEligible = isTrustEligible
+                )
             )
         }.toMutableList()
 
@@ -677,6 +874,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
         val sorted = networks.sortedWith(
             compareByDescending<WifiNearbyNetwork> { riskSeverity(it.riskLevel) }
+                .thenBy { it.score }
                 .thenBy { it.ssid.lowercase() }
         )
 
@@ -684,9 +882,9 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun classifyNearbyNetworkRisk(
+        securityProfile: WifiSecurityProfile,
         signals: WifiSecuritySignals,
-        trustedProfile: TrustedWifiProfile?,
-        bssid: String?,
+        trustAssessment: WifiTrustAssessment,
         isCurrent: Boolean,
         currentAlertReason: WifiAlertReason
     ): WifiNearbyRiskResult {
@@ -719,16 +917,18 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             reason = WifiAlertReason.WPS_ENABLED
         }
 
-        if (trustedProfile != null) {
-            if (isSecurityDowngrade(trustedProfile.securityType, securityType)) {
+        if (trustAssessment.status != WifiTrustBaselineStatus.NOT_TRUSTED) {
+            if (trustAssessment.shouldFlagDowngrade()) {
                 level = WifiNetworkRiskLevel.DANGER
                 reason = WifiAlertReason.TRUSTED_SECURITY_DOWNGRADE
-            } else if (isTrustedBssidMismatch(trustedProfile, bssid) &&
-                !isBenignTrustedBssidChange(trustedProfile, securityType) &&
+            } else if ((trustAssessment.shouldFlagFingerprintChange() ||
+                    trustAssessment.status == WifiTrustBaselineStatus.PENDING_NEW_FINGERPRINT) &&
                 riskSeverity(WifiNetworkRiskLevel.WARNING) > riskSeverity(level)
             ) {
                 level = WifiNetworkRiskLevel.WARNING
-                reason = WifiAlertReason.TRUSTED_BSSID_MISMATCH
+                reason = WifiAlertReason.TRUSTED_FINGERPRINT_CHANGED
+            } else if (riskSeverity(trustStatusRiskLevel(trustAssessment.status)) > riskSeverity(level)) {
+                level = trustStatusRiskLevel(trustAssessment.status)
             }
         }
 
@@ -748,6 +948,20 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
 
+                WifiAlertReason.TRUSTED_FINGERPRINT_CHANGED -> {
+                    if (riskSeverity(WifiNetworkRiskLevel.WARNING) > riskSeverity(level)) {
+                        level = WifiNetworkRiskLevel.WARNING
+                        reason = WifiAlertReason.TRUSTED_FINGERPRINT_CHANGED
+                    }
+                }
+
+                WifiAlertReason.TRUSTED_SECURITY_DOWNGRADE -> {
+                    if (riskSeverity(WifiNetworkRiskLevel.DANGER) > riskSeverity(level)) {
+                        level = WifiNetworkRiskLevel.DANGER
+                        reason = WifiAlertReason.TRUSTED_SECURITY_DOWNGRADE
+                    }
+                }
+
                 else -> {
                     // Keep risk from security/trust checks.
                 }
@@ -757,6 +971,82 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         return WifiNearbyRiskResult(level = level, reason = reason)
     }
 
+    private fun buildNearbyNetworkScorePreview(
+        ssid: String,
+        securityType: WifiSecurityType?,
+        securityProfile: WifiSecurityProfile?,
+        signals: WifiSecuritySignals?,
+        reason: WifiAlertReason,
+        isTrusted: Boolean,
+        trustAssessment: WifiTrustAssessment,
+        matchConfidence: WifiMatchConfidence,
+        hasInternetAccess: Boolean?
+    ): WifiNetworkScorePreview {
+        val context = getApplication<Application>()
+        val resolvedProfile = securityProfile ?: fallbackSecurityProfile(securityType)
+        val resolvedSignals = signals ?: resolvedProfile?.let { securitySignalsFromProfile(it) }
+        val previewAlert = WifiSecurityAlert(
+            level = when (nearbyRiskLevelForReason(reason)) {
+                WifiNetworkRiskLevel.SAFE -> WifiAlertLevel.SECURE
+                WifiNetworkRiskLevel.WARNING,
+                WifiNetworkRiskLevel.DANGER -> WifiAlertLevel.WARNING
+            },
+            reason = reason,
+            message = context.getString(reasonMessageResId(reason)),
+            securityType = securityType ?: resolvedProfile?.broadType,
+            securityProfile = resolvedProfile,
+            ssid = ssid,
+            isOnWifi = true,
+            isTrustedNetwork = isTrusted,
+            hasInternetAccess = hasInternetAccess,
+            matchConfidence = matchConfidence,
+            trustStatus = trustAssessment.status,
+            trustObservationCount = trustAssessment.observationCount,
+            trustObservationThreshold = trustAssessment.threshold
+        )
+        val checks = WifiSafetyScorer.buildCoreChecks(
+            alert = previewAlert,
+            signals = resolvedSignals
+        )
+        return WifiNetworkScorePreview(
+            assessment = WifiSafetyScorer.buildSafetyAssessment(
+                alert = previewAlert,
+                checks = checks
+            ),
+            checks = checks
+        )
+    }
+
+    private fun fallbackSecurityProfile(securityType: WifiSecurityType?): WifiSecurityProfile? {
+        return when (securityType) {
+            WifiSecurityType.OPEN -> WifiSecurityProfile(
+                mode = WifiSecurityMode.OPEN,
+                pmfState = WifiPmfState.NOT_APPLICABLE
+            )
+
+            WifiSecurityType.WEP -> WifiSecurityProfile(
+                mode = WifiSecurityMode.WEP,
+                pmfState = WifiPmfState.NOT_APPLICABLE
+            )
+
+            else -> null
+        }
+    }
+
+    private fun securitySignalsFromProfile(profile: WifiSecurityProfile): WifiSecuritySignals {
+        return WifiSecuritySignals(
+            profile = profile,
+            isTransitionMode = profile.mode == WifiSecurityMode.TRANSITION,
+            isOwe = profile.mode == WifiSecurityMode.OWE,
+            isOpenPlain = profile.mode == WifiSecurityMode.OPEN,
+            isWpa2Personal = profile.mode == WifiSecurityMode.WPA2_PSK,
+            isWpa3Personal = profile.mode == WifiSecurityMode.WPA3_SAE,
+            isWpa2Enterprise = profile.mode == WifiSecurityMode.WPA2_ENTERPRISE,
+            isWpa3Enterprise = profile.mode == WifiSecurityMode.WPA3_ENTERPRISE,
+            isWep = profile.mode == WifiSecurityMode.WEP
+        )
+    }
+
     private fun buildAdvancedChecks(
         alert: WifiSecurityAlert,
         nearbyState: WifiNearbyNetworksState
@@ -764,13 +1054,18 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         val context = getApplication<Application>()
         val currentNetwork = nearbyState.networks.firstOrNull { it.isCurrent }
         val signals = currentNetwork?.capabilities?.let { securitySignalsFromCapabilities(it) }
-        val isWifiConnected = alert.canToggleTrust
+        val isWifiConnected = alert.isOnWifi
         val hasLocationAccess = hasLocationPermission(context)
         val locationServicesEnabled = isLocationServicesEnabled(context)
         val trustedProfile = alert.ssid?.let { getTrustedProfile(it) }
         val vpnActive = isVpnActive(context.getSystemService(ConnectivityManager::class.java))
 
         val checks = mutableListOf<WifiAdvancedCheckItem>()
+        checks += WifiSafetyScorer.buildCoreChecks(
+            alert = alert,
+            signals = signals
+        )
+        checks += buildConnectionConfidenceCheck(alert)
         checks += buildPmfCheck(
             isWifiConnected = isWifiConnected,
             hasLocationAccess = hasLocationAccess,
@@ -817,28 +1112,62 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         alert: WifiSecurityAlert,
         checks: List<WifiAdvancedCheckItem>
     ): WifiSafetyAssessment {
-        val totalPenalty = checks.sumOf { it.penalty }
-        val score = (100 - totalPenalty).coerceIn(0, 100)
-        val level = when {
-            score >= 80 -> WifiNetworkRiskLevel.SAFE
-            score >= 55 -> WifiNetworkRiskLevel.WARNING
-            else -> WifiNetworkRiskLevel.DANGER
-        }
-        val topIssue = checks
-            .filter { it.level != WifiNetworkRiskLevel.SAFE }
-            .maxWithOrNull(compareBy<WifiAdvancedCheckItem> { it.penalty }.thenBy { severityScore(it.level) })
-        val summary = topIssue?.detail ?: alert.message
-        val recommendationResId = when (level) {
-            WifiNetworkRiskLevel.SAFE -> R.string.wifi_security_recommendation_secure
-            WifiNetworkRiskLevel.WARNING,
-            WifiNetworkRiskLevel.DANGER -> R.string.wifi_security_recommendation_warning
-        }
-        return WifiSafetyAssessment(
-            score = score,
-            level = level,
-            summary = summary,
-            recommendationResId = recommendationResId
+        return WifiSafetyScorer.buildSafetyAssessment(
+            alert = alert,
+            checks = checks
         )
+    }
+
+    private fun buildConnectionConfidenceCheck(alert: WifiSecurityAlert): WifiAdvancedCheckItem {
+        if (!alert.isOnWifi) {
+            return safeCheck(
+                key = "connection_confidence",
+                titleRes = R.string.wifi_check_connection_confidence_title,
+                detail = "Not on Wi-Fi.",
+                dimension = WifiRiskDimension.NETWORK
+            )
+        }
+
+        return when (alert.matchConfidence) {
+            WifiMatchConfidence.VERIFIED_BSSID -> safeCheck(
+                key = "connection_confidence",
+                titleRes = R.string.wifi_check_connection_confidence_title,
+                detail = "Current access point was verified by BSSID.",
+                dimension = WifiRiskDimension.NETWORK
+            )
+
+            WifiMatchConfidence.SSID_ONLY_SINGLE -> warningCheck(
+                key = "connection_confidence",
+                titleRes = R.string.wifi_check_connection_confidence_title,
+                detail = "Current access point was matched by SSID only. Exact BSSID confirmation was unavailable.",
+                penalty = 6,
+                dimension = WifiRiskDimension.NETWORK
+            )
+
+            WifiMatchConfidence.AMBIGUOUS_SSID -> warningCheck(
+                key = "connection_confidence",
+                titleRes = R.string.wifi_check_connection_confidence_title,
+                detail = "Multiple same-name access points are nearby, so the current AP could not be matched confidently.",
+                penalty = 10,
+                dimension = WifiRiskDimension.NETWORK
+            )
+
+            WifiMatchConfidence.WIFI_INFO_ONLY -> warningCheck(
+                key = "connection_confidence",
+                titleRes = R.string.wifi_check_connection_confidence_title,
+                detail = "Android exposed the Wi-Fi profile, but the current access point could not be verified against scan results.",
+                penalty = 7,
+                dimension = WifiRiskDimension.NETWORK
+            )
+
+            WifiMatchConfidence.UNAVAILABLE -> warningCheck(
+                key = "connection_confidence",
+                titleRes = R.string.wifi_check_connection_confidence_title,
+                detail = "Current access point details were unavailable.",
+                penalty = 8,
+                dimension = WifiRiskDimension.NETWORK
+            )
+        }
     }
 
     private fun emitRiskTransitionIfNeeded(
@@ -865,7 +1194,10 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun applyAutoVpnPolicy(assessment: WifiSafetyAssessment) {
         val policy = _autoVpnPolicy.value ?: AutoVpnPolicy.OFF
-        val riskBand = assessment.level != WifiNetworkRiskLevel.SAFE
+        val riskBand = WifiAutoProtectionDecider.shouldProtect(
+            assessment = assessment,
+            protectUnknownWifi = _autoProtectUnknownWifi.value == true
+        )
         val previousRiskBand = lastAutoVpnRiskBand
 
         if (policy == AutoVpnPolicy.OFF) {
@@ -1013,24 +1345,80 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun maybeUpdateTrustedBaseline(
         alert: WifiSecurityAlert,
-        nearbyState: WifiNearbyNetworksState
-    ) {
-        if (!alert.isTrustedNetwork || alert.ssid == null) return
-        val trustedProfile = getTrustedProfile(alert.ssid) ?: return
+        nearbyState: WifiNearbyNetworksState,
+        assessment: WifiSafetyAssessment
+    ): TrustedBaselineUpdateResult {
+        if (!alert.isTrustedNetwork || alert.ssid == null) return TrustedBaselineUpdateResult(alert)
+        val trustedProfile = getTrustedProfile(alert.ssid) ?: return TrustedBaselineUpdateResult(alert)
         val currentNetwork = nearbyState.networks.firstOrNull { it.isCurrent }
-        val updatedFrequency = currentNetwork?.frequencyMhz ?: trustedProfile.lastFrequencyMhz
-        val updatedGateway = getCurrentGatewayAddress() ?: trustedProfile.lastGateway
-        val mergedKnownBssids = mergeKnownBssids(trustedProfile.knownBssids, alert.bssid)
-        val updatedBssid = alert.bssid ?: trustedProfile.bssid ?: mergedKnownBssids.firstOrNull()
-        val updatedSecurity = alert.securityType ?: trustedProfile.securityType
-        saveTrustedProfile(
-            ssid = trustedProfile.ssid,
-            bssid = updatedBssid,
-            securityType = updatedSecurity,
-            knownBssids = mergedKnownBssids,
-            lastFrequencyMhz = updatedFrequency,
-            lastSeenMillis = currentTimeMillis(),
-            lastGateway = updatedGateway
+        val observation = buildTrustedObservation(
+            bssid = alert.bssid,
+            securityProfile = alert.securityProfile,
+            frequencyMhz = currentNetwork?.frequencyMhz,
+            gateway = getCurrentGatewayAddress()
+        ) ?: return TrustedBaselineUpdateResult(alert)
+        val allowLearning = alert.matchConfidence == WifiMatchConfidence.VERIFIED_BSSID &&
+            !assessment.isLimitedData &&
+            alert.reason !in setOf(
+                WifiAlertReason.OPEN_OR_WEP,
+                WifiAlertReason.UNKNOWN_SECURITY,
+                WifiAlertReason.WEAK_LEGACY_CIPHER,
+                WifiAlertReason.WPS_ENABLED,
+                WifiAlertReason.CAPTIVE_PORTAL,
+                WifiAlertReason.UNVALIDATED,
+                WifiAlertReason.MISSING_PERMISSION,
+                WifiAlertReason.LOCATION_SERVICES_DISABLED,
+                WifiAlertReason.LEGACY_NO_SECURITY_TYPE,
+                WifiAlertReason.TRUSTED_SECURITY_DOWNGRADE
+            )
+        val updatedProfile = WifiTrustedBaselineManager.updateProfile(
+            profile = trustedProfile,
+            observation = observation,
+            allowLearning = allowLearning,
+            approveNow = false,
+            nowMillis = currentTimeMillis()
+        )
+        if (updatedProfile != trustedProfile) {
+            persistTrustedProfile(updatedProfile)
+        }
+
+        val trustAssessment = WifiTrustedBaselineManager.assess(
+            profile = updatedProfile,
+            observation = observation,
+            matchConfidence = alert.matchConfidence
+        )
+        val promotedToStable = updatedProfile != trustedProfile &&
+            alert.reason == WifiAlertReason.TRUSTED_FINGERPRINT_CHANGED &&
+            trustAssessment.isStable()
+        val adjustedReason = if (promotedToStable) {
+            alert.baseReason ?: reasonForSecurityType(alert.securityType ?: WifiSecurityType.UNKNOWN)
+        } else {
+            alert.reason
+        }
+        val adjustedLevel = if (promotedToStable) {
+            alert.baseLevel ?: alert.level
+        } else {
+            alert.level
+        }
+        val updatedAlert = alert.copy(
+            level = adjustedLevel,
+            reason = adjustedReason,
+            message = getApplication<Application>().getString(reasonMessageResId(adjustedReason)),
+            trustStatus = trustAssessment.status,
+            trustObservationCount = trustAssessment.observationCount,
+            trustObservationThreshold = trustAssessment.threshold,
+            hasPendingTrustApproval = (trustAssessment.shouldFlagFingerprintChange() ||
+                trustAssessment.status == WifiTrustBaselineStatus.PENDING_NEW_FINGERPRINT) &&
+                observation.bssid != null &&
+                alert.reason != WifiAlertReason.TRUSTED_SECURITY_DOWNGRADE,
+            trustDetail = buildTrustDetail(
+                trustedProfile = updatedProfile,
+                trustAssessment = trustAssessment
+            )
+        )
+        return TrustedBaselineUpdateResult(
+            alert = updatedAlert,
+            reassessRequired = promotedToStable
         )
     }
 
@@ -1044,54 +1432,62 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             !isWifiConnected -> safeCheck(
                 key = "pmf",
                 titleRes = R.string.wifi_check_pmf_title,
-                detail = "Not on Wi-Fi."
+                detail = "Not on Wi-Fi.",
+                dimension = WifiRiskDimension.ENCRYPTION
             )
 
             !hasLocationAccess -> warningCheck(
                 key = "pmf",
                 titleRes = R.string.wifi_check_pmf_title,
                 detail = "Location permission is required to inspect PMF support.",
-                penalty = 5
+                penalty = 0,
+                dimension = WifiRiskDimension.ENCRYPTION
             )
 
             !locationServicesEnabled -> warningCheck(
                 key = "pmf",
                 titleRes = R.string.wifi_check_pmf_title,
                 detail = "Location services are off, so PMF details are unavailable.",
-                penalty = 5
+                penalty = 0,
+                dimension = WifiRiskDimension.ENCRYPTION
             )
 
             signals == null -> warningCheck(
                 key = "pmf",
                 titleRes = R.string.wifi_check_pmf_title,
                 detail = "PMF details were unavailable from Wi-Fi capabilities.",
-                penalty = 5
+                penalty = 0,
+                dimension = WifiRiskDimension.ENCRYPTION
             )
 
             signals.hasPmfRequired -> safeCheck(
                 key = "pmf",
                 titleRes = R.string.wifi_check_pmf_title,
-                detail = "PMF is required by this network."
+                detail = "PMF is required by this network.",
+                dimension = WifiRiskDimension.ENCRYPTION
             )
 
             signals.hasPmfCapable -> warningCheck(
                 key = "pmf",
                 titleRes = R.string.wifi_check_pmf_title,
                 detail = "PMF is optional. Required PMF is safer on untrusted Wi-Fi.",
-                penalty = 7
+                penalty = 7,
+                dimension = WifiRiskDimension.ENCRYPTION
             )
 
             signals.securityType == WifiSecurityType.SECURE -> warningCheck(
                 key = "pmf",
                 titleRes = R.string.wifi_check_pmf_title,
                 detail = "PMF was not advertised by this secure network.",
-                penalty = 9
+                penalty = 9,
+                dimension = WifiRiskDimension.ENCRYPTION
             )
 
             else -> safeCheck(
                 key = "pmf",
                 titleRes = R.string.wifi_check_pmf_title,
-                detail = "PMF check is not applicable for this network type."
+                detail = "PMF check is not applicable for this network type.",
+                dimension = WifiRiskDimension.ENCRYPTION
             )
         }
     }
@@ -1104,48 +1500,55 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             !isWifiConnected -> safeCheck(
                 key = "wpa_mode",
                 titleRes = R.string.wifi_check_wpa_mode_title,
-                detail = "Not on Wi-Fi."
+                detail = "Not on Wi-Fi.",
+                dimension = WifiRiskDimension.ENCRYPTION
             )
 
             signals == null -> warningCheck(
                 key = "wpa_mode",
                 titleRes = R.string.wifi_check_wpa_mode_title,
                 detail = "Security mode could not be identified.",
-                penalty = 6
+                penalty = 0,
+                dimension = WifiRiskDimension.ENCRYPTION
             )
 
             signals.isWep || signals.securityType == WifiSecurityType.OPEN -> warningCheck(
                 key = "wpa_mode",
                 titleRes = R.string.wifi_check_wpa_mode_title,
                 detail = "Modern WPA security mode is not in use.",
-                penalty = 8
+                penalty = 8,
+                dimension = WifiRiskDimension.ENCRYPTION
             )
 
             signals.isWpa3Personal || signals.isWpa3Enterprise || signals.isOwe -> safeCheck(
                 key = "wpa_mode",
                 titleRes = R.string.wifi_check_wpa_mode_title,
-                detail = "Modern WPA3/OWE mode detected."
+                detail = "Modern WPA3/OWE mode detected.",
+                dimension = WifiRiskDimension.ENCRYPTION
             )
 
             signals.isTransitionMode -> warningCheck(
                 key = "wpa_mode",
                 titleRes = R.string.wifi_check_wpa_mode_title,
                 detail = "WPA2/WPA3 transition mode is enabled.",
-                penalty = 7
+                penalty = 7,
+                dimension = WifiRiskDimension.ENCRYPTION
             )
 
             signals.isWpa2Personal || signals.isWpa2Enterprise -> warningCheck(
                 key = "wpa_mode",
                 titleRes = R.string.wifi_check_wpa_mode_title,
                 detail = "WPA2 mode detected. This is acceptable but weaker than WPA3.",
-                penalty = 5
+                penalty = 5,
+                dimension = WifiRiskDimension.ENCRYPTION
             )
 
             else -> warningCheck(
                 key = "wpa_mode",
                 titleRes = R.string.wifi_check_wpa_mode_title,
                 detail = "Security mode could not be identified.",
-                penalty = 6
+                penalty = 6,
+                dimension = WifiRiskDimension.ENCRYPTION
             )
         }
     }
@@ -1158,20 +1561,23 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             safeCheck(
                 key = "transition_mode",
                 titleRes = R.string.wifi_check_transition_title,
-                detail = "Not on Wi-Fi."
+                detail = "Not on Wi-Fi.",
+                dimension = WifiRiskDimension.ENCRYPTION
             )
         } else if (signals?.isTransitionMode == true) {
             warningCheck(
                 key = "transition_mode",
                 titleRes = R.string.wifi_check_transition_title,
                 detail = "Transition mode can allow client downgrade paths.",
-                penalty = 8
+                penalty = 8,
+                dimension = WifiRiskDimension.ENCRYPTION
             )
         } else {
             safeCheck(
                 key = "transition_mode",
                 titleRes = R.string.wifi_check_transition_title,
-                detail = "No transition-mode downgrade pattern detected."
+                detail = "No transition-mode downgrade pattern detected.",
+                dimension = WifiRiskDimension.ENCRYPTION
             )
         }
     }
@@ -1184,40 +1590,46 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             !isWifiConnected -> safeCheck(
                 key = "open_owe",
                 titleRes = R.string.wifi_check_open_owe_title,
-                detail = "Not on Wi-Fi."
+                detail = "Not on Wi-Fi.",
+                dimension = WifiRiskDimension.ENCRYPTION
             )
 
             signals == null -> warningCheck(
                 key = "open_owe",
                 titleRes = R.string.wifi_check_open_owe_title,
                 detail = "Could not determine whether this network is plain-open or OWE-protected.",
-                penalty = 5
+                penalty = 0,
+                dimension = WifiRiskDimension.ENCRYPTION
             )
 
             signals.isWep || signals.securityType == WifiSecurityType.WEP -> dangerCheck(
                 key = "open_owe",
                 titleRes = R.string.wifi_check_open_owe_title,
                 detail = "WEP is considered weak and should be avoided.",
-                penalty = 20
+                penalty = 20,
+                dimension = WifiRiskDimension.ENCRYPTION
             )
 
             signals.isOpenPlain || signals.securityType == WifiSecurityType.OPEN -> dangerCheck(
                 key = "open_owe",
                 titleRes = R.string.wifi_check_open_owe_title,
                 detail = "This is a plain open network without OWE protection.",
-                penalty = 24
+                penalty = 24,
+                dimension = WifiRiskDimension.ENCRYPTION
             )
 
             signals.isOwe -> safeCheck(
                 key = "open_owe",
                 titleRes = R.string.wifi_check_open_owe_title,
-                detail = "OWE protection is advertised for open-style access."
+                detail = "OWE protection is advertised for open-style access.",
+                dimension = WifiRiskDimension.ENCRYPTION
             )
 
             else -> safeCheck(
                 key = "open_owe",
                 titleRes = R.string.wifi_check_open_owe_title,
-                detail = "Network is not plain-open."
+                detail = "Network is not plain-open.",
+                dimension = WifiRiskDimension.ENCRYPTION
             )
         }
     }
@@ -1228,11 +1640,12 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         trustedProfile: TrustedWifiProfile?
     ): WifiAdvancedCheckItem {
         val currentSsid = alert.ssid
-        if (!alert.canToggleTrust || currentSsid == null) {
+        if (!alert.isOnWifi || currentSsid == null) {
             return safeCheck(
                 key = "evil_twin",
                 titleRes = R.string.wifi_check_evil_twin_title,
-                detail = "Not on Wi-Fi."
+                detail = "Not on Wi-Fi.",
+                dimension = WifiRiskDimension.TRUST
             )
         }
 
@@ -1244,54 +1657,64 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             return safeCheck(
                 key = "evil_twin",
                 titleRes = R.string.wifi_check_evil_twin_title,
-                detail = "No obvious SSID clone pattern detected nearby."
+                detail = "No obvious SSID clone pattern detected nearby.",
+                dimension = WifiRiskDimension.TRUST
             )
         }
 
-        val currentSecurityType = currentNetwork?.securityType ?: alert.securityType ?: WifiSecurityType.UNKNOWN
-        val currentRank = securityRank(currentSecurityType)
-        val weakerCloneFound = competing.any { securityRank(it.securityType) < currentRank }
+        val currentSecurityProfile = currentNetwork?.securityProfile ?: alert.securityProfile ?: WifiSecurityProfile(
+            mode = WifiSecurityMode.UNKNOWN
+        )
+        val currentRank = securityRank(currentSecurityProfile)
+        val weakerCloneFound = competing.any {
+            securityRank(it.securityProfile ?: WifiSecurityProfile(mode = WifiSecurityMode.UNKNOWN)) < currentRank
+        }
         val mixedSecurityTypeFound = competing.any {
-            it.securityType != WifiSecurityType.UNKNOWN &&
-                currentSecurityType != WifiSecurityType.UNKNOWN &&
-                it.securityType != currentSecurityType
+            (it.securityProfile?.mode ?: WifiSecurityMode.UNKNOWN) != WifiSecurityMode.UNKNOWN &&
+                currentSecurityProfile.mode != WifiSecurityMode.UNKNOWN &&
+                it.securityProfile?.mode != currentSecurityProfile.mode
         }
         val differentBandPeerFound = competing.any { isDifferentBand(currentNetwork?.frequencyMhz, it.frequencyMhz) }
         val trustedMismatch = trustedProfile != null &&
-            isTrustedBssidMismatch(trustedProfile, alert.bssid) &&
-            !isBenignTrustedBssidChange(trustedProfile, currentSecurityType)
+            (((alert.bssid != null && trustedProfile.knownBssids.none { it.equals(alert.bssid, ignoreCase = true) })) ||
+                !trustedProfile.securityProfile.equivalentTo(currentSecurityProfile))
 
         return when {
             trustedMismatch && (weakerCloneFound || mixedSecurityTypeFound) -> dangerCheck(
                 key = "evil_twin",
                 titleRes = R.string.wifi_check_evil_twin_title,
                 detail = "Trusted network fingerprint changed and weaker same-name APs are nearby.",
-                penalty = 16
+                penalty = 16,
+                dimension = WifiRiskDimension.TRUST
             )
 
             trustedMismatch || weakerCloneFound || mixedSecurityTypeFound -> warningCheck(
                 key = "evil_twin",
                 titleRes = R.string.wifi_check_evil_twin_title,
                 detail = "Same-name AP behavior looks suspicious. Verify SSID and AP identity.",
-                penalty = 11
+                penalty = 11,
+                dimension = WifiRiskDimension.TRUST
             )
 
             competing.isNotEmpty() && differentBandPeerFound -> safeCheck(
                 key = "evil_twin",
                 titleRes = R.string.wifi_check_evil_twin_title,
-                detail = "Same SSID is visible on multiple bands/APs with similar security (common on dual-band or mesh networks)."
+                detail = "Same SSID is visible on multiple bands/APs with similar security (common on dual-band or mesh networks).",
+                dimension = WifiRiskDimension.TRUST
             )
 
             competing.isNotEmpty() -> safeCheck(
                 key = "evil_twin",
                 titleRes = R.string.wifi_check_evil_twin_title,
-                detail = "Multiple APs share this SSID. This is often normal for mesh or extender setups."
+                detail = "Multiple APs share this SSID. This is often normal for mesh or extender setups.",
+                dimension = WifiRiskDimension.TRUST
             )
 
             else -> safeCheck(
                 key = "evil_twin",
                 titleRes = R.string.wifi_check_evil_twin_title,
-                detail = "No obvious SSID clone pattern detected nearby."
+                detail = "No obvious SSID clone pattern detected nearby.",
+                dimension = WifiRiskDimension.TRUST
             )
         }
     }
@@ -1305,14 +1728,16 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             return safeCheck(
                 key = "channel_band",
                 titleRes = R.string.wifi_check_channel_title,
-                detail = "Not on Wi-Fi."
+                detail = "Not on Wi-Fi.",
+                dimension = WifiRiskDimension.NETWORK
             )
         }
         if (trustedProfile == null) {
             return safeCheck(
                 key = "channel_band",
                 titleRes = R.string.wifi_check_channel_title,
-                detail = "Channel/band baseline runs after you trust this network."
+                detail = "Channel/band baseline runs after you trust this network.",
+                dimension = WifiRiskDimension.NETWORK
             )
         }
         if (currentFrequencyMhz == null) {
@@ -1320,7 +1745,8 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 key = "channel_band",
                 titleRes = R.string.wifi_check_channel_title,
                 detail = "Current channel could not be determined.",
-                penalty = 4
+                penalty = 4,
+                dimension = WifiRiskDimension.NETWORK
             )
         }
 
@@ -1335,14 +1761,16 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 key = "channel_band",
                 titleRes = R.string.wifi_check_channel_title,
                 detail = "Trusted network moved from $previousBand to $currentBand recently.",
-                penalty = if (rapidChange) 8 else 5
+                penalty = if (rapidChange) 8 else 5,
+                dimension = WifiRiskDimension.NETWORK
             )
         }
 
         return safeCheck(
             key = "channel_band",
             titleRes = R.string.wifi_check_channel_title,
-            detail = "Channel/band behavior is stable."
+            detail = "Channel/band behavior is stable.",
+            dimension = WifiRiskDimension.NETWORK
         )
     }
 
@@ -1355,31 +1783,71 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             return safeCheck(
                 key = "dhcp_gateway",
                 titleRes = R.string.wifi_check_dhcp_title,
-                detail = "Not on Wi-Fi."
+                detail = "Not on Wi-Fi.",
+                dimension = WifiRiskDimension.NETWORK
             )
         }
+
+        val connectivityManager = context.getSystemService(ConnectivityManager::class.java)
+        val wifiNetwork = findWifiTransportNetwork(
+            context = context,
+            connectivityManager = connectivityManager,
+            expectedSsid = currentWifiSsid,
+            expectedBssid = currentWifiBssid
+        )
+        val linkProperties = wifiNetwork?.let { network ->
+            runCatching { connectivityManager.getLinkProperties(network) }.getOrNull()
+        }
+        val hasIpv6Routing = linkProperties?.let { properties ->
+            properties.linkAddresses.any { address -> address.address.hostAddress?.contains(':') == true } &&
+                properties.routes.any { route ->
+                    route.isDefaultRoute &&
+                        route.gateway?.hostAddress?.contains(':') == true
+                }
+        } == true
 
         val wifiManager = context.applicationContext.getSystemService(WifiManager::class.java)
         val dhcpInfo = runCatching { wifiManager?.dhcpInfo }.getOrNull()
         if (dhcpInfo == null) {
-            return warningCheck(
-                key = "dhcp_gateway",
-                titleRes = R.string.wifi_check_dhcp_title,
-                detail = "DHCP/gateway details are unavailable.",
-                penalty = 4
-            )
+            return if (hasIpv6Routing) {
+                safeCheck(
+                    key = "dhcp_gateway",
+                    titleRes = R.string.wifi_check_dhcp_title,
+                    detail = "IPv6 routing is active, so missing IPv4 DHCP details are not treated as a risk.",
+                    dimension = WifiRiskDimension.NETWORK
+                )
+            } else {
+                warningCheck(
+                    key = "dhcp_gateway",
+                    titleRes = R.string.wifi_check_dhcp_title,
+                    detail = "DHCP/gateway details are unavailable.",
+                    penalty = 2,
+                    dimension = WifiRiskDimension.NETWORK
+                )
+            }
         }
 
         val ipAddress = ipv4FromInt(dhcpInfo.ipAddress)
         val gateway = ipv4FromInt(dhcpInfo.gateway)
         val netmask = ipv4FromInt(dhcpInfo.netmask)
         if (ipAddress == "0.0.0.0" || gateway == "0.0.0.0") {
-            return dangerCheck(
-                key = "dhcp_gateway",
-                titleRes = R.string.wifi_check_dhcp_title,
-                detail = "Gateway/IP values look invalid for an active Wi-Fi session.",
-                penalty = 18
-            )
+            return if (hasIpv6Routing) {
+                warningCheck(
+                    key = "dhcp_gateway",
+                    titleRes = R.string.wifi_check_dhcp_title,
+                    detail = "IPv6 routing is active, but IPv4 DHCP values were incomplete.",
+                    penalty = 2,
+                    dimension = WifiRiskDimension.NETWORK
+                )
+            } else {
+                dangerCheck(
+                    key = "dhcp_gateway",
+                    titleRes = R.string.wifi_check_dhcp_title,
+                    detail = "Gateway/IP values look invalid for an active Wi-Fi session.",
+                    penalty = 8,
+                    dimension = WifiRiskDimension.NETWORK
+                )
+            }
         }
 
         if (!isSameSubnet(ipAddress, gateway, netmask)) {
@@ -1387,7 +1855,8 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 key = "dhcp_gateway",
                 titleRes = R.string.wifi_check_dhcp_title,
                 detail = "IP and gateway appear to be on different subnets.",
-                penalty = 10
+                penalty = 8,
+                dimension = WifiRiskDimension.NETWORK
             )
         }
 
@@ -1398,14 +1867,16 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 key = "dhcp_gateway",
                 titleRes = R.string.wifi_check_dhcp_title,
                 detail = "Gateway changed since this trusted network baseline was recorded.",
-                penalty = 8
+                penalty = 6,
+                dimension = WifiRiskDimension.NETWORK
             )
         }
 
         return safeCheck(
             key = "dhcp_gateway",
             titleRes = R.string.wifi_check_dhcp_title,
-            detail = "DHCP/gateway values look consistent."
+            detail = "DHCP/gateway values look consistent.",
+            dimension = WifiRiskDimension.NETWORK
         )
     }
 
@@ -1418,7 +1889,8 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             return safeCheck(
                 key = "vpn_posture",
                 titleRes = R.string.wifi_check_vpn_posture_title,
-                detail = "Not on Wi-Fi."
+                detail = "Not on Wi-Fi.",
+                dimension = WifiRiskDimension.NETWORK
             )
         }
 
@@ -1428,26 +1900,35 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 key = "vpn_posture",
                 titleRes = R.string.wifi_check_vpn_posture_title,
                 detail = "Wi-Fi risk is elevated and VPN is currently off.",
-                penalty = 10
+                penalty = 0,
+                dimension = WifiRiskDimension.NETWORK
             )
         } else if (vpnActive) {
             safeCheck(
                 key = "vpn_posture",
                 titleRes = R.string.wifi_check_vpn_posture_title,
-                detail = "VPN is active."
+                detail = "VPN is active.",
+                dimension = WifiRiskDimension.NETWORK
             )
         } else {
             safeCheck(
                 key = "vpn_posture",
                 titleRes = R.string.wifi_check_vpn_posture_title,
-                detail = "Risk is low and VPN posture is acceptable."
+                detail = "Risk is low and VPN posture is acceptable.",
+                dimension = WifiRiskDimension.NETWORK
             )
         }
     }
 
-    private fun safeCheck(key: String, titleRes: Int, detail: String): WifiAdvancedCheckItem {
+    private fun safeCheck(
+        key: String,
+        titleRes: Int,
+        detail: String,
+        dimension: WifiRiskDimension = WifiRiskDimension.NETWORK
+    ): WifiAdvancedCheckItem {
         return WifiAdvancedCheckItem(
             key = key,
+            dimension = dimension,
             titleResId = titleRes,
             detail = detail,
             level = WifiNetworkRiskLevel.SAFE,
@@ -1455,9 +1936,16 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    private fun warningCheck(key: String, titleRes: Int, detail: String, penalty: Int): WifiAdvancedCheckItem {
+    private fun warningCheck(
+        key: String,
+        titleRes: Int,
+        detail: String,
+        penalty: Int,
+        dimension: WifiRiskDimension = WifiRiskDimension.NETWORK
+    ): WifiAdvancedCheckItem {
         return WifiAdvancedCheckItem(
             key = key,
+            dimension = dimension,
             titleResId = titleRes,
             detail = detail,
             level = WifiNetworkRiskLevel.WARNING,
@@ -1465,9 +1953,16 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    private fun dangerCheck(key: String, titleRes: Int, detail: String, penalty: Int): WifiAdvancedCheckItem {
+    private fun dangerCheck(
+        key: String,
+        titleRes: Int,
+        detail: String,
+        penalty: Int,
+        dimension: WifiRiskDimension = WifiRiskDimension.NETWORK
+    ): WifiAdvancedCheckItem {
         return WifiAdvancedCheckItem(
             key = key,
+            dimension = dimension,
             titleResId = titleRes,
             detail = detail,
             level = WifiNetworkRiskLevel.DANGER,
@@ -1475,38 +1970,8 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    private fun severityScore(level: WifiNetworkRiskLevel): Int {
-        return when (level) {
-            WifiNetworkRiskLevel.SAFE -> 0
-            WifiNetworkRiskLevel.WARNING -> 1
-            WifiNetworkRiskLevel.DANGER -> 2
-        }
-    }
-
-    private fun securityRank(type: WifiSecurityType): Int {
-        return when (type) {
-            WifiSecurityType.OPEN -> 0
-            WifiSecurityType.WEP -> 1
-            WifiSecurityType.UNKNOWN -> 2
-            WifiSecurityType.SECURE -> 3
-        }
-    }
-
-    private fun isTrustedBssidMismatch(trustedProfile: TrustedWifiProfile, bssid: String?): Boolean {
-        val normalized = normalizeBssid(bssid) ?: return false
-        if (trustedProfile.knownBssids.any { it.equals(normalized, ignoreCase = true) }) {
-            return false
-        }
-        val primary = normalizeBssid(trustedProfile.bssid) ?: return false
-        return !primary.equals(normalized, ignoreCase = true)
-    }
-
-    private fun isBenignTrustedBssidChange(
-        trustedProfile: TrustedWifiProfile,
-        currentType: WifiSecurityType?
-    ): Boolean {
-        return trustedProfile.securityType == WifiSecurityType.SECURE &&
-            currentType == WifiSecurityType.SECURE
+    private fun securityRank(profile: WifiSecurityProfile): Int {
+        return profile.strengthRank()
     }
 
     private fun isVpnActive(connectivityManager: ConnectivityManager?): Boolean {
@@ -1517,6 +1982,63 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 caps?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
             }
         }.getOrElse { false }
+    }
+
+    private fun findWifiTransportNetwork(
+        context: Context,
+        connectivityManager: ConnectivityManager?,
+        expectedSsid: String? = null,
+        expectedBssid: String? = null
+    ): Network? {
+        if (connectivityManager == null) return null
+        val active = connectivityManager.activeNetwork
+        if (active != null) {
+            val activeCaps = connectivityManager.getNetworkCapabilities(active)
+            if (activeCaps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true) {
+                return active
+            }
+        }
+
+        val wifiManager = context.applicationContext.getSystemService(WifiManager::class.java)
+        val connectionInfo = runCatching { wifiManager?.connectionInfo }.getOrNull()
+        val targetBssid = normalizeBssid(expectedBssid ?: connectionInfo?.bssid)
+        val targetSsid = normalizeSsid(expectedSsid ?: connectionInfo?.ssid)
+        val candidates = runCatching {
+            connectivityManager.allNetworks.mapNotNull { network ->
+                val caps = connectivityManager.getNetworkCapabilities(network) ?: return@mapNotNull null
+                if (!caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) return@mapNotNull null
+                WifiTransportCandidate(
+                    network = network,
+                    capabilities = caps,
+                    wifiInfo = caps.transportInfo as? WifiInfo
+                )
+            }
+        }.getOrNull().orEmpty()
+        if (candidates.isEmpty()) return null
+
+        candidates.firstOrNull { candidate ->
+            val candidateBssid = normalizeBssid(candidate.wifiInfo?.bssid)
+            targetBssid != null &&
+                candidateBssid != null &&
+                candidateBssid.equals(targetBssid, ignoreCase = true)
+        }?.let { return it.network }
+
+        candidates.firstOrNull { candidate ->
+            val candidateSsid = normalizeSsid(candidate.wifiInfo?.ssid)
+            targetSsid != null &&
+                candidateSsid != null &&
+                candidateSsid.equals(targetSsid, ignoreCase = true)
+        }?.let { return it.network }
+
+        candidates.firstOrNull { candidate ->
+            candidate.capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        }?.let { return it.network }
+
+        candidates.firstOrNull { candidate ->
+            candidate.capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        }?.let { return it.network }
+
+        return candidates.first().network
     }
 
     private fun getCurrentGatewayAddress(): String? {
@@ -1596,24 +2118,58 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             WifiAlertReason.WEAK_LEGACY_CIPHER,
             WifiAlertReason.WPS_ENABLED,
             WifiAlertReason.LOCATION_SERVICES_DISABLED,
-            WifiAlertReason.TRUSTED_BSSID_MISMATCH,
+            WifiAlertReason.TRUSTED_FINGERPRINT_CHANGED,
             WifiAlertReason.TRUSTED_SECURITY_DOWNGRADE,
             WifiAlertReason.SECURE -> currentAlert.reason
 
             else -> reasonForSecurityType(securityType)
         }
+        val trustStatus = if (trustedProfile != null) currentAlert.trustStatus else WifiTrustBaselineStatus.NOT_TRUSTED
+        val scorePreview = buildNearbyNetworkScorePreview(
+            ssid = ssid,
+            securityType = securityType,
+            securityProfile = currentAlert.securityProfile,
+            signals = null,
+            reason = baseReason,
+            isTrusted = trustedProfile != null,
+            trustAssessment = WifiTrustAssessment(
+                status = trustStatus,
+                observationCount = currentAlert.trustObservationCount,
+                threshold = currentAlert.trustObservationThreshold
+            ),
+            matchConfidence = currentAlert.matchConfidence,
+            hasInternetAccess = currentAlert.hasInternetAccess
+        )
+        val riskLevel = maxRiskLevel(
+            nearbyRiskLevelForReason(baseReason),
+            maxRiskLevel(
+                trustStatusRiskLevel(trustStatus),
+                scorePreview.assessment.level
+            )
+        )
 
         return WifiNearbyNetwork(
             ssid = ssid,
             bssid = currentAlert.bssid,
             securityType = securityType,
-            riskLevel = nearbyRiskLevelForReason(baseReason),
+            securityProfile = currentAlert.securityProfile,
+            riskLevel = riskLevel,
             reason = baseReason,
             isTrusted = trustedProfile != null,
             isCurrent = true,
             hasInternetAccess = currentAlert.hasInternetAccess,
             frequencyMhz = null,
-            capabilities = null
+            capabilities = null,
+            matchConfidence = currentAlert.matchConfidence,
+            trustStatus = trustStatus,
+            score = scorePreview.assessment.score,
+            scoreLevel = scorePreview.assessment.level,
+            scoreSummary = scorePreview.assessment.summary,
+            isLimitedData = scorePreview.assessment.isLimitedData,
+            scoreUncertainties = scorePreview.assessment.uncertainties,
+            scoreDimensions = scorePreview.assessment.dimensions,
+            scoreChecks = scorePreview.checks,
+            canToggleTrust = currentAlert.canToggleTrust || trustedProfile != null
         )
     }
 
@@ -1639,6 +2195,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             WifiAlertReason.WPS_ENABLED,
             WifiAlertReason.LOCATION_SERVICES_DISABLED,
             WifiAlertReason.TRUSTED_BSSID_MISMATCH,
+            WifiAlertReason.TRUSTED_FINGERPRINT_CHANGED,
             WifiAlertReason.MISSING_PERMISSION,
             WifiAlertReason.LEGACY_NO_SECURITY_TYPE,
             WifiAlertReason.NOT_WIFI,
@@ -1658,42 +2215,73 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun securitySignalsFromCapabilities(capabilities: String?): WifiSecuritySignals {
-        val normalized = capabilities.orEmpty().uppercase()
-        val hasWep = "WEP" in normalized
-        val hasPsk = "PSK" in normalized
-        val hasSae = "SAE" in normalized
-        val hasEap = "EAP" in normalized
-        val hasSuiteB = "SUITE_B_192" in normalized
-        val hasOwe = "OWE" in normalized
-        val hasWps = "WPS" in normalized
-        val hasWeakCipher = "TKIP" in normalized
-        val hasPmfRequired = "MFPR" in normalized
-        val hasPmfCapable = "MFPC" in normalized
-        val hasTransition = (hasSae && hasPsk) || "OWE_TRANSITION" in normalized
-        val isOpenPlain = (normalized.isBlank() || normalized == "[ESS]") && !hasOwe
-
-        val securityType = when {
-            hasWep -> WifiSecurityType.WEP
-            "WPA" in normalized || "RSN" in normalized || hasSae || hasEap || hasOwe -> WifiSecurityType.SECURE
-            isOpenPlain -> WifiSecurityType.OPEN
-            else -> WifiSecurityType.UNKNOWN
+    private fun mergeSecurityProfiles(
+        primary: WifiSecurityProfile?,
+        secondary: WifiSecurityProfile?
+    ): WifiSecurityProfile? {
+        if (primary == null) return secondary
+        if (secondary == null) return primary
+        val mode = when {
+            primary.mode != WifiSecurityMode.UNKNOWN -> primary.mode
+            else -> secondary.mode
         }
-        return WifiSecuritySignals(
-            securityType = securityType,
-            hasWps = hasWps,
-            hasWeakCipher = hasWeakCipher,
-            hasPmfRequired = hasPmfRequired,
-            hasPmfCapable = hasPmfCapable,
-            isTransitionMode = hasTransition,
-            isOwe = hasOwe,
-            isOpenPlain = isOpenPlain,
-            isWpa2Personal = hasPsk,
-            isWpa3Personal = hasSae,
-            isWpa2Enterprise = hasEap && !hasSuiteB,
-            isWpa3Enterprise = hasSuiteB,
-            isWep = hasWep
+        val pmfState = when {
+            secondary.pmfState != WifiPmfState.UNKNOWN -> secondary.pmfState
+            else -> primary.pmfState
+        }
+        return WifiSecurityProfile(
+            mode = mode,
+            pmfState = pmfState,
+            hasWeakCipher = primary.hasWeakCipher || secondary.hasWeakCipher,
+            hasWps = primary.hasWps || secondary.hasWps
         )
+    }
+
+    private fun buildTrustedObservation(
+        bssid: String?,
+        securityProfile: WifiSecurityProfile?,
+        frequencyMhz: Int?,
+        gateway: String?
+    ): WifiTrustedFingerprintObservation? {
+        if (securityProfile == null) return null
+        return WifiTrustedFingerprintObservation(
+            bssid = normalizeBssid(bssid),
+            securityProfile = securityProfile,
+            frequencyMhz = frequencyMhz,
+            gateway = gateway
+        )
+    }
+
+    private fun buildTrustDetail(
+        trustedProfile: TrustedWifiProfile?,
+        trustAssessment: WifiTrustAssessment
+    ): String? {
+        if (trustedProfile == null) return "No trusted baseline is saved for this network."
+        return when (trustAssessment.status) {
+            WifiTrustBaselineStatus.DOWNGRADED ->
+                "The current network is weaker than the trusted baseline you previously approved."
+
+            WifiTrustBaselineStatus.PENDING_NEW_FINGERPRINT ->
+                "New fingerprint seen cleanly ${trustAssessment.observationCount}/${trustAssessment.threshold} times. Approve it now or keep observing."
+
+            WifiTrustBaselineStatus.FINGERPRINT_CHANGED ->
+                "This trusted SSID changed fingerprint. Three clean repeat sightings are required before it is learned automatically."
+
+            WifiTrustBaselineStatus.STABLE_PROFILE_ONLY ->
+                "Trusted baseline matches the current security profile, but BSSID verification was unavailable."
+
+            WifiTrustBaselineStatus.AMBIGUOUS ->
+                "Multiple same-name access points are nearby, so the trusted baseline could not be verified confidently."
+
+            WifiTrustBaselineStatus.UNVERIFIED ->
+                "Trusted baseline could not be fully verified right now."
+
+            else -> "Trusted baseline looks stable."
+        }
+    }
+
+    private fun securitySignalsFromCapabilities(capabilities: String?): WifiSecuritySignals {
+        return WifiSecurityProfileParser.parseCapabilities(capabilities)
     }
 
     private fun riskSeverity(level: WifiNetworkRiskLevel): Int {
@@ -1704,9 +2292,54 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun isTrustEligibleSsid(
+        context: Context,
+        ssid: String?
+    ): Boolean {
+        return WifiTrustPolicy.isTrustEligibleSsid(
+            ssid = ssid,
+            reservedLabels = setOf(
+                context.getString(R.string.wifi_network_current_unknown_ssid),
+                context.getString(R.string.wifi_network_hidden_ssid)
+            )
+        )
+    }
+
+    private fun trustStatusRiskLevel(status: WifiTrustBaselineStatus): WifiNetworkRiskLevel {
+        return when (status) {
+            WifiTrustBaselineStatus.DOWNGRADED -> WifiNetworkRiskLevel.DANGER
+            WifiTrustBaselineStatus.PENDING_NEW_FINGERPRINT,
+            WifiTrustBaselineStatus.FINGERPRINT_CHANGED,
+            WifiTrustBaselineStatus.STABLE_PROFILE_ONLY,
+            WifiTrustBaselineStatus.AMBIGUOUS,
+            WifiTrustBaselineStatus.UNVERIFIED -> WifiNetworkRiskLevel.WARNING
+
+            WifiTrustBaselineStatus.STABLE_VERIFIED,
+            WifiTrustBaselineStatus.NOT_TRUSTED -> WifiNetworkRiskLevel.SAFE
+        }
+    }
+
+    private fun maxRiskLevel(
+        first: WifiNetworkRiskLevel,
+        second: WifiNetworkRiskLevel
+    ): WifiNetworkRiskLevel {
+        return if (riskSeverity(first) >= riskSeverity(second)) first else second
+    }
+
     private data class WifiNearbyRiskResult(
         val level: WifiNetworkRiskLevel,
         val reason: WifiAlertReason
+    )
+
+    private data class WifiTransportCandidate(
+        val network: Network,
+        val capabilities: NetworkCapabilities,
+        val wifiInfo: WifiInfo?
+    )
+
+    private data class TrustedBaselineUpdateResult(
+        val alert: WifiSecurityAlert,
+        val reassessRequired: Boolean = false
     )
 
     private fun hasLocationPermission(context: Application): Boolean {
@@ -1719,27 +2352,43 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         return runCatching { manager.isLocationEnabled }.getOrDefault(true)
     }
 
-    private fun resolveWifiSecurityType(
+    private fun resolveWifiSecurityProfile(
         caps: NetworkCapabilities,
         supportsSecurityTypeDetection: Boolean,
         hasLocationPermission: Boolean
-    ): WifiSecurityType? {
+    ): WifiSecurityProfile? {
         if (!caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
             return null
         }
         if (!supportsSecurityTypeDetection || !hasLocationPermission) {
             return null
         }
-        val wifiInfo = caps.transportInfo as? WifiInfo ?: return WifiSecurityType.UNKNOWN
-        return wifiInfo.currentSecurityType.toWifiSecurityType()
+        val wifiInfo = caps.transportInfo as? WifiInfo ?: return WifiSecurityProfile(mode = WifiSecurityMode.UNKNOWN)
+        return wifiInfo.currentSecurityType.toWifiSecurityProfile()
     }
 
-    private fun Int.toWifiSecurityType(): WifiSecurityType {
+    private fun Int.toWifiSecurityProfile(): WifiSecurityProfile {
         return when (this) {
-            WifiInfo.SECURITY_TYPE_OPEN -> WifiSecurityType.OPEN
-            WifiInfo.SECURITY_TYPE_WEP -> WifiSecurityType.WEP
-            WifiInfo.SECURITY_TYPE_UNKNOWN -> WifiSecurityType.UNKNOWN
-            else -> WifiSecurityType.SECURE
+            WifiInfo.SECURITY_TYPE_OPEN -> WifiSecurityProfile(
+                mode = WifiSecurityMode.OPEN,
+                pmfState = WifiPmfState.NOT_APPLICABLE
+            )
+
+            WifiInfo.SECURITY_TYPE_WEP -> WifiSecurityProfile(
+                mode = WifiSecurityMode.WEP,
+                pmfState = WifiPmfState.NOT_APPLICABLE
+            )
+
+            WifiInfo.SECURITY_TYPE_OWE -> WifiSecurityProfile(mode = WifiSecurityMode.OWE)
+            WifiInfo.SECURITY_TYPE_PSK -> WifiSecurityProfile(mode = WifiSecurityMode.WPA2_PSK)
+            WifiInfo.SECURITY_TYPE_SAE -> WifiSecurityProfile(mode = WifiSecurityMode.WPA3_SAE)
+            WifiInfo.SECURITY_TYPE_EAP -> WifiSecurityProfile(mode = WifiSecurityMode.WPA2_ENTERPRISE)
+            WifiInfo.SECURITY_TYPE_EAP_WPA3_ENTERPRISE,
+            WifiInfo.SECURITY_TYPE_EAP_WPA3_ENTERPRISE_192_BIT,
+            WifiInfo.SECURITY_TYPE_PASSPOINT_R3 -> WifiSecurityProfile(mode = WifiSecurityMode.WPA3_ENTERPRISE)
+
+            WifiInfo.SECURITY_TYPE_UNKNOWN -> WifiSecurityProfile(mode = WifiSecurityMode.UNKNOWN)
+            else -> WifiSecurityProfile(mode = WifiSecurityMode.UNKNOWN)
         }
     }
 
@@ -1758,6 +2407,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             WifiAlertReason.WEAK_LEGACY_CIPHER -> R.string.wifi_security_weak_legacy_cipher
             WifiAlertReason.WPS_ENABLED -> R.string.wifi_security_wps_enabled
             WifiAlertReason.TRUSTED_BSSID_MISMATCH -> R.string.wifi_security_trusted_bssid_mismatch
+            WifiAlertReason.TRUSTED_FINGERPRINT_CHANGED -> R.string.wifi_security_trusted_fingerprint_changed
             WifiAlertReason.TRUSTED_SECURITY_DOWNGRADE -> R.string.wifi_security_trusted_security_downgrade
             WifiAlertReason.SECURE -> R.string.wifi_security_secure
         }
@@ -1773,15 +2423,6 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         if (rawBssid.isNullOrBlank()) return null
         val cleaned = rawBssid.trim()
         return if (cleaned == "02:00:00:00:00:00") null else cleaned
-    }
-
-    private fun isSecurityDowngrade(trustedType: WifiSecurityType, currentType: WifiSecurityType?): Boolean {
-        return when (trustedType) {
-            WifiSecurityType.SECURE -> currentType == WifiSecurityType.OPEN || currentType == WifiSecurityType.WEP
-            WifiSecurityType.WEP -> currentType == WifiSecurityType.OPEN
-            WifiSecurityType.UNKNOWN,
-            WifiSecurityType.OPEN -> false
-        }
     }
 
     private fun getTrustedProfile(ssid: String): TrustedWifiProfile? {
@@ -1806,14 +2447,15 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 normalizeBssid(storedBssid)?.let { add(it) }
             }
-            val storedSecurityName = profile.optString("securityType", WifiSecurityType.UNKNOWN.name)
-            val storedSecurityType = runCatching { WifiSecurityType.valueOf(storedSecurityName) }
-                .getOrDefault(WifiSecurityType.UNKNOWN)
             profiles += TrustedWifiProfile(
                 ssid = ssid,
                 bssid = normalizeBssid(storedBssid),
                 knownBssids = knownBssids,
-                securityType = storedSecurityType,
+                securityProfile = loadStoredSecurityProfile(
+                    root = profile,
+                    key = "securityProfile",
+                    legacyKey = "securityType"
+                ),
                 lastFrequencyMhz = if (profile.has("lastFrequencyMhz") && !profile.isNull("lastFrequencyMhz")) {
                     profile.optInt("lastFrequencyMhz")
                 } else {
@@ -1824,7 +2466,25 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     null
                 },
-                lastGateway = if (profile.isNull("lastGateway")) null else profile.optString("lastGateway", null)
+                lastGateway = if (profile.isNull("lastGateway")) null else profile.optString("lastGateway", null),
+                pendingBssid = if (profile.isNull("pendingBssid")) null else normalizeBssid(profile.optString("pendingBssid", null)),
+                pendingSecurityProfile = loadStoredSecurityProfileOrNull(
+                    root = profile,
+                    key = "pendingSecurityProfile",
+                    legacyKey = "pendingSecurityType"
+                ),
+                pendingSeenCount = profile.optInt("pendingSeenCount", 0),
+                pendingLastFrequencyMhz = if (profile.has("pendingLastFrequencyMhz") && !profile.isNull("pendingLastFrequencyMhz")) {
+                    profile.optInt("pendingLastFrequencyMhz")
+                } else {
+                    null
+                },
+                pendingLastGateway = if (profile.isNull("pendingLastGateway")) null else profile.optString("pendingLastGateway", null),
+                pendingLastSeenMillis = if (profile.has("pendingLastSeenMillis") && !profile.isNull("pendingLastSeenMillis")) {
+                    profile.optLong("pendingLastSeenMillis")
+                } else {
+                    null
+                }
             )
         }
         return profiles
@@ -1833,24 +2493,54 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     private fun saveTrustedProfile(
         ssid: String,
         bssid: String?,
-        securityType: WifiSecurityType,
+        securityProfile: WifiSecurityProfile,
         knownBssids: Set<String> = emptySet(),
         lastFrequencyMhz: Int? = null,
         lastSeenMillis: Long? = null,
-        lastGateway: String? = null
+        lastGateway: String? = null,
+        pendingBssid: String? = null,
+        pendingSecurityProfile: WifiSecurityProfile? = null,
+        pendingSeenCount: Int = 0,
+        pendingLastFrequencyMhz: Int? = null,
+        pendingLastGateway: String? = null,
+        pendingLastSeenMillis: Long? = null
     ) {
         val root = loadTrustedProfilesJson()
         val normalizedKnownBssids = mergeKnownBssids(knownBssids, bssid)
         val profile = JSONObject().apply {
             put("bssid", bssid ?: JSONObject.NULL)
             put("knownBssids", JSONArray(normalizedKnownBssids.sorted()))
-            put("securityType", securityType.name)
+            put("securityProfile", securityProfile.storageKey())
             put("lastFrequencyMhz", lastFrequencyMhz ?: JSONObject.NULL)
             put("lastSeenMillis", lastSeenMillis ?: JSONObject.NULL)
             put("lastGateway", lastGateway ?: JSONObject.NULL)
+            put("pendingBssid", pendingBssid ?: JSONObject.NULL)
+            put("pendingSecurityProfile", pendingSecurityProfile?.storageKey() ?: JSONObject.NULL)
+            put("pendingSeenCount", pendingSeenCount)
+            put("pendingLastFrequencyMhz", pendingLastFrequencyMhz ?: JSONObject.NULL)
+            put("pendingLastGateway", pendingLastGateway ?: JSONObject.NULL)
+            put("pendingLastSeenMillis", pendingLastSeenMillis ?: JSONObject.NULL)
         }
         root.put(ssid, profile)
         saveTrustedProfilesJson(root)
+    }
+
+    private fun persistTrustedProfile(profile: TrustedWifiProfile) {
+        saveTrustedProfile(
+            ssid = profile.ssid,
+            bssid = profile.bssid,
+            securityProfile = profile.securityProfile,
+            knownBssids = profile.knownBssids,
+            lastFrequencyMhz = profile.lastFrequencyMhz,
+            lastSeenMillis = profile.lastSeenMillis,
+            lastGateway = profile.lastGateway,
+            pendingBssid = profile.pendingBssid,
+            pendingSecurityProfile = profile.pendingSecurityProfile,
+            pendingSeenCount = profile.pendingSeenCount,
+            pendingLastFrequencyMhz = profile.pendingLastFrequencyMhz,
+            pendingLastGateway = profile.pendingLastGateway,
+            pendingLastSeenMillis = profile.pendingLastSeenMillis
+        )
     }
 
     private fun mergeKnownBssids(existing: Set<String>, bssid: String?): Set<String> {
@@ -1858,6 +2548,59 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             existing.forEach { value -> normalizeBssid(value)?.let { add(it) } }
             normalizeBssid(bssid)?.let { add(it) }
         }
+    }
+
+    private fun loadStoredSecurityProfile(
+        root: JSONObject,
+        key: String,
+        legacyKey: String
+    ): WifiSecurityProfile {
+        val rawKey = if (root.isNull(key)) null else root.optString(key, null)
+        if (!rawKey.isNullOrBlank()) {
+            val parts = rawKey.split("|")
+            val mode = parts.getOrNull(0)?.let { name ->
+                runCatching { WifiSecurityMode.valueOf(name) }.getOrNull()
+            } ?: WifiSecurityMode.UNKNOWN
+            val pmfState = parts.getOrNull(1)?.let { name ->
+                runCatching { WifiPmfState.valueOf(name) }.getOrNull()
+            } ?: WifiPmfState.UNKNOWN
+            val hasWeakCipher = parts.getOrNull(2)?.toBooleanStrictOrNull() ?: false
+            val hasWps = parts.getOrNull(3)?.toBooleanStrictOrNull() ?: false
+            return WifiSecurityProfile(
+                mode = mode,
+                pmfState = pmfState,
+                hasWeakCipher = hasWeakCipher,
+                hasWps = hasWps
+            )
+        }
+
+        val legacyTypeName = root.optString(legacyKey, WifiSecurityType.UNKNOWN.name)
+        val legacyType = runCatching { WifiSecurityType.valueOf(legacyTypeName) }
+            .getOrDefault(WifiSecurityType.UNKNOWN)
+        val legacyMode = when (legacyType) {
+            WifiSecurityType.OPEN -> WifiSecurityMode.OPEN
+            WifiSecurityType.WEP -> WifiSecurityMode.WEP
+            WifiSecurityType.SECURE -> WifiSecurityMode.WPA2_PSK
+            WifiSecurityType.UNKNOWN -> WifiSecurityMode.UNKNOWN
+        }
+        return WifiSecurityProfile(mode = legacyMode)
+    }
+
+    private fun loadStoredSecurityProfileOrNull(
+        root: JSONObject,
+        key: String,
+        legacyKey: String
+    ): WifiSecurityProfile? {
+        val hasModernValue = root.has(key) && !root.isNull(key)
+        val hasLegacyValue = root.has(legacyKey) && !root.isNull(legacyKey)
+        if (!hasModernValue && !hasLegacyValue) {
+            return null
+        }
+        return loadStoredSecurityProfile(
+            root = root,
+            key = key,
+            legacyKey = legacyKey
+        )
     }
 
     private fun removeTrustedProfile(ssid: String) {
@@ -1873,6 +2616,14 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun saveAutoVpnPolicy(policy: AutoVpnPolicy) {
         trustPrefs.edit().putString(AUTO_VPN_POLICY_KEY, policy.name).apply()
+    }
+
+    private fun loadAutoProtectUnknownWifi(): Boolean {
+        return trustPrefs.getBoolean(AUTO_PROTECT_UNKNOWN_WIFI_KEY, false)
+    }
+
+    private fun saveAutoProtectUnknownWifi(enabled: Boolean) {
+        trustPrefs.edit().putBoolean(AUTO_PROTECT_UNKNOWN_WIFI_KEY, enabled).apply()
     }
 
     private fun loadBackgroundScanEnabled(): Boolean {
@@ -1910,6 +2661,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         private const val WIFI_TRUST_PREFS = "wifi_trust_profiles"
         private const val TRUSTED_PROFILES_KEY = "trusted_profiles_json"
         private const val AUTO_VPN_POLICY_KEY = "auto_vpn_policy"
+        private const val AUTO_PROTECT_UNKNOWN_WIFI_KEY = "auto_protect_unknown_wifi"
         private const val BACKGROUND_SCAN_ENABLED_KEY = "background_scan_enabled"
         private const val WIFI_RISK_CHANNEL_ID = "wifi_risk_alerts"
         private const val WIFI_RISK_NOTIFICATION_ID = 12002
@@ -1936,6 +2688,7 @@ enum class WifiAlertReason {
     WEAK_LEGACY_CIPHER,
     WPS_ENABLED,
     TRUSTED_BSSID_MISMATCH,
+    TRUSTED_FINGERPRINT_CHANGED,
     TRUSTED_SECURITY_DOWNGRADE,
     SECURE
 }
@@ -1957,13 +2710,24 @@ data class WifiNearbyNetwork(
     val ssid: String,
     val bssid: String?,
     val securityType: WifiSecurityType,
+    val securityProfile: WifiSecurityProfile? = null,
     val riskLevel: WifiNetworkRiskLevel,
     val reason: WifiAlertReason,
     val isTrusted: Boolean,
     val isCurrent: Boolean,
     val hasInternetAccess: Boolean?,
     val frequencyMhz: Int? = null,
-    val capabilities: String? = null
+    val capabilities: String? = null,
+    val matchConfidence: WifiMatchConfidence = WifiMatchConfidence.UNAVAILABLE,
+    val trustStatus: WifiTrustBaselineStatus = WifiTrustBaselineStatus.NOT_TRUSTED,
+    val score: Int = 100,
+    val scoreLevel: WifiNetworkRiskLevel = WifiNetworkRiskLevel.SAFE,
+    val scoreSummary: String = "",
+    val isLimitedData: Boolean = false,
+    val scoreUncertainties: Set<WifiAssessmentUncertainty> = emptySet(),
+    val scoreDimensions: List<WifiScoreDimensionResult> = emptyList(),
+    val scoreChecks: List<WifiAdvancedCheckItem> = emptyList(),
+    val canToggleTrust: Boolean = false
 )
 
 data class WifiNearbyNetworksState(
@@ -1975,44 +2739,48 @@ data class WifiSecurityAlert(
     val level: WifiAlertLevel,
     val reason: WifiAlertReason,
     val message: String,
+    val baseLevel: WifiAlertLevel? = null,
+    val baseReason: WifiAlertReason? = null,
     val securityType: WifiSecurityType? = null,
+    val securityProfile: WifiSecurityProfile? = null,
     val checkedAtMillis: Long = System.currentTimeMillis(),
     val requiresLocationPermission: Boolean = false,
     val ssid: String? = null,
     val bssid: String? = null,
+    val isOnWifi: Boolean = false,
     val isTrustedNetwork: Boolean = false,
     val canToggleTrust: Boolean = false,
-    val hasInternetAccess: Boolean? = null
+    val hasInternetAccess: Boolean? = null,
+    val matchConfidence: WifiMatchConfidence = WifiMatchConfidence.UNAVAILABLE,
+    val matchDetail: String? = null,
+    val trustStatus: WifiTrustBaselineStatus = WifiTrustBaselineStatus.NOT_TRUSTED,
+    val trustObservationCount: Int = 0,
+    val trustObservationThreshold: Int = 0,
+    val hasPendingTrustApproval: Boolean = false,
+    val trustDetail: String? = null
 )
 
 data class TrustedWifiProfile(
     val ssid: String,
     val bssid: String?,
     val knownBssids: Set<String> = emptySet(),
-    val securityType: WifiSecurityType,
+    val securityProfile: WifiSecurityProfile,
     val lastFrequencyMhz: Int? = null,
     val lastSeenMillis: Long? = null,
-    val lastGateway: String? = null
-)
-
-data class WifiSecuritySignals(
-    val securityType: WifiSecurityType,
-    val hasWps: Boolean,
-    val hasWeakCipher: Boolean,
-    val hasPmfRequired: Boolean,
-    val hasPmfCapable: Boolean,
-    val isTransitionMode: Boolean,
-    val isOwe: Boolean,
-    val isOpenPlain: Boolean,
-    val isWpa2Personal: Boolean,
-    val isWpa3Personal: Boolean,
-    val isWpa2Enterprise: Boolean,
-    val isWpa3Enterprise: Boolean,
-    val isWep: Boolean
-)
+    val lastGateway: String? = null,
+    val pendingBssid: String? = null,
+    val pendingSecurityProfile: WifiSecurityProfile? = null,
+    val pendingSeenCount: Int = 0,
+    val pendingLastFrequencyMhz: Int? = null,
+    val pendingLastGateway: String? = null,
+    val pendingLastSeenMillis: Long? = null
+) {
+    val securityType: WifiSecurityType get() = securityProfile.broadType
+}
 
 data class WifiAdvancedCheckItem(
     val key: String,
+    val dimension: WifiRiskDimension,
     val titleResId: Int,
     val detail: String,
     val level: WifiNetworkRiskLevel,
@@ -2023,7 +2791,16 @@ data class WifiSafetyAssessment(
     val score: Int = 100,
     val level: WifiNetworkRiskLevel = WifiNetworkRiskLevel.SAFE,
     val summary: String = "",
-    val recommendationResId: Int = R.string.wifi_security_recommendation_secure
+    val recommendationResId: Int = R.string.wifi_security_recommendation_secure,
+    val isLimitedData: Boolean = false,
+    val isOnWifi: Boolean = false,
+    val uncertainties: Set<WifiAssessmentUncertainty> = emptySet(),
+    val dimensions: List<WifiScoreDimensionResult> = emptyList()
+)
+
+data class WifiNetworkScorePreview(
+    val assessment: WifiSafetyAssessment,
+    val checks: List<WifiAdvancedCheckItem>
 )
 
 enum class AutoVpnPolicy {
