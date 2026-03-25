@@ -118,6 +118,20 @@
                 android:text="@string/wifi_security_unavailable"
                 android:textSize="14sp" />
 
+            <HorizontalScrollView
+                android:id="@+id/scrollViewCurrentWifiSummaryChips"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:scrollbars="none">
+
+                <LinearLayout
+                    android:id="@+id/layoutCurrentWifiSummaryChips"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal" />
+            </HorizontalScrollView>
+
             <LinearLayout
                 android:id="@+id/layoutCurrentWifiDetailsContainer"
                 android:layout_width="match_parent"
@@ -133,11 +147,67 @@
                 android:textSize="13sp" />
 
             <TextView
-                android:id="@+id/textViewWifiInternetAccess"
+                android:id="@+id/textViewWifiSecurityReason"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
+                android:text="@string/wifi_security_reason_line_default"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/textViewWifiTrustDetail"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/wifi_trust_detail_default"
+                android:textSize="12sp" />
+
+            <Switch
+                android:id="@+id/switchWifiDebugDetails"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="@string/wifi_debug_details_switch"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/textViewWifiDebugDetailsHint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/wifi_debug_details_hint"
+                android:textSize="12sp"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/layoutCurrentWifiTechnicalContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+            <TextView
+                android:id="@+id/textViewWifiInternetAccess"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
                 android:text="@string/wifi_internet_access_line_default"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/textViewWifiSecurityProfile"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/wifi_security_profile_line_default"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/textViewWifiPmf"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/wifi_pmf_line_default"
                 android:textSize="13sp" />
 
             <TextView
@@ -149,11 +219,11 @@
                 android:textSize="13sp" />
 
             <TextView
-                android:id="@+id/textViewWifiSecurityReason"
+                android:id="@+id/textViewWifiMatchConfidence"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="@string/wifi_security_reason_line_default"
+                android:text="@string/wifi_match_confidence_line_default"
                 android:textSize="13sp" />
 
             <TextView
@@ -171,6 +241,8 @@
                 android:layout_marginTop="4dp"
                 android:text="@string/wifi_security_last_checked_default"
                 android:textSize="12sp" />
+
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/textViewWifiRecommendation"
@@ -203,6 +275,12 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:text="@string/wifi_auto_vpn_switch_protect" />
+
+            <Switch
+                android:id="@+id/switchAutoVpnProtectUnknown"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/wifi_auto_vpn_switch_unknown" />
 
             <Switch
                 android:id="@+id/switchAutoVpnDisconnectSafe"
