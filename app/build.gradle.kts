@@ -56,6 +56,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.firebase.crashlytics.buildtools)
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
     implementation("com.wireguard.android:tunnel:1.0.20230706")
     implementation("androidx.recyclerview:recyclerview:1.4.0")

@@ -1,5 +1,6 @@
 package com.resistine.android.ui.login
 
+import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.text.Editable
@@ -21,6 +22,8 @@ class OtpFragment : Fragment(R.layout.fragment_otp) {
     private val viewModel: LoginViewModel by activityViewModels()
     private var timer: CountDownTimer? = null
     private lateinit var otpFields: List<EditText>
+    private var isResendTimerRunning = false
+    private var originalButtonBackgrounds: MutableMap<Button, Drawable> = mutableMapOf()
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -38,6 +41,10 @@ class OtpFragment : Fragment(R.layout.fragment_otp) {
         val resendButton = view.findViewById<Button>(R.id.resendButton)
         val changeEmailButton = view.findViewById<Button>(R.id.changeEmailButton)
         val loadingIndicator = view.findViewById<ProgressBar>(R.id.loadingIndicator)
+
+        originalButtonBackgrounds[verifyButton] = verifyButton.background
+        originalButtonBackgrounds[resendButton] = resendButton.background
+        originalButtonBackgrounds[changeEmailButton] = changeEmailButton.background
 
         setupOtpFields()
 
@@ -78,10 +85,13 @@ class OtpFragment : Fragment(R.layout.fragment_otp) {
 
         viewModel.loading.observe(viewLifecycleOwner) { isLoading ->
             loadingIndicator.visibility = if (isLoading) View.VISIBLE else View.GONE
-            verifyButton.isEnabled = !isLoading
-            resendButton.isEnabled = !isLoading
-            changeEmailButton.isEnabled = !isLoading
-            otpFields.forEach { it.isEnabled = !isLoading }
+            val isEnabled = !isLoading
+            setButtonState(verifyButton, isEnabled)
+            if (!isResendTimerRunning) {
+                setButtonState(resendButton, isEnabled)
+            }
+            setButtonState(changeEmailButton, isEnabled)
+            otpFields.forEach { it.isEnabled = isEnabled }
         }
 
         startResendCountdown(resendButton)
@@ -132,17 +142,29 @@ class OtpFragment : Fragment(R.layout.fragment_otp) {
 
     private fun startResendCountdown(button: Button) {
         timer?.cancel()
-        button.isEnabled = false
+        setButtonState(button, false)
+        isResendTimerRunning = true
         timer = object : CountDownTimer(30000, 1000) {
             override fun onTick(ms: Long) {
                 button.text = getString(R.string.resend_with_timer, ms / 1000)
             }
 
             override fun onFinish() {
-                button.isEnabled = true
                 button.text = getString(R.string.resend)
+                isResendTimerRunning = false
+                val isLoading = viewModel.loading.value ?: false
+                setButtonState(button, !isLoading)
             }
         }.start()
+    }
+
+    private fun setButtonState(button: Button, isEnabled: Boolean) {
+        button.isEnabled = isEnabled
+        if (isEnabled) {
+            button.background = originalButtonBackgrounds[button]
+        } else {
+            button.setBackgroundResource(R.drawable.button_background_disabled)
+        }
     }
 
     override fun onDestroyView() {

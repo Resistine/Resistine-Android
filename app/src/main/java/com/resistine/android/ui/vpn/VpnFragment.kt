@@ -3,11 +3,13 @@ package com.resistine.android.ui.vpn
 import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
+import android.graphics.drawable.Drawable
 import android.net.VpnService
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -25,6 +27,7 @@ class VpnFragment : Fragment() {
     private val binding get() = _binding!!
     private val vpnViewModel: VpnViewModel by activityViewModels()
     private val loginViewModel: LoginViewModel by activityViewModels()
+    private var originalButtonBackground: Drawable? = null
 
     private val vpnPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -32,6 +35,7 @@ class VpnFragment : Fragment() {
                 vpnViewModel.toggleVpn(requireContext())
             } else {
                 binding.textViewVpnStatus.text = getString(R.string.vpn_access_denied)
+                setButtonState(binding.buttonVpnToggle, true)
             }
         }
     private val locationPermissionLauncher =
@@ -58,16 +62,17 @@ class VpnFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        originalButtonBackground = binding.buttonVpnToggle.background
         val disabledMessage = getString(R.string.vpn_disabled_register_required)
         val connectedKeyword = getString(R.string.vpn_status_connected)
 
         loginViewModel.isRegistrationSkipped.observe(viewLifecycleOwner) { isSkipped ->
             if (isSkipped == true) {
-                binding.buttonVpnToggle.isEnabled = false
+                setButtonState(binding.buttonVpnToggle, false)
                 binding.textViewVpnStatus.text = disabledMessage
                 Toast.makeText(context, disabledMessage, Toast.LENGTH_LONG).show()
             } else {
-                binding.buttonVpnToggle.isEnabled = true
+                setButtonState(binding.buttonVpnToggle, true)
             }
         }
 
@@ -77,6 +82,7 @@ class VpnFragment : Fragment() {
                 return@setOnClickListener
             }
 
+            setButtonState(binding.buttonVpnToggle, false)
             val intent = VpnService.prepare(requireContext())
             if (intent != null) {
                 vpnPermissionLauncher.launch(intent)
@@ -88,6 +94,7 @@ class VpnFragment : Fragment() {
         vpnViewModel.vpnStatus.observe(viewLifecycleOwner) { status ->
             if (loginViewModel.isRegistrationSkipped.value != true) {
                 binding.textViewVpnStatus.text = status
+                setButtonState(binding.buttonVpnToggle, true)
             }
             binding.buttonVpnToggle.text =
                 if (status.contains(connectedKeyword, ignoreCase = true)) getString(R.string.disconnect_vpn)
@@ -191,6 +198,15 @@ class VpnFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         vpnViewModel.refreshWifiSecurityAlert()
+    }
+
+    private fun setButtonState(button: Button, isEnabled: Boolean) {
+        button.isEnabled = isEnabled
+        if (isEnabled) {
+            button.background = originalButtonBackground
+        } else {
+            button.setBackgroundResource(R.drawable.button_background_disabled)
+        }
     }
 
     private fun hasLocationPermission(): Boolean {

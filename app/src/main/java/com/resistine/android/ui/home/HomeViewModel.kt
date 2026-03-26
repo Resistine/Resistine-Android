@@ -30,6 +30,13 @@ class HomeViewModel : ViewModel() {
                 status = "Online",
                 iconResId = R.drawable.baseline_chat_24,
                 destinationFragmentId = R.id.nav_chat
+            ),
+            HomeCardItem(
+                title = "Agent",
+                summary = "Status",
+                status = "Connected",
+                iconResId = R.drawable.baseline_person_24,
+                destinationFragmentId = R.id.nav_agent
             )
         )
     }
