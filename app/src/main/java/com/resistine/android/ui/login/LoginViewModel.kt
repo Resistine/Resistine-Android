@@ -1,6 +1,7 @@
 package com.resistine.android.ui.login
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.MutableLiveData
 import com.resistine.android.R
@@ -20,9 +21,30 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
 
     companion object {
         private const val VPN_NAME = "testVPNapi"
+        private const val LOGIN_PREFS = "login_state"
+        private const val KEY_WELCOME_FLOW_COMPLETED = "welcome_flow_completed"
+        private const val KEY_REGISTRATION_SKIPPED = "registration_skipped"
+
+        fun hasCompletedWelcomeFlow(context: Context): Boolean {
+            return context.getSharedPreferences(LOGIN_PREFS, Context.MODE_PRIVATE)
+                .getBoolean(KEY_WELCOME_FLOW_COMPLETED, false)
+        }
+
+        fun loadSkippedRegistrationState(context: Context): Boolean {
+            return context.getSharedPreferences(LOGIN_PREFS, Context.MODE_PRIVATE)
+                .getBoolean(KEY_REGISTRATION_SKIPPED, false)
+        }
+    }
+
+    init {
+        isRegistrationSkipped.value = loadSkippedRegistrationState(getApplication())
     }
 
     fun skipRegistration() {
+        persistWelcomeFlowState(
+            completed = true,
+            skipped = true
+        )
         isRegistrationSkipped.postValue(true)
     }
 
@@ -57,6 +79,10 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
                     val formattedConfig = formatConfigForWireguard(config, keyPair.privateKey.toBase64())
                     CryptoManager.saveEncryptedConfig(getApplication(), formattedConfig)
                     wireguardConfig.postValue(formattedConfig)
+                    persistWelcomeFlowState(
+                        completed = true,
+                        skipped = false
+                    )
                     loginSuccess.postValue(true)
                     isRegistrationSkipped.postValue(false)
                 } catch (e: Exception) {
@@ -97,5 +123,17 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
             AllowedIPs = $allowedIPs
             Endpoint = $endpoint
         """.trimIndent()
+    }
+
+    private fun persistWelcomeFlowState(
+        completed: Boolean,
+        skipped: Boolean
+    ) {
+        getApplication<Application>()
+            .getSharedPreferences(LOGIN_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_WELCOME_FLOW_COMPLETED, completed)
+            .putBoolean(KEY_REGISTRATION_SKIPPED, skipped)
+            .apply()
     }
 }
