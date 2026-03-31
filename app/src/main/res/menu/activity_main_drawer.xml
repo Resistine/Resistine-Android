@@ -17,13 +17,13 @@
             android:icon="@drawable/ic_menu_apps"
             android:title="@string/menu_apps"/>
         <item
-            android:id="@+id/nav_agent"
-            android:icon="@drawable/ic_menu_agent"
-            android:title="@string/menu_agent" />
-        <item
             android:id="@+id/nav_chat"
             android:icon="@drawable/baseline_chat_24"
             android:title="@string/menu_chat"/>
+        <item
+            android:id="@+id/nav_agent"
+            android:icon="@drawable/ic_menu_agent"
+            android:title="@string/menu_agent" />
         <item
             android:id="@+id/nav_log_viewer"
             android:icon="@android:drawable/ic_menu_view"

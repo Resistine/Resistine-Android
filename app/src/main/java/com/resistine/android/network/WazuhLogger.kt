@@ -60,12 +60,6 @@ class WazuhLogger(private val serverIp: String, private val agentPort: Int = 151
                     globalCounter++
 
                     val safeAgentName = agentName.replace(" ", "_")
-                    // Dokonalá imitace skutečného agenta:
-// 1. "Wazuh v4.7.0" (uspokojí strchr parser na dvě mezery)
-// 2. "Linux $safeAgentName..." (Standardní popis OS)
-// 3. \n\n (prázdné štítky)
-// 4. d41d... (hash konfigurace)
-// 5. \ndefault\n (přiřazení do výchozí skupiny - řeší druhý error!)
 
                     val keepaliveText = "#!-Wazuh v4.7.0 Linux $safeAgentName 14.0 Android aarch64\n\nd41d8cd98f00b204e9800998ecf8427e\ndefault\n"
 //                    val keepaliveText = "#!-$safeAgentName - Android - Android 14 - arm64\n\nd41d8cd98f00b204e9800998ecf8427e\n"
@@ -74,7 +68,7 @@ class WazuhLogger(private val serverIp: String, private val agentPort: Int = 151
                     writer?.write(packForWazuhTcp(keepalivePacket))
                     writer?.flush()
 
-                    delay(25000) // Každých 25 vteřin držíme agenta Active
+                    delay(30000) // Každých 30 vteřin držíme agenta Active
                 }
 
             } catch (e: Exception) {
