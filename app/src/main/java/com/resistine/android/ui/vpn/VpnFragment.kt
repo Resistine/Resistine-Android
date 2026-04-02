@@ -87,25 +87,25 @@ class VpnFragment : Fragment() {
                 }
         }
 
-        vpnViewModel.ipAddress.observe(viewLifecycleOwner) {
-            binding.textViewIpAddress.text = it
-        }
-
-        vpnViewModel.deviceModel.observe(viewLifecycleOwner) {
-            binding.textViewDeviceModel.text = it
-        }
-
-        vpnViewModel.androidVersion.observe(viewLifecycleOwner) {
-            binding.textViewAndroidVersion.text = it
-        }
-
-        vpnViewModel.batteryLevel.observe(viewLifecycleOwner) {
-            binding.textViewBatteryLevel.text = it
-        }
-
-        vpnViewModel.locationString.observe(viewLifecycleOwner) {
-            binding.textViewLocation.text = it
-        }
+//        vpnViewModel.ipAddress.observe(viewLifecycleOwner) {
+//            binding.textViewIpAddress.text = it
+//        }
+//
+//        vpnViewModel.deviceModel.observe(viewLifecycleOwner) {
+//            binding.textViewDeviceModel.text = it
+//        }
+//
+//        vpnViewModel.androidVersion.observe(viewLifecycleOwner) {
+//            binding.textViewAndroidVersion.text = it
+//        }
+//
+//        vpnViewModel.batteryLevel.observe(viewLifecycleOwner) {
+//            binding.textViewBatteryLevel.text = it
+//        }
+//
+//        vpnViewModel.locationString.observe(viewLifecycleOwner) {
+//            binding.textViewLocation.text = it
+//        }
 
         vpnViewModel.refreshWifiSecurityAlert()
     }

@@ -344,4 +344,40 @@
     <string name="wifi_status_icon_warning_desc">Warning status icon</string>
     <string name="wifi_status_icon_danger_desc">Danger status icon</string>
     <string name="menu_log_viewer">Log Viewer</string>
+
+    <!-- Wazuh Agent Strings -->
+    <string name="wazuh_connecting_to_manager">Connecting to Manager (%1$s)...</string>
+    <string name="wazuh_agent_connected_keepalive">Agent connected. Keepalive running in background.</string>
+    <string name="wazuh_connection_interrupted">Connection interrupted: %1$s</string>
+    <string name="wazuh_cannot_send_log_not_connected">Cannot send log, agent not connected!</string>
+    <string name="wazuh_manual_log_sent">Manual log sent (Counter: %1$d)</string>
+    <string name="wazuh_error_sending_log">Error sending log: %1$s</string>
+    <string name="wazuh_server_closed_connection">Server closed connection without response (Check if authd is running on port 1515)</string>
+    <string name="wazuh_authd_server_error">Authd server error: %1$s</string>
+    <string name="wazuh_invalid_key_format">Invalid key format from server: %1$s</string>
+    <string name="wazuh_unknown_server_response">Unknown response from server: %1$s</string>
+    <string name="wazuh_log_file_not_found">Log file not found.</string>
+    <string name="wazuh_error_reading_log_file">Error reading log file.</string>
+    <string name="wazuh_log_app_started">Application started.</string>
+    <string name="wazuh_log_device_unlocked">Device unlocked.</string>
+    <string name="wazuh_log_battery_state_changed">Battery state changed</string>
+    <string name="wazuh_log_network_state_changed">Network state changed</string>
+    <string name="wazuh_log_device_info">Device information</string>
+    <string name="wazuh_battery_charging">Charging</string>
+    <string name="wazuh_battery_discharging">Discharging</string>
+    <string name="wazuh_network_connected">Connected</string>
+    <string name="wazuh_network_disconnected">Disconnected</string>
+    <string name="wazuh_network_none">None</string>
+    <string name="wazuh_connecting">Connecting to Wazuh...</string>
+    <string name="wazuh_agent_active">Wazuh Agent is active</string>
+    <string name="wazuh_notification_title">Wazuh Agent</string>
+    <string name="wazuh_stop">Stop</string>
+    <string name="wazuh_service_channel_name">Wazuh Agent Service</string>
+    <string name="agent_status_ready">Status: Ready</string>
+    <string name="agent_registered_id">Agent registered (ID: %1$s)</string>
+    <string name="agent_registering">Registering agent: %1$s...</string>
+    <string name="agent_registration_success">Successfully registered!\nAgent ID: %1$s</string>
+    <string name="agent_registration_failed">Registration failed: %1$s</string>
+    <string name="agent_initiating_connection">Initiating connection...</string>
+    <string name="agent_log_sent">SSH Log sent!</string>
 </resources>

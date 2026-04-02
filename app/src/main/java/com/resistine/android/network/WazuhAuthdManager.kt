@@ -1,5 +1,7 @@
 package com.resistine.android.network
 
+import android.content.Context
+import com.resistine.android.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.InputStreamReader
@@ -13,7 +15,7 @@ import javax.net.ssl.X509TrustManager
 
 class WazuhAuthdManager(private val serverIp: String, private val authPort: Int = 1515) {
 
-    suspend fun registerAndGetKey(agentName: String, enrollmentPassword: String = ""): Pair<String, String> {
+    suspend fun registerAndGetKey(context: Context, agentName: String, enrollmentPassword: String = ""): Pair<String, String> {
         return withContext(Dispatchers.IO) {
             var socket: SSLSocket? = null
             try {
@@ -48,13 +50,13 @@ class WazuhAuthdManager(private val serverIp: String, private val authPort: Int 
                 // 2. Čtení odpovědi
                 val responseBuffer = CharArray(1024)
                 val bytesRead = reader.read(responseBuffer)
-                if (bytesRead == -1) throw Exception("Server uzavřel spojení bez odpovědi (Zkontroluj, zda authd běží na portu 1515)")
+                if (bytesRead == -1) throw Exception(context.getString(R.string.wazuh_server_closed_connection))
 
                 val response = String(responseBuffer, 0, bytesRead).trim()
 
                 // 3. Zpracování výsledku
                 if (response.startsWith("ERROR") || response.startsWith("ERR")) {
-                    throw Exception("Chyba authd serveru: $response")
+                    throw Exception(context.getString(R.string.wazuh_authd_server_error, response))
                 }
 
                 if (response.startsWith("OSSEC K:'")) {
@@ -67,10 +69,10 @@ class WazuhAuthdManager(private val serverIp: String, private val authPort: Int 
                         val agentKey = parts[3] // Získáme čistý hexadecimální klíč
                         return@withContext Pair(agentId, agentKey)
                     } else {
-                        throw Exception("Neplatný formát klíče ze serveru: $content")
+                        throw Exception(context.getString(R.string.wazuh_invalid_key_format, content))
                     }
                 } else {
-                    throw Exception("Neznámá odpověď ze serveru: $response")
+                    throw Exception(context.getString(R.string.wazuh_unknown_server_response, response))
                 }
             } finally {
                 socket?.close()

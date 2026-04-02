@@ -1,6 +1,8 @@
 package com.resistine.android.network
 
+import android.content.Context
 import android.util.Log
+import com.resistine.android.R
 import com.resistine.android.security.WazuhCrypto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -10,7 +12,7 @@ import java.io.OutputStream
 import java.net.InetSocketAddress
 import java.net.Socket
 
-class WazuhLogger(private val serverIp: String, private val agentPort: Int = 1514) {
+class WazuhLogger(private val context: Context, private val serverIp: String, private val agentPort: Int = 1514) {
 
     private var socket: Socket? = null
     private var writer: OutputStream? = null
@@ -38,7 +40,7 @@ class WazuhLogger(private val serverIp: String, private val agentPort: Int = 151
     ) {
         withContext(Dispatchers.IO) {
             try {
-                onStatusUpdate("Připojuji se k Manageru ($serverIp)...")
+                onStatusUpdate(context.getString(R.string.wazuh_connecting_to_manager, serverIp))
                 socket = Socket()
                 socket?.connect(InetSocketAddress(serverIp, agentPort), 5000)
                 writer = socket?.getOutputStream()
@@ -53,7 +55,7 @@ class WazuhLogger(private val serverIp: String, private val agentPort: Int = 151
                 delay(2000)
 
                 onConnected()
-                onStatusUpdate("Agent připojen. Keepalive běží na pozadí.")
+                onStatusUpdate(context.getString(R.string.wazuh_agent_connected_keepalive))
 
                 // 2. KEEPALIVE LOOP
                 while (isActive && socket?.isConnected == true) {
@@ -72,7 +74,7 @@ class WazuhLogger(private val serverIp: String, private val agentPort: Int = 151
                 }
 
             } catch (e: Exception) {
-                val errorMsg = "Spojení přerušeno: ${e.message}"
+                val errorMsg = context.getString(R.string.wazuh_connection_interrupted, e.message ?: "")
                 Log.e("WazuhLogger", errorMsg)
                 onStatusUpdate(errorMsg)
                 disconnect()
@@ -83,7 +85,7 @@ class WazuhLogger(private val serverIp: String, private val agentPort: Int = 151
     suspend fun sendSingleLog(agentId: String, rawAgentKey: String, logMessage: String) {
         withContext(Dispatchers.IO) {
             if (socket?.isConnected != true || writer == null) {
-                Log.e("WazuhLogger", "Nelze odeslat log, agent není připojen!")
+                Log.e("WazuhLogger", context.getString(R.string.wazuh_cannot_send_log_not_connected))
                 return@withContext
             }
             try {
@@ -94,9 +96,9 @@ class WazuhLogger(private val serverIp: String, private val agentPort: Int = 151
                     writer?.write(packForWazuhTcp(logPacket))
                     writer?.flush()
                 }
-                Log.d("WazuhLogger", "Manuální log odeslán (Počítadlo: $globalCounter)")
+                Log.d("WazuhLogger", context.getString(R.string.wazuh_manual_log_sent, globalCounter))
             } catch (e: Exception) {
-                Log.e("WazuhLogger", "Chyba při odesílání logu: ${e.message}")
+                Log.e("WazuhLogger", context.getString(R.string.wazuh_error_sending_log, e.message ?: ""))
             }
         }
     }

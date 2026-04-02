@@ -36,9 +36,9 @@ class WazuhService : Service() {
         val agentName = intent?.getStringExtra("AGENT_NAME") ?: ""
         val serverIp = "10.0.0.28" // Doporučuji předávat přes intent nebo SharedPreferences
 
-        startForeground(NOTIFICATION_ID, createNotification("Připojování k Wazuh..."))
+        startForeground(NOTIFICATION_ID, createNotification(getString(R.string.wazuh_connecting)))
 
-        logger = WazuhLogger(serverIp)
+        logger = WazuhLogger(this, serverIp)
 
         serviceScope.launch {
             logger?.connectAndStartKeepalive(
@@ -49,7 +49,7 @@ class WazuhService : Service() {
                     updateNotification(status)
                 },
                 onConnected = {
-                    updateNotification("Wazuh Agent je aktivní")
+                    updateNotification(getString(R.string.wazuh_agent_active))
                 }
             )
         }
@@ -62,11 +62,11 @@ class WazuhService : Service() {
         val stopPendingIntent = PendingIntent.getService(this, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE)
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Wazuh Agent")
+            .setContentTitle(getString(R.string.wazuh_notification_title))
             .setContentText(content)
             .setSmallIcon(android.R.drawable.ic_dialog_info) // Nahraďte vlastní ikonou
             .setOngoing(true)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Zastavit", stopPendingIntent)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, getString(R.string.wazuh_stop), stopPendingIntent)
             .build()
     }
 
@@ -79,7 +79,7 @@ class WazuhService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "Wazuh Agent Service",
+                getString(R.string.wazuh_service_channel_name),
                 NotificationManager.IMPORTANCE_LOW
             )
             val manager = getSystemService(NotificationManager::class.java)

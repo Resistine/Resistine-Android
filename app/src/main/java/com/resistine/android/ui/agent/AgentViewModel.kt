@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
+import com.resistine.android.R
 import com.resistine.android.network.WazuhAuthdManager
 import com.resistine.android.network.WazuhLogger
 import com.resistine.android.security.CryptoManager
@@ -15,7 +16,7 @@ import kotlinx.coroutines.launch
 
 class AgentViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val _text = MutableLiveData("Status: Ready")
+    private val _text = MutableLiveData("")
     val text: LiveData<String> = _text
 
     private val _isLoading = MutableLiveData(false)
@@ -29,12 +30,13 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
     private val serverIp = "10.0.0.28" // Ujisti se, že tu máš správnou IP Managera
 
     private val authdManager = WazuhAuthdManager(serverIp, 1515)
-    private val logger = WazuhLogger(serverIp, 1514)
+    private val logger = WazuhLogger(application, serverIp, 1514)
 
     private val prefs = application.getSharedPreferences("wazuh_prefs", Context.MODE_PRIVATE)
     private var currentAgentName: String = ""
 
     init {
+        _text.value = application.getString(R.string.agent_status_ready)
         userEmail.value = CryptoManager.loadDecryptedEmail(application)
         val savedId = prefs.getString("agent_id", null)
         val savedName = prefs.getString("agent_name", null)
@@ -42,7 +44,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         if (savedId != null && savedName != null) {
             currentAgentName = savedName
             _isRegistered.value = true
-            _text.value = "Agent registered (ID: $savedId)"
+            _text.value = application.getString(R.string.agent_registered_id, savedId)
         }
     }
 
@@ -56,11 +58,11 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
     fun registerAgent(email: String) {
         currentAgentName = generateAgentName(email)
         _isLoading.value = true
-        _text.value = "Registering agent: $currentAgentName..."
+        _text.value = getApplication<Application>().getString(R.string.agent_registering, currentAgentName)
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val (agentId, key) = authdManager.registerAndGetKey(currentAgentName)
+                val (agentId, key) = authdManager.registerAndGetKey(getApplication(), currentAgentName)
 
                 prefs.edit().apply {
                     putString("agent_id", agentId)
@@ -70,9 +72,9 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 _isRegistered.postValue(true)
-                _text.postValue("Successfully registered!\nAgent ID: $agentId")
+                _text.postValue(getApplication<Application>().getString(R.string.agent_registration_success, agentId))
             } catch (e: Exception) {
-                _text.postValue("Registration failed: ${e.message}")
+                _text.postValue(getApplication<Application>().getString(R.string.agent_registration_failed, e.message ?: ""))
             } finally {
                 _isLoading.postValue(false)
             }
@@ -81,7 +83,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
 
     fun connectAgent() {
         _isLoading.value = true
-        _text.value = "Zahajuji spojení..."
+        _text.value = getApplication<Application>().getString(R.string.agent_initiating_connection)
 
         viewModelScope.launch {
             logger.connectAndStartKeepalive(
@@ -107,7 +109,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
                 prefs.getString("agent_key", "")!!,
                 logText
             )
-            _text.postValue("SSH Log odeslán!")
+            _text.postValue(getApplication<Application>().getString(R.string.agent_log_sent))
         }
     }
 }

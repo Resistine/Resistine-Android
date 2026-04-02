@@ -42,63 +42,63 @@
             android:text="@string/connect_vpn" />
         
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:background="@drawable/background_home"
-            android:orientation="vertical"
-            android:padding="10dp">
+<!--        <LinearLayout-->
+<!--            android:layout_width="match_parent"-->
+<!--            android:layout_height="wrap_content"-->
+<!--            android:layout_marginTop="20dp"-->
+<!--            android:background="@drawable/background_home"-->
+<!--            android:orientation="vertical"-->
+<!--            android:padding="10dp">-->
 
-            <TextView
-                android:id="@+id/SystemInformation"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                android:gravity="center_horizontal"
-                android:text="@string/system_information"
-                android:textSize="20sp" />
+<!--            <TextView-->
+<!--                android:id="@+id/SystemInformation"-->
+<!--                android:layout_width="match_parent"-->
+<!--                android:layout_height="wrap_content"-->
+<!--                android:layout_marginBottom="16dp"-->
+<!--                android:gravity="center_horizontal"-->
+<!--                android:text="@string/system_information"-->
+<!--                android:textSize="20sp" />-->
 
-            <TextView
-                android:id="@+id/textViewIpAddress"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:text="@string/ip_address_loading"
-                android:textSize="14sp" />
+<!--            <TextView-->
+<!--                android:id="@+id/textViewIpAddress"-->
+<!--                android:layout_width="match_parent"-->
+<!--                android:layout_height="wrap_content"-->
+<!--                android:layout_marginBottom="8dp"-->
+<!--                android:text="@string/ip_address_loading"-->
+<!--                android:textSize="14sp" />-->
 
-            <TextView
-                android:id="@+id/textViewAndroidVersion"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:text="@string/android_version_loading"
-                android:textSize="14sp" />
+<!--            <TextView-->
+<!--                android:id="@+id/textViewAndroidVersion"-->
+<!--                android:layout_width="match_parent"-->
+<!--                android:layout_height="wrap_content"-->
+<!--                android:layout_marginBottom="8dp"-->
+<!--                android:text="@string/android_version_loading"-->
+<!--                android:textSize="14sp" />-->
 
-            <TextView
-                android:id="@+id/textViewBatteryLevel"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:text="@string/battery_level_loading"
-                android:textSize="14sp" />
+<!--            <TextView-->
+<!--                android:id="@+id/textViewBatteryLevel"-->
+<!--                android:layout_width="wrap_content"-->
+<!--                android:layout_height="wrap_content"-->
+<!--                android:layout_marginBottom="8dp"-->
+<!--                android:text="@string/battery_level_loading"-->
+<!--                android:textSize="14sp" />-->
 
-            <TextView
-                android:id="@+id/textViewDeviceModel"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:text="@string/device_model_loading"
-                android:textSize="14sp" />
+<!--            <TextView-->
+<!--                android:id="@+id/textViewDeviceModel"-->
+<!--                android:layout_width="wrap_content"-->
+<!--                android:layout_height="wrap_content"-->
+<!--                android:layout_marginBottom="8dp"-->
+<!--                android:text="@string/device_model_loading"-->
+<!--                android:textSize="14sp" />-->
 
-            <TextView
-                android:id="@+id/textViewLocation"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:text="@string/location_loading"
-                android:textSize="14sp" />
-        </LinearLayout>
+<!--            <TextView-->
+<!--                android:id="@+id/textViewLocation"-->
+<!--                android:layout_width="wrap_content"-->
+<!--                android:layout_height="wrap_content"-->
+<!--                android:layout_marginBottom="8dp"-->
+<!--                android:text="@string/location_loading"-->
+<!--                android:textSize="14sp" />-->
+<!--        </LinearLayout>-->
 
     </LinearLayout>
 </ScrollView>

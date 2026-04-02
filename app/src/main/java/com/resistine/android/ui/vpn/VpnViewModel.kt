@@ -123,8 +123,8 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     private var currentWifiSecurityProfile: WifiSecurityProfile? = null
 
     init {
-        loadPhoneInfo()
-        fetchLocationData()
+//        loadPhoneInfo()
+//        fetchLocationData()
         _autoVpnPolicy.value = loadAutoVpnPolicy()
         _autoProtectUnknownWifi.value = loadAutoProtectUnknownWifi()
         createRiskNotificationChannelIfNeeded()
@@ -462,57 +462,57 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun loadPhoneInfo() {
-        _androidVersion.value = "Android Version: ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})"
-        _batteryLevel.value = "Battery Level: ${getBatteryLevel(getApplication())}%"
-        _deviceModel.value = "Device: ${Build.MANUFACTURER} ${Build.MODEL}"
-    }
-
-    fun fetchLocationData() {
-        val client = OkHttpClient()
-        val request = Request.Builder()
-            .url("https://ipwho.is")
-            .build()
-
-        _ipAddress.postValue("Address: Fetching...")
-        _locationString.postValue("Location: Fetching...")
-
-        client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                _locationString.postValue("Location fetch error: ${e.message}")
-                _ipAddress.postValue("Address: Fetch error")
-            }
-
-            override fun onResponse(call: Call, response: Response) {
-                response.use {
-                    if (!response.isSuccessful) {
-                        _locationString.postValue("Location fetch failed")
-                        _ipAddress.postValue("Address: Fetch error")
-                        return
-                    }
-
-                    val json = response.body?.string()
-                    try {
-                        val obj = JSONObject(json!!)
-                        val region = obj.optString("regionName")
-                        val country = obj.optString("country")
-                        val lat = obj.optDouble("lat")
-                        val lon = obj.optDouble("lon")
-
-                        val text = buildString {
-                            if (country.isNotEmpty()) append(country)
-                            if (region.isNotEmpty()) append(", $region")
-                            if (!lat.isNaN() && !lon.isNaN()) append(" (Lat: $lat, Lon: $lon)")
-                        }
-                        _ipAddress.postValue("Public IP Address: ${obj.optString("ip")}")
-                        _locationString.postValue("Location: $text")
-                    } catch (e: Exception) {
-                        _locationString.postValue("Location parse error: ${e.message}")
-                    }
-                }
-            }
-        })
-    }
+//    private fun loadPhoneInfo() {
+//        _androidVersion.value = "Android Version: ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})"
+//        _batteryLevel.value = "Battery Level: ${getBatteryLevel(getApplication())}%"
+//        _deviceModel.value = "Device: ${Build.MANUFACTURER} ${Build.MODEL}"
+//    }
+//
+//    fun fetchLocationData() {
+//        val client = OkHttpClient()
+//        val request = Request.Builder()
+//            .url("https://ipwho.is")
+//            .build()
+//
+//        _ipAddress.postValue("Address: Fetching...")
+//        _locationString.postValue("Location: Fetching...")
+//
+//        client.newCall(request).enqueue(object : Callback {
+//            override fun onFailure(call: Call, e: IOException) {
+//                _locationString.postValue("Location fetch error: ${e.message}")
+//                _ipAddress.postValue("Address: Fetch error")
+//            }
+//
+//            override fun onResponse(call: Call, response: Response) {
+//                response.use {
+//                    if (!response.isSuccessful) {
+//                        _locationString.postValue("Location fetch failed")
+//                        _ipAddress.postValue("Address: Fetch error")
+//                        return
+//                    }
+//
+//                    val json = response.body?.string()
+//                    try {
+//                        val obj = JSONObject(json!!)
+//                        val region = obj.optString("regionName")
+//                        val country = obj.optString("country")
+//                        val lat = obj.optDouble("lat")
+//                        val lon = obj.optDouble("lon")
+//
+//                        val text = buildString {
+//                            if (country.isNotEmpty()) append(country)
+//                            if (region.isNotEmpty()) append(", $region")
+//                            if (!lat.isNaN() && !lon.isNaN()) append(" (Lat: $lat, Lon: $lon)")
+//                        }
+//                        _ipAddress.postValue("Public IP Address: ${obj.optString("ip")}")
+//                        _locationString.postValue("Location: $text")
+//                    } catch (e: Exception) {
+//                        _locationString.postValue("Location parse error: ${e.message}")
+//                    }
+//                }
+//            }
+//        })
+//    }
 
     private fun buildWifiSecurityAlert(): WifiSecurityAlert {
         val context = getApplication<Application>()

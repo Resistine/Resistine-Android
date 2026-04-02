@@ -3,6 +3,7 @@ package com.resistine.android.security
 import android.content.Context
 import android.os.Build
 import android.util.Log
+import com.resistine.android.R
 import org.json.JSONObject
 import java.io.File
 import java.io.IOException
@@ -76,38 +77,46 @@ class WazuhAgent(private val context: Context) {
                 // Read file and wrap in a JSON array for nice printing
                 "[\n" + logFile.readLines().joinToString(",\n") + "\n]"
             } else {
-                "Log file not found."
+                context.getString(R.string.wazuh_log_file_not_found)
             }
         } catch (e: IOException) {
             Log.e(TAG, "Failed to read log file", e)
-            "Error reading log file."
+            context.getString(R.string.wazuh_error_reading_log_file)
         }
     }
 
     fun logAppStart() {
-        log(LogLevel.NOTICE, "Application started.")
+        log(LogLevel.NOTICE, context.getString(R.string.wazuh_log_app_started))
         logDeviceInfo()
     }
 
     fun logDeviceUnlock() {
-        log(LogLevel.INFO, "Device unlocked.")
+        log(LogLevel.INFO, context.getString(R.string.wazuh_log_device_unlocked))
     }
 
     fun logBatteryState(level: Int, scale: Int, isCharging: Boolean) {
         val batteryPct = level * 100 / scale.toFloat()
-        val status = if (isCharging) "Charging" else "Discharging"
+        val status = if (isCharging) {
+            context.getString(R.string.wazuh_battery_charging)
+        } else {
+            context.getString(R.string.wazuh_battery_discharging)
+        }
         val data = JSONObject()
         data.put("percent", batteryPct.toInt())
         data.put("status", status)
-        log(LogLevel.INFO, "Battery state changed", data)
+        log(LogLevel.INFO, context.getString(R.string.wazuh_log_battery_state_changed), data)
     }
 
     fun logNetworkState(isConnected: Boolean, networkType: String) {
-        val status = if (isConnected) "Connected" else "Disconnected"
+        val status = if (isConnected) {
+            context.getString(R.string.wazuh_network_connected)
+        } else {
+            context.getString(R.string.wazuh_network_disconnected)
+        }
         val data = JSONObject()
         data.put("status", status)
-        data.put("type", networkType)
-        log(LogLevel.INFO, "Network state changed", data)
+        data.put("type", if (networkType == "None") context.getString(R.string.wazuh_network_none) else networkType)
+        log(LogLevel.INFO, context.getString(R.string.wazuh_log_network_state_changed), data)
     }
 
     private fun logDeviceInfo() {
@@ -116,7 +125,7 @@ class WazuhAgent(private val context: Context) {
         data.put("model", Build.MODEL)
         data.put("android_version", Build.VERSION.RELEASE)
         data.put("api_level", Build.VERSION.SDK_INT)
-        log(LogLevel.NOTICE, "Device information", data)
+        log(LogLevel.NOTICE, context.getString(R.string.wazuh_log_device_info), data)
     }
 
     companion object {
