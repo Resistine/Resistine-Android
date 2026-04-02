@@ -34,6 +34,12 @@
         tools:layout="@layout/fragment_vpn" />
 
     <fragment
+        android:id="@+id/nav_wifi_security"
+        android:name="com.resistine.android.ui.wifi.WifiSecurityFragment"
+        android:label="@string/menu_wifi_security"
+        tools:layout="@layout/fragment_wifi_security" />
+
+    <fragment
         android:id="@+id/nav_apps"
         android:name="com.resistine.android.ui.apps.AppsFragment"
         android:label="@string/menu_apps"

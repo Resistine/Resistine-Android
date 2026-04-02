@@ -220,7 +220,8 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
                             score = score,
                             verdict = verdict,
                             badges = badges,
-                            apkSha256 = apkHashes
+                            apkSha256 = apkHashes,
+                            highRiskPermissions = highRiskGranted
                         )
                     ))
                 }
@@ -418,6 +419,11 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
             obj.put("lastUpdateTime", entry.packageInfo.lastUpdateTime)
             obj.put("score", scan.score)
             obj.put("verdict", scan.verdict.name)
+            val highRiskPermissions = JSONArray()
+            for (permission in scan.highRiskPermissions) {
+                highRiskPermissions.put(permission)
+            }
+            obj.put("highRiskPermissions", highRiskPermissions)
             val badges = JSONArray()
             for (badge in scan.badges) {
                 val badgeObj = JSONObject()
@@ -450,11 +456,21 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
                 val score = obj.optInt("score", 0)
                 val verdictName = obj.optString("verdict", RiskVerdict.SAFE.name)
                 val verdict = runCatching { RiskVerdict.valueOf(verdictName) }.getOrDefault(RiskVerdict.SAFE)
+                val permissionsArray = obj.optJSONArray("highRiskPermissions")
+                val highRiskPermissions = ArrayList<String>()
+                if (permissionsArray != null) {
+                    for (j in 0 until permissionsArray.length()) {
+                        val permission = permissionsArray.optString(j)
+                        if (permission.isNotBlank()) {
+                            highRiskPermissions.add(permission)
+                        }
+                    }
+                }
                 val badgesArray = obj.optJSONArray("badges")
                 val badges = ArrayList<Badge>()
                 if (badgesArray != null) {
-                    for (j in 0 until badgesArray.length()) {
-                        val badgeObj = badgesArray.optJSONObject(j) ?: continue
+                    for (k in 0 until badgesArray.length()) {
+                        val badgeObj = badgesArray.optJSONObject(k) ?: continue
                         val typeName = badgeObj.optString("type")
                         val type = runCatching { BadgeType.valueOf(typeName) }.getOrNull() ?: continue
                         val label = badgeObj.optString("label")
@@ -466,6 +482,7 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
                     score = score,
                     verdict = verdict,
                     badges = badges,
+                    highRiskPermissions = highRiskPermissions,
                     lastUpdateTime = lastUpdate
                 )
             }
@@ -497,14 +514,34 @@ private data class PersistedScan(
     val score: Int,
     val verdict: RiskVerdict,
     val badges: List<Badge>,
+    val highRiskPermissions: List<String>,
     val lastUpdateTime: Long
 ) {
     fun toAppScanResult(): AppScanResult {
+        val normalizedPermissions = if (highRiskPermissions.isEmpty()) {
+            inferHighRiskPermissionsFromBadges(badges)
+        } else {
+            highRiskPermissions
+        }
         return AppScanResult(
             score = score,
             verdict = verdict,
             badges = badges,
-            apkSha256 = emptyList()
+            apkSha256 = emptyList(),
+            highRiskPermissions = normalizedPermissions
         )
     }
+}
+
+private fun inferHighRiskPermissionsFromBadges(badges: List<Badge>): List<String> {
+    val description = badges.firstOrNull { it.type == BadgeType.HIGH_RISK_PERMISSION }?.description ?: return emptyList()
+    val displayToPermission = ScanUtils.highRiskPermissions.associateBy { ScanUtils.permissionDisplayName(it) }
+    return description
+        .lineSequence()
+        .drop(1)
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .mapNotNull { displayToPermission[it] }
+        .distinct()
+        .toList()
 }

@@ -13,4 +13,10 @@
     <color name="success_green">#008000</color>
     <color name="error_red">#ff0000</color>
     <color name="blue_on_black">#3d85c6</color>
+    <color name="wifi_risk_safe_bg">#DFF6E6</color>
+    <color name="wifi_risk_warning_bg">#FFF1D6</color>
+    <color name="wifi_risk_danger_bg">#FFDADB</color>
+    <color name="wifi_risk_safe_text">#1B5E20</color>
+    <color name="wifi_risk_warning_text">#8A5000</color>
+    <color name="wifi_risk_danger_text">#8A1A1A</color>
 </resources>

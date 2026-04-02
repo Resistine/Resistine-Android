@@ -1,5 +1,7 @@
 package com.resistine.android.ui.vpn
 
+import com.resistine.android.ui.wifi.WifiClassificationInput
+import com.resistine.android.ui.wifi.WifiSecurityClassifier
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

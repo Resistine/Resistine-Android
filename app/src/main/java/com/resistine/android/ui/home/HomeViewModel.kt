@@ -10,9 +10,16 @@ class HomeViewModel : ViewModel() {
     private val _cards = MutableLiveData<List<HomeCardItem>>().apply {
         value = listOf(
             HomeCardItem(
-                title = "Network Status",
+                title = "Wi-Fi Security",
                 summary = "Status",
-                status = "Secure",
+                status = "Scan",
+                iconResId = R.drawable.ic_menu_wifi,
+                destinationFragmentId = R.id.nav_wifi_security
+            ),
+            HomeCardItem(
+                title = "VPN",
+                summary = "Status",
+                status = "Control",
                 iconResId = R.drawable.ic_menu_vpn,
                 destinationFragmentId = R.id.nav_vpn
             ),

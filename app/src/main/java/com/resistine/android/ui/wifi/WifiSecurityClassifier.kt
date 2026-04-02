@@ -1,4 +1,8 @@
-package com.resistine.android.ui.vpn
+package com.resistine.android.ui.wifi
+
+import com.resistine.android.ui.vpn.WifiAlertLevel
+import com.resistine.android.ui.vpn.WifiAlertReason
+import com.resistine.android.ui.vpn.WifiSecurityType
 
 data class WifiClassificationInput(
     val hasNetwork: Boolean,

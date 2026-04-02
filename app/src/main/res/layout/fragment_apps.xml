@@ -1,228 +1,342 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
+<androidx.core.widget.NestedScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="12dp">
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/button_scan"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/scan_button" />
-
-    <com.google.android.material.switchmaterial.SwitchMaterial
-        android:id="@+id/switch_system_apps"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="@string/show_system_apps" />
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/button_toggle_filters"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="@string/hide_filters" />
+    android:fillViewport="true">
 
     <LinearLayout
-        android:id="@+id/filters_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:padding="12dp">
 
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/search_input_layout"
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_scan"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp">
+            android:text="@string/scan_button" />
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/search_input"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="@string/search_apps" />
-        </com.google.android.material.textfield.TextInputLayout>
-
-    <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/sort_input_layout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:hint="@string/sort_by"
-        app:endIconMode="dropdown_menu">
-
-        <com.google.android.material.textfield.MaterialAutoCompleteTextView
-            android:id="@+id/sort_dropdown"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:minHeight="56dp"
-            android:singleLine="true"
-            android:inputType="none"
-            android:textSize="14sp"
-            android:focusable="false"
-            android:cursorVisible="false" />
-    </com.google.android.material.textfield.TextInputLayout>
-
-        <TextView
-            android:id="@+id/risk_filter_label"
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/switch_system_apps"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="@string/filter_risk_label"
-            android:textStyle="bold" />
+            android:text="@string/show_system_apps" />
 
-        <com.google.android.material.chip.ChipGroup
-            android:id="@+id/risk_chip_group"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            app:singleSelection="false"
-            app:chipSpacingHorizontal="6dp"
-            app:chipSpacingVertical="4dp">
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chip_risk_safe"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:checkable="true"
-                android:text="@string/risk_safe" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chip_risk_warning"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:checkable="true"
-                android:text="@string/risk_warning" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chip_risk_risk"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:checkable="true"
-                android:text="@string/risk_risk" />
-        </com.google.android.material.chip.ChipGroup>
-
-        <TextView
-            android:id="@+id/badge_filter_label"
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_toggle_filters"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="@string/filter_badge_label"
-            android:textStyle="bold" />
-
-        <com.google.android.material.chip.ChipGroup
-            android:id="@+id/badge_chip_group"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            app:singleSelection="false"
-            app:chipSpacingHorizontal="6dp"
-            app:chipSpacingVertical="4dp">
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chip_badge_signature_mismatch"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:checkable="true"
-                android:text="@string/badge_signature_mismatch" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chip_badge_lookalike"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:checkable="true"
-                android:text="@string/badge_lookalike_name" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chip_badge_outdated"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:checkable="true"
-                android:text="@string/badge_outdated" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chip_badge_sideloaded"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:checkable="true"
-                android:text="@string/badge_sideloaded" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chip_badge_debuggable"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:checkable="true"
-                android:text="@string/badge_debuggable" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chip_badge_old_target_sdk"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:checkable="true"
-                android:text="@string/badge_old_target_sdk" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chip_badge_high_risk_permission"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:checkable="true"
-                android:text="@string/badge_high_risk_permission" />
-        </com.google.android.material.chip.ChipGroup>
-    </LinearLayout>
-
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/scan_summary_card"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        app:cardElevation="2dp">
+            android:text="@string/hide_filters" />
 
         <LinearLayout
+            android:id="@+id/filters_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="12dp">
+            android:orientation="vertical">
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/search_input_layout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/search_input"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/search_apps" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/sort_input_layout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:hint="@string/sort_by"
+                app:endIconMode="dropdown_menu">
+
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                    android:id="@+id/sort_dropdown"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="56dp"
+                    android:singleLine="true"
+                    android:inputType="none"
+                    android:textSize="14sp"
+                    android:focusable="false"
+                    android:cursorVisible="false" />
+            </com.google.android.material.textfield.TextInputLayout>
 
             <TextView
-                android:id="@+id/scan_summary_title"
+                android:id="@+id/risk_filter_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/scan_summary_title"
+                android:layout_marginTop="8dp"
+                android:text="@string/filter_risk_label"
                 android:textStyle="bold" />
 
-            <TextView
-                android:id="@+id/scan_summary_body"
-                android:layout_width="wrap_content"
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/risk_chip_group"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="@string/scan_summary_prompt" />
+                app:singleSelection="false"
+                app:chipSpacingHorizontal="6dp"
+                app:chipSpacingVertical="4dp">
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_risk_safe"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checkable="true"
+                    android:text="@string/risk_safe" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_risk_warning"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checkable="true"
+                    android:text="@string/risk_warning" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_risk_risk"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checkable="true"
+                    android:text="@string/risk_risk" />
+            </com.google.android.material.chip.ChipGroup>
 
             <TextView
-                android:id="@+id/scan_summary_time"
+                android:id="@+id/badge_filter_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/filter_badge_label"
+                android:textStyle="bold" />
+
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/badge_chip_group"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:textSize="12sp" />
+                app:singleSelection="false"
+                app:chipSpacingHorizontal="6dp"
+                app:chipSpacingVertical="4dp">
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_badge_signature_mismatch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checkable="true"
+                    android:text="@string/badge_signature_mismatch" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_badge_lookalike"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checkable="true"
+                    android:text="@string/badge_lookalike_name" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_badge_outdated"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checkable="true"
+                    android:text="@string/badge_outdated" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_badge_sideloaded"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checkable="true"
+                    android:text="@string/badge_sideloaded" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_badge_debuggable"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checkable="true"
+                    android:text="@string/badge_debuggable" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_badge_old_target_sdk"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checkable="true"
+                    android:text="@string/badge_old_target_sdk" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_badge_high_risk_permission"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checkable="true"
+                    android:text="@string/badge_high_risk_permission" />
+            </com.google.android.material.chip.ChipGroup>
         </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
 
-    <ProgressBar
-        android:id="@+id/scan_progress"
-        style="?android:attr/progressBarStyle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginTop="8dp"
-        android:visibility="gone" />
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/permission_actions_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            app:cardElevation="2dp">
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recyclerViewApps"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_marginTop="8dp"
-        android:layout_weight="1"
-        android:padding="4dp" />
-</LinearLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:id="@+id/permission_actions_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/permission_actions_title"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/permission_actions_body"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/permission_actions_body" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/permission_action_input_layout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:hint="@string/permission_actions_select_label"
+                    app:endIconMode="dropdown_menu">
+
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                        android:id="@+id/permission_action_dropdown"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="56dp"
+                        android:singleLine="true"
+                        android:inputType="none"
+                        android:textSize="14sp"
+                        android:focusable="false"
+                        android:cursorVisible="false" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="vertical">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/button_permission_manager"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/permission_actions_open_manager" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/button_review_flagged_apps"
+                        style="?attr/materialButtonOutlinedStyle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="@string/permission_actions_open_current" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/button_review_previous"
+                            style="?attr/materialButtonOutlinedStyle"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/permission_actions_previous" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/button_review_next"
+                            style="?attr/materialButtonOutlinedStyle"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:layout_weight="1"
+                            android:text="@string/permission_actions_next" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/permission_review_current_app"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/permission_actions_current_none" />
+
+                <TextView
+                    android:id="@+id/permission_review_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/permission_actions_status_ready" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/scan_summary_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            app:cardElevation="2dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:id="@+id/scan_summary_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/scan_summary_title"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/scan_summary_body"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/scan_summary_prompt" />
+
+                <TextView
+                    android:id="@+id/scan_summary_time"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textSize="12sp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <ProgressBar
+            android:id="@+id/scan_progress"
+            style="?android:attr/progressBarStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="8dp"
+            android:visibility="gone" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerViewApps"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:nestedScrollingEnabled="false"
+            android:padding="4dp" />
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>
