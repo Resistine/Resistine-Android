@@ -62,7 +62,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val (agentId, key) = authdManager.registerAndGetKey(getApplication(), currentAgentName)
+                val (agentId, key) = authdManager.registerAndGetKey(getApplication(), currentAgentName, email)
 
                 prefs.edit().apply {
                     putString("agent_id", agentId)

@@ -15,7 +15,7 @@ import javax.net.ssl.X509TrustManager
 
 class WazuhAuthdManager(private val serverIp: String, private val authPort: Int = 1515) {
 
-    suspend fun registerAndGetKey(context: Context, agentName: String, enrollmentPassword: String = ""): Pair<String, String> {
+    suspend fun registerAndGetKey(context: Context, agentName: String, userEmail: String, enrollmentPassword: String = ""): Pair<String, String> {
         return withContext(Dispatchers.IO) {
             var socket: SSLSocket? = null
             try {
@@ -38,10 +38,11 @@ class WazuhAuthdManager(private val serverIp: String, private val authPort: Int 
                 val reader = InputStreamReader(socket.inputStream, Charsets.UTF_8)
 
                 // 1. Send registration payload (beware of newline at the end)
+                val group = userEmail.replace("@", ".")
                 val payload = if (enrollmentPassword.isNotEmpty()) {
-                    "OSSEC PASS: $enrollmentPassword OSSEC A:'$agentName'\n"
+                    "OSSEC PASS: $enrollmentPassword OSSEC A:'$agentName' G:'$group'\n"
                 } else {
-                    "OSSEC A:'$agentName' G:'david.resistine.com'\n"
+                    "OSSEC A:'$agentName' G:'$group'\n"
                 }
 
                 writer.write(payload)
