@@ -4,10 +4,10 @@
     <item
         android:id="@+id/action_login"
         android:icon="@drawable/baseline_person_24"
-        android:title="Login"
+        android:title="@string/action_login"
         app:showAsAction="ifRoom" />
     <item
         android:id="@+id/action_logout"
-        android:title="Logout"
+        android:title="@string/action_logout"
         app:showAsAction="ifRoom" />
 </menu>

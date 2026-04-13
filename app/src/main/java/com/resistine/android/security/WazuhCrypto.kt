@@ -19,32 +19,32 @@ object WazuhCrypto {
     }
 
     /**
-     * @param agentId Např. "004"
-     * @param rawSharedKey Pouze samotný klíč (ta 4. část), např. "e10adc3949ba..."
-     * @param globalCount Počítadlo zpráv (pro jednoduchost můžeš posílat postupně se zvyšující číslo)
+     * @param agentId e.g. "004"
+     * @param rawSharedKey Only the key itself (the 4th part), e.g. "e10adc3949ba..."
+     * @param globalCount Message counter (for simplicity you can send an incrementally increasing number)
      */
     fun buildPacket(agentId: String, rawSharedKey: String, message: String, globalCount: Long = 1): ByteArray {
 
-        // 1. Derivace klíče (přesně jako ve Swiftu: MD5 ze sdíleného klíče)
+        // 1. Key derivation (exactly as in Swift: MD5 of the shared key)
         val cleanSharedKey = rawSharedKey.trim()
         val aesKeyHex = md5Hex(cleanSharedKey)
 
-        // AES-256 používá 32 bajtů. Hash má přesně 32 znaků, takže vezmeme jeho ASCII reprezentaci.
+        // AES-256 uses 32 bytes. The hash has exactly 32 characters, so we take its ASCII representation.
         val secretKey = SecretKeySpec(aesKeyHex.toByteArray(Charsets.UTF_8), "AES")
 
-        // 2. Sestavení hlavičky s počítadlem
+        // 2. Header assembly with counter
         val rand1 = Random.nextInt(0, 65536)
         val counterHeader = String.format("%05d%010d:%04d:", rand1, globalCount, 0)
 
-        // 3. Spojení a ochranný MD5
+        // 3. Connection and protective MD5
         val combined = counterHeader + message
         val md5HexDigest = md5Hex(combined)
 
-        // 4. Finální zpráva před kompresí
+        // 4. Final message before compression
         val finMsgStr = md5HexDigest + combined
         val finMsgData = finMsgStr.toByteArray(Charsets.UTF_8)
 
-        // 5. ZLIB Komprese
+        // 5. ZLIB Compression
         val deflater = Deflater(Deflater.BEST_COMPRESSION)
         deflater.setInput(finMsgData)
         deflater.finish()
@@ -56,9 +56,9 @@ object WazuhCrypto {
         val compressedData = ByteArray(compressedSize)
         System.arraycopy(compressedBuffer, 0, compressedData, 0, compressedSize)
 
-        // 6. Padding vykřičníky (!) PŘED komprimovaná data, přesně podle Swiftu
+        // 6. Padding with exclamation marks (!) BEFORE compressed data, exactly according to Swift
         val bfsize = (8 - (compressedData.size % 8)) % 8
-        val padCount = bfsize + 1 // Alespoň 1 vykřičník, aby ho ReadSecMSG našel
+        val padCount = bfsize + 1 // At least 1 exclamation mark, so ReadSecMSG can find it
 
         val paddedCompressed = ByteArray(padCount + compressedData.size)
         for (i in 0 until padCount) {
@@ -66,19 +66,19 @@ object WazuhCrypto {
         }
         System.arraycopy(compressedData, 0, paddedCompressed, padCount, compressedData.size)
 
-        // 7. Šifrování AES-256-CBC s PKCS5Padding a hardcoded IV
+        // 7. AES-256-CBC encryption with PKCS5Padding and hardcoded IV
         val ivBytes = "FEDCBA0987654321".toByteArray(Charsets.UTF_8)
         val ivSpec = IvParameterSpec(ivBytes)
 
-        val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding") // Swift používá PKCS7, v Javě je to PKCS5 (jsou kompatibilní)
+        val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding") // Swift uses PKCS7, in Java it's PKCS5 (they are compatible)
         cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivSpec)
 
         val ciphertext = cipher.doFinal(paddedCompressed)
 
-        // 8. Přidání Wazuh hlavičky "!ID!#AES:"
+        // 8. Add Wazuh header "!ID!#AES:"
         val prefix = "!${agentId.trim()}!#AES:".toByteArray(Charsets.UTF_8)
 
-        // Výsledek je připraven k odeslání přes TCP s 4-bajtovou hlavičkou velikosti
+        // Result is ready to be sent over TCP with 4-byte size header
         val finalPacket = ByteArray(prefix.size + ciphertext.size)
         System.arraycopy(prefix, 0, finalPacket, 0, prefix.size)
         System.arraycopy(ciphertext, 0, finalPacket, prefix.size, ciphertext.size)

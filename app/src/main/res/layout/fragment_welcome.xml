@@ -26,7 +26,7 @@
         android:id="@+id/welcomeLabel"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Welcome to"
+        android:text="@string/welcome_to"
         android:textSize="24sp"
         android:layout_marginTop="32dp"
         app:layout_constraintTop_toBottomOf="@+id/shieldImage"
@@ -37,7 +37,7 @@
         android:id="@+id/resistineLabel"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Resistine"
+        android:text="@string/resistine_name"
         android:textSize="34sp"
         android:textStyle="bold"
         android:textColor="?attr/colorSecondary"
@@ -49,7 +49,7 @@
         android:id="@+id/WelcomeAILabel"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="AI-Powered Security"
+        android:text="@string/ai_powered_security"
         android:textSize="16sp"
         android:textStyle="bold"
         android:layout_marginTop="20dp"
@@ -91,7 +91,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Threat Detection"
+                    android:text="@string/threat_detection"
                     android:gravity="center"/>
             </LinearLayout>
         </androidx.cardview.widget.CardView>
@@ -116,7 +116,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Real-Time protection"
+                    android:text="@string/real_time_protection"
                     android:gravity="center"/>
             </LinearLayout>
         </androidx.cardview.widget.CardView>
@@ -140,7 +140,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Device Security"
+                    android:text="@string/device_security"
                     android:gravity="center"/>
             </LinearLayout>
         </androidx.cardview.widget.CardView>

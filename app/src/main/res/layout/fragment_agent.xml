@@ -22,7 +22,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="16dp"
-        android:hint="Zadej email (pro název agenta)"
+        android:hint="@string/agent_email_hint"
         android:inputType="textEmailAddress" />
 
     <Button
@@ -30,7 +30,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="16dp"
-        android:text="1. Registrovat Agenta" />
+        android:text="@string/btn_register_agent" />
 
     <Button
         android:id="@+id/btn_connect_agent"
@@ -38,7 +38,7 @@
         android:layout_height="wrap_content"
         android:layout_marginBottom="16dp"
         android:enabled="false"
-        android:text="2. Připojit Agenta (Na pozadí)" />
+        android:text="@string/btn_connect_agent" />
 
     <Button
         android:id="@+id/btn_send_log"
@@ -46,7 +46,7 @@
         android:layout_height="wrap_content"
         android:layout_marginBottom="24dp"
         android:enabled="false"
-        android:text="3. Odeslat Testovací Log" />
+        android:text="@string/btn_send_log" />
 
     <ProgressBar
         android:id="@+id/progress_agent"
@@ -59,7 +59,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="32dp"
-        android:text="Tip:\nNejprve se připoj (Krok 2), počkej na zmizení kolečka, a pak můžeš libovolně klikat na odeslání logu (Krok 3)."
+        android:text="@string/agent_tip"
         android:textAlignment="center"
         android:textColor="@android:color/darker_gray"
         android:textSize="14sp" />

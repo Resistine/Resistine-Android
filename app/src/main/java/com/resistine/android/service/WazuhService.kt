@@ -34,7 +34,7 @@ class WazuhService : Service() {
         val agentId = intent?.getStringExtra("AGENT_ID") ?: ""
         val agentKey = intent?.getStringExtra("AGENT_KEY") ?: ""
         val agentName = intent?.getStringExtra("AGENT_NAME") ?: ""
-        val serverIp = "10.0.0.28" // Doporučuji předávat přes intent nebo SharedPreferences
+        val serverIp = "10.0.0.28" // Recommended to pass via intent or SharedPreferences
 
         startForeground(NOTIFICATION_ID, createNotification(getString(R.string.wazuh_connecting)))
 
@@ -64,7 +64,7 @@ class WazuhService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.wazuh_notification_title))
             .setContentText(content)
-            .setSmallIcon(android.R.drawable.ic_dialog_info) // Nahraďte vlastní ikonou
+            .setSmallIcon(android.R.drawable.ic_dialog_info) // Replace with your own icon
             .setOngoing(true)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, getString(R.string.wazuh_stop), stopPendingIntent)
             .build()

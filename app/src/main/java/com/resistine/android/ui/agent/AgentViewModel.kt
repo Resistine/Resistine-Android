@@ -27,8 +27,8 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
 
     val userEmail = MutableLiveData<String?>()
 
-    private val serverIp = "10.0.0.28" // Ujisti se, že tu máš správnou IP Managera
-
+    private val serverIp = "10.0.0.29"
+//    private val serverIp = "10.49.64.53"
     private val authdManager = WazuhAuthdManager(serverIp, 1515)
     private val logger = WazuhLogger(application, serverIp, 1514)
 
@@ -94,7 +94,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
                     _text.postValue(status)
                 },
                 onConnected = {
-                    _isLoading.postValue(false) // Zastaví načítací kolečko
+                    _isLoading.postValue(false) // Stop loading indicator
                 }
             )
         }
@@ -102,7 +102,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
 
     fun sendManualLog() {
         viewModelScope.launch {
-//            val logText = "7:sshd[1234]: Failed password for invalid user admin from 10.0.0.50 port 5678 (Manuální test)\n"
+//            val logText = "7:sshd[1234]: Failed password for invalid user admin from 10.0.0.50 port 5678 (Manual test)\n"
             val logText = "1:secure:Mar 26 19:00:00 localhost sshd[1234]: Failed password for invalid user admin from 10.0.0.50 port 5678 ssh2\n"
             logger.sendSingleLog(
                 prefs.getString("agent_id", "")!!,

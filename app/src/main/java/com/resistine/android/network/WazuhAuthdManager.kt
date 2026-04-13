@@ -19,7 +19,7 @@ class WazuhAuthdManager(private val serverIp: String, private val authPort: Int 
         return withContext(Dispatchers.IO) {
             var socket: SSLSocket? = null
             try {
-                // Wazuh používá vlastní self-signed certifikáty, prozatím musíme věřit všem
+                // Wazuh uses its own self-signed certificates, for now we must trust all
                 val trustAll = arrayOf<TrustManager>(object : X509TrustManager {
                     override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
                     override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
@@ -29,44 +29,44 @@ class WazuhAuthdManager(private val serverIp: String, private val authPort: Int 
                 val sslContext = SSLContext.getInstance("TLS")
                 sslContext.init(null, trustAll, SecureRandom())
 
-                // Vytvoření TLS socketu
+                // Create TLS socket
                 socket = sslContext.socketFactory.createSocket(serverIp, authPort) as SSLSocket
-                socket.soTimeout = 10000 // 10 sekund timeout
+                socket.soTimeout = 10000 // 10 seconds timeout
                 socket.startHandshake()
 
                 val writer = OutputStreamWriter(socket.outputStream, Charsets.UTF_8)
                 val reader = InputStreamReader(socket.inputStream, Charsets.UTF_8)
 
-                // 1. Odeslání registračního payloadu (pozor na zalomení řádku na konci)
+                // 1. Send registration payload (beware of newline at the end)
                 val payload = if (enrollmentPassword.isNotEmpty()) {
                     "OSSEC PASS: $enrollmentPassword OSSEC A:'$agentName'\n"
                 } else {
-                    "OSSEC A:'$agentName'\n"
+                    "OSSEC A:'$agentName' G:'david.resistine.com'\n"
                 }
 
                 writer.write(payload)
                 writer.flush()
 
-                // 2. Čtení odpovědi
+                // 2. Read response
                 val responseBuffer = CharArray(1024)
                 val bytesRead = reader.read(responseBuffer)
                 if (bytesRead == -1) throw Exception(context.getString(R.string.wazuh_server_closed_connection))
 
                 val response = String(responseBuffer, 0, bytesRead).trim()
 
-                // 3. Zpracování výsledku
+                // 3. Process result
                 if (response.startsWith("ERROR") || response.startsWith("ERR")) {
                     throw Exception(context.getString(R.string.wazuh_authd_server_error, response))
                 }
 
                 if (response.startsWith("OSSEC K:'")) {
-                    // Odstranění hlavičky a koncového apostrofu -> "001 Jmeno 10.0.0.50 a1b2c3d4..."
+                    // Remove header and trailing apostrophe -> "001 Name 10.0.0.50 a1b2c3d4..."
                     val content = response.substringAfter("OSSEC K:'").substringBeforeLast("'")
                     val parts = content.split(" ")
 
                     if (parts.size >= 4) {
                         val agentId = parts[0]
-                        val agentKey = parts[3] // Získáme čistý hexadecimální klíč
+                        val agentKey = parts[3] // Get clean hexadecimal key
                         return@withContext Pair(agentId, agentKey)
                     } else {
                         throw Exception(context.getString(R.string.wazuh_invalid_key_format, content))

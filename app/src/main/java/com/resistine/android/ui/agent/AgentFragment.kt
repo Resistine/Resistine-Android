@@ -35,18 +35,18 @@ class AgentFragment : Fragment() {
             updateUIState(agentViewModel.isLoading.value ?: false, isRegistered)
         }
 
-        // Tlačítko 1: Registrace
+        // Button 1: Registration
         binding.btnRegisterWazuh.setOnClickListener {
             val email = binding.editAgentEmail.text.toString()
             if (email.isNotBlank()) agentViewModel.registerAgent(email)
         }
 
-        // Tlačítko 2: Připojení (Start Keepalive)
+        // Button 2: Connection (Start Keepalive)
         binding.btnConnectAgent.setOnClickListener {
             agentViewModel.connectAgent()
         }
 
-        // Tlačítko 3: Manuální odeslání logu (Nové)
+        // Button 3: Manual log submission (New)
         binding.btnSendLog.setOnClickListener {
             agentViewModel.sendManualLog()
         }
@@ -60,7 +60,7 @@ class AgentFragment : Fragment() {
         binding.btnRegisterWazuh.isEnabled = !isLoading && !isRegistered
         binding.editAgentEmail.isEnabled = !isLoading && !isRegistered
 
-        // Obě tlačítka pro komunikaci s portem 1514 se povolí až po registraci
+        // Both buttons for communication with port 1514 are enabled only after registration
         binding.btnConnectAgent.isEnabled = !isLoading && isRegistered
         binding.btnSendLog.isEnabled = !isLoading && isRegistered
     }

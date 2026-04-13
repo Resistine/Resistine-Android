@@ -344,6 +344,28 @@
     <string name="wifi_status_icon_warning_desc">Warning status icon</string>
     <string name="wifi_status_icon_danger_desc">Danger status icon</string>
     <string name="menu_log_viewer">Log Viewer</string>
+    <string name="action_login">Login</string>
+    <string name="action_logout">Logout</string>
+
+    <string name="welcome_to">Welcome to</string>
+    <string name="resistine_name">Resistine</string>
+    <string name="ai_powered_security">AI-Powered Security</string>
+    <string name="threat_detection">Threat Detection</string>
+    <string name="real_time_protection">Real-Time protection</string>
+    <string name="device_security">Device Security</string>
+
+    <string name="home_card_status">Status</string>
+    <string name="home_card_scan">Scan</string>
+    <string name="home_card_control">Control</string>
+    <string name="home_card_enabled">Enabled</string>
+    <string name="home_card_online">Online</string>
+    <string name="home_card_connected">Connected</string>
+
+    <string name="agent_email_hint">Enter email (for agent name)</string>
+    <string name="btn_register_agent">1. Register Agent</string>
+    <string name="btn_connect_agent">2. Connect Agent (Background)</string>
+    <string name="btn_send_log">3. Send Test Log</string>
+    <string name="agent_tip">Tip:\nConnect first (Step 2), wait for the loading indicator to disappear, and then you can freely click to send logs (Step 3).</string>
 
     <!-- Wazuh Agent Strings -->
     <string name="wazuh_connecting_to_manager">Connecting to Manager (%1$s)...</string>

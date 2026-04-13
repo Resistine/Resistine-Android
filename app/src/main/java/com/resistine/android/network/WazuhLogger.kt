@@ -17,7 +17,7 @@ class WazuhLogger(private val context: Context, private val serverIp: String, pr
     private var socket: Socket? = null
     private var writer: OutputStream? = null
 
-    // ANTI-REPLAY: Začínáme na aktuálním čase v sekundách, aby bylo číslo vždy vyšší než dřív
+    // ANTI-REPLAY: We start at current time in seconds to ensure the number is always higher than before
     private var globalCounter = System.currentTimeMillis() / 1000
 
     private fun packForWazuhTcp(payload: ByteArray): ByteArray {
@@ -70,7 +70,7 @@ class WazuhLogger(private val context: Context, private val serverIp: String, pr
                     writer?.write(packForWazuhTcp(keepalivePacket))
                     writer?.flush()
 
-                    delay(30000) // Každých 30 vteřin držíme agenta Active
+                    delay(30000) // Every 30 seconds we keep the agent Active
                 }
 
             } catch (e: Exception) {
