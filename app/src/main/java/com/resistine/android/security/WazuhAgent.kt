@@ -5,11 +5,19 @@ import android.os.Build
 import android.util.Log
 import com.resistine.android.R
 import org.json.JSONObject
+import com.resistine.android.database.AppDatabase
+import com.resistine.android.database.LogEntry
+import com.resistine.android.worker.LogUploadWorker
+import androidx.work.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 
 // Syslog severity levels (RFC 5424)
 enum class LogLevel(val severity: Int) {
@@ -27,6 +35,8 @@ class WazuhAgent(private val context: Context) {
 
     private val logFile: File
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.UK)
+    private val database = AppDatabase.getDatabase(context)
+    private val scope = CoroutineScope(Dispatchers.IO)
 
     init {
         val logDir = File(context.filesDir, "wazuh_logs")
@@ -65,6 +75,29 @@ class WazuhAgent(private val context: Context) {
         } catch (e: IOException) {
             Log.e(TAG, "Failed to write to log file", e)
         }
+
+        // Save to Room database for background upload
+        scope.launch {
+            database.logDao().insert(LogEntry(timestamp = System.currentTimeMillis(), message = logMessage))
+            scheduleLogUpload()
+        }
+    }
+
+    private fun scheduleLogUpload() {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+
+        val uploadRequest = OneTimeWorkRequestBuilder<LogUploadWorker>()
+            .setConstraints(constraints)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 1, TimeUnit.MINUTES)
+            .build()
+
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            "log_upload",
+            ExistingWorkPolicy.REPLACE,
+            uploadRequest
+        )
     }
 
     fun getLogFilePath(): String {

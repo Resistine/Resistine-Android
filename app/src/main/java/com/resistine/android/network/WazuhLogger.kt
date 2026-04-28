@@ -82,11 +82,30 @@ class WazuhLogger(private val context: Context, private val serverIp: String, pr
         }
     }
 
-    suspend fun sendSingleLog(agentId: String, rawAgentKey: String, logMessage: String) {
-        withContext(Dispatchers.IO) {
+    suspend fun connectOneShot(agentId: String, rawAgentKey: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            socket = Socket()
+            socket?.connect(InetSocketAddress(serverIp, agentPort), 5000)
+            writer = socket?.getOutputStream()
+
+            // Startup handshake is mandatory for Wazuh to accept following logs
+            globalCounter++
+            val startupText = "#!-agent startup {\"version\":\"Resistine-Android/1.0\"}"
+            val startupPacket = WazuhCrypto.buildPacket(agentId, rawAgentKey, startupText, globalCounter)
+            writer?.write(packForWazuhTcp(startupPacket))
+            writer?.flush()
+            true
+        } catch (e: Exception) {
+            Log.e("WazuhLogger", "OneShot connection failed: ${e.message}")
+            false
+        }
+    }
+
+    suspend fun sendSingleLog(agentId: String, rawAgentKey: String, logMessage: String): Boolean {
+        return withContext(Dispatchers.IO) {
             if (socket?.isConnected != true || writer == null) {
                 Log.e("WazuhLogger", context.getString(R.string.wazuh_cannot_send_log_not_connected))
-                return@withContext
+                return@withContext false
             }
             try {
                 globalCounter++
@@ -97,8 +116,10 @@ class WazuhLogger(private val context: Context, private val serverIp: String, pr
                     writer?.flush()
                 }
                 Log.d("WazuhLogger", context.getString(R.string.wazuh_manual_log_sent, globalCounter))
+                true
             } catch (e: Exception) {
                 Log.e("WazuhLogger", context.getString(R.string.wazuh_error_sending_log, e.message ?: ""))
+                false
             }
         }
     }
