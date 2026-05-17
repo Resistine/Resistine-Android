@@ -7,7 +7,6 @@ import com.resistine.android.R
 import org.json.JSONObject
 import com.resistine.android.database.AppDatabase
 import com.resistine.android.database.LogEntry
-import com.resistine.android.worker.LogUploadWorker
 import androidx.work.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -79,25 +78,12 @@ class WazuhAgent(private val context: Context) {
         // Save to Room database for background upload
         scope.launch {
             database.logDao().insert(LogEntry(timestamp = System.currentTimeMillis(), message = logMessage))
-            scheduleLogUpload()
+            // scheduleLogUpload() - Disabling worker, WazuhService will handle upload through its persistent connection
         }
     }
 
     private fun scheduleLogUpload() {
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-
-        val uploadRequest = OneTimeWorkRequestBuilder<LogUploadWorker>()
-            .setConstraints(constraints)
-            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 1, TimeUnit.MINUTES)
-            .build()
-
-        WorkManager.getInstance(context).enqueueUniqueWork(
-            "log_upload",
-            ExistingWorkPolicy.REPLACE,
-            uploadRequest
-        )
+        // Legacy worker-based upload disabled to prevent connection conflicts
     }
 
     fun getLogFilePath(): String {

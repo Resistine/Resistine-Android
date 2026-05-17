@@ -39,13 +39,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 status = appContext.getString(R.string.home_card_online),
                 iconResId = R.drawable.baseline_chat_24,
                 destinationFragmentId = R.id.nav_chat
-            ),
-            HomeCardItem(
-                title = appContext.getString(R.string.menu_agent),
-                summary = appContext.getString(R.string.home_card_status),
-                status = appContext.getString(R.string.home_card_connected),
-                iconResId = R.drawable.baseline_person_24,
-                destinationFragmentId = R.id.nav_agent
             )
         )
     }

@@ -25,8 +25,12 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.viewModelScope
 import com.resistine.android.R
+import com.resistine.android.network.WazuhAuthdManager
+import com.resistine.android.network.WazuhConfigManager
 import com.resistine.android.security.CryptoManager
+import com.resistine.android.service.WazuhService
 import com.resistine.android.ui.wifi.WifiAssessmentUncertainty
 import com.resistine.android.ui.wifi.WifiAutoProtectionDecider
 import com.resistine.android.ui.wifi.WifiClassificationInput
@@ -52,6 +56,9 @@ import com.wireguard.android.backend.GoBackend
 import com.wireguard.android.backend.Tunnel
 import com.wireguard.android.backend.Tunnel.State
 import com.wireguard.config.Config
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.OkHttpClient
@@ -60,6 +67,7 @@ import okhttp3.Response
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicBoolean
 
 class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -73,6 +81,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     val isVpnConnectedLiveData: LiveData<Boolean> = _isVpnConnected
 
     private var isVpnConnected = false
+    private val isRegistering = AtomicBoolean(false)
 
     private val _ipAddress = MutableLiveData<String>()
     val ipAddress: LiveData<String> = _ipAddress
@@ -400,6 +409,11 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 override fun getName() = tunnelName
                 override fun onStateChange(state: State) {
                     _vpnStatus.postValue("VPN state: $state")
+                    if (state == State.UP) {
+                        startWazuhServiceAutomatically()
+                    } else {
+                        stopWazuhService()
+                    }
                 }
             }
         }
@@ -430,8 +444,77 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun startWazuhServiceAutomatically() {
+        val context = getApplication<Application>()
+        val prefs = context.getSharedPreferences("wazuh_prefs", Context.MODE_PRIVATE)
+        val agentId = prefs.getString("agent_id", null)
+        val agentKey = prefs.getString("agent_key", null)
+        val agentName = prefs.getString("agent_name", null)
+
+        if (agentId != null && agentKey != null && agentName != null) {
+            // Již registrováno, jen spustíme službu
+            val intent = Intent(context, WazuhService::class.java).apply {
+                putExtra("AGENT_ID", agentId)
+                putExtra("AGENT_KEY", agentKey)
+                putExtra("AGENT_NAME", agentName)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        } else {
+            // Není registrováno, zkusíme automatickou registraci
+            if (isRegistering.getAndSet(true)) return
+
+            viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    val email = CryptoManager.loadDecryptedEmail(context) ?: "auto_registered@resistine.com"
+                    val configManager = WazuhConfigManager.getInstance(context)
+                    val authdManager = WazuhAuthdManager()
+                    
+                    val sanitizedModel = Build.MODEL.replace(Regex("[^a-zA-Z0-9.-]"), "_")
+                    val sanitizedEmail = email.replace(Regex("[^a-zA-Z0-9.-]"), "_")
+                    val newAgentName = "$sanitizedModel-$sanitizedEmail"//-${(1000..9999).random()}"
+
+                    val (newId, newKey) = authdManager.registerAndGetKey(
+                        context,
+                        configManager.serverIp,
+                        configManager.authPort,
+                        newAgentName,
+                        email
+                    )
+
+                    prefs.edit().apply {
+                        putString("agent_id", newId)
+                        putString("agent_key", newKey)
+                        putString("agent_name", newAgentName)
+                        apply()
+                    }
+
+                    // Po registraci spustíme s prodlevou pro synchronizaci manageru
+//                    delay(15000)
+                    startWazuhServiceAutomatically()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                } finally {
+                    isRegistering.set(false)
+                }
+            }
+        }
+    }
+
+    private fun stopWazuhService() {
+        val context = getApplication<Application>()
+        val intent = Intent(context, WazuhService::class.java).apply {
+            action = "STOP"
+        }
+        context.startService(intent)
+    }
+
     private fun disconnectVpn() {
         try {
+            stopWazuhService()
             tunnel?.let {
                 backend?.setState(it, State.DOWN, null)
                 isVpnConnected = false
@@ -2674,6 +2757,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     override fun onCleared() {
+        stopWazuhService()
         stopWifiMonitoring()
         super.onCleared()
     }

@@ -394,6 +394,7 @@
     <string name="wazuh_agent_active">Wazuh Agent is active</string>
     <string name="wazuh_notification_title">Wazuh Agent</string>
     <string name="wazuh_stop">Stop</string>
+    <string name="wazuh_waiting_for_vpn">Wazuh: Waiting for VPN...</string>
     <string name="wazuh_service_channel_name">Wazuh Agent Service</string>
     <string name="agent_status_ready">Status: Ready</string>
     <string name="agent_registered_id">Agent registered (ID: %1$s)</string>

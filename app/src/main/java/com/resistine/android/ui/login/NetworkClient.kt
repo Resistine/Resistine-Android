@@ -79,7 +79,7 @@ object NetworkClient {
                         if (responseBody != null) {
                             val jsonResponse = JSONObject(responseBody)
                             val status = jsonResponse.optString("status")
-                            if (status == "verified") {
+                            if (status == "success") {
                                 val vpnConfig = jsonResponse.optString("vpn_config")
                                 if (vpnConfig.isNotEmpty()) {
                                     callback(true, null, vpnConfig)

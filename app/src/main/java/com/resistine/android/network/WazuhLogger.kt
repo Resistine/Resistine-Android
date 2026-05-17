@@ -12,7 +12,7 @@ import java.io.OutputStream
 import java.net.InetSocketAddress
 import java.net.Socket
 
-class WazuhLogger(private val context: Context, private val serverIp: String, private val agentPort: Int = 1514) {
+class WazuhLogger(private val context: Context) {
 
     private var socket: Socket? = null
     private var writer: OutputStream? = null
@@ -31,69 +31,74 @@ class WazuhLogger(private val context: Context, private val serverIp: String, pr
         return finalFrame
     }
 
-    suspend fun connectAndStartKeepalive(
+    suspend fun connect(
+        serverIp: String,
+        agentPort: Int,
         agentId: String,
         rawAgentKey: String,
-        agentName: String,
-        onStatusUpdate: (String) -> Unit,
-        onConnected: () -> Unit
-    ) {
-        withContext(Dispatchers.IO) {
-            try {
-                onStatusUpdate(context.getString(R.string.wazuh_connecting_to_manager, serverIp))
-                socket = Socket()
-                socket?.connect(InetSocketAddress(serverIp, agentPort), 5000)
-                writer = socket?.getOutputStream()
-
-                // 1. STARTUP
-                globalCounter++
-                val startupText = "#!-agent startup {\"version\":\"Resistine-Android/1.0\"}"
-                val startupPacket = WazuhCrypto.buildPacket(agentId, rawAgentKey, startupText, globalCounter)
-                writer?.write(packForWazuhTcp(startupPacket))
-                writer?.flush()
-
-                delay(2000)
-
-                onConnected()
-                onStatusUpdate(context.getString(R.string.wazuh_agent_connected_keepalive))
-
-                // 2. KEEPALIVE LOOP
-                while (isActive && socket?.isConnected == true) {
-                    globalCounter++
-
-                    val safeAgentName = agentName.replace(" ", "_")
-
-                    val keepaliveText = "#!-Wazuh v4.7.0 Linux $safeAgentName 14.0 Android aarch64\n\nd41d8cd98f00b204e9800998ecf8427e\ndefault\n"
-//                    val keepaliveText = "#!-$safeAgentName - Android - Android 14 - arm64\n\nd41d8cd98f00b204e9800998ecf8427e\n"
-
-                    val keepalivePacket = WazuhCrypto.buildPacket(agentId, rawAgentKey, keepaliveText, globalCounter)
-                    writer?.write(packForWazuhTcp(keepalivePacket))
-                    writer?.flush()
-
-                    delay(30000) // Every 30 seconds we keep the agent Active
-                }
-
-            } catch (e: Exception) {
-                val errorMsg = context.getString(R.string.wazuh_connection_interrupted, e.message ?: "")
-                Log.e("WazuhLogger", errorMsg)
-                onStatusUpdate(errorMsg)
-                disconnect()
-            }
-        }
-    }
-
-    suspend fun connectOneShot(agentId: String, rawAgentKey: String): Boolean = withContext(Dispatchers.IO) {
+        onStatusUpdate: (String) -> Unit
+    ): Boolean = withContext(Dispatchers.IO) {
         try {
+            onStatusUpdate(context.getString(R.string.wazuh_connecting_to_manager, serverIp))
             socket = Socket()
             socket?.connect(InetSocketAddress(serverIp, agentPort), 5000)
             writer = socket?.getOutputStream()
 
-            // Startup handshake is mandatory for Wazuh to accept following logs
+            // 1. STARTUP
+            sendStartup(agentId, rawAgentKey)
+            
+            delay(1000) // Small delay for manager processing
+            true
+        } catch (e: Exception) {
+            val errorMsg = context.getString(R.string.wazuh_connection_interrupted, e.message ?: "")
+            Log.e("WazuhLogger", errorMsg)
+            onStatusUpdate(errorMsg)
+            disconnect()
+            false
+        }
+    }
+
+    fun isConnected(): Boolean = socket != null && socket!!.isConnected && !socket!!.isClosed
+
+    suspend fun sendStartup(agentId: String, rawAgentKey: String) = withContext(Dispatchers.IO) {
+        synchronized(this@WazuhLogger) {
             globalCounter++
             val startupText = "#!-agent startup {\"version\":\"Resistine-Android/1.0\"}"
             val startupPacket = WazuhCrypto.buildPacket(agentId, rawAgentKey, startupText, globalCounter)
             writer?.write(packForWazuhTcp(startupPacket))
             writer?.flush()
+        }
+    }
+
+    suspend fun sendKeepalive(agentId: String, rawAgentKey: String, agentName: String) = withContext(Dispatchers.IO) {
+        synchronized(this@WazuhLogger) {
+            globalCounter++
+            val safeAgentName = agentName.replace(" ", "_")
+            val keepaliveText = "#!-Wazuh v4.7.0 Linux $safeAgentName 14.0 Android aarch64\n\nd41d8cd98f00b204e9800998ecf8427e\ndefault\n"
+            val keepalivePacket = WazuhCrypto.buildPacket(agentId, rawAgentKey, keepaliveText, globalCounter)
+            writer?.write(packForWazuhTcp(keepalivePacket))
+            writer?.flush()
+            Log.d("WazuhLogger", "Keepalive sent")
+        }
+    }
+
+    suspend fun connectOneShot(serverIp: String, agentPort: Int, agentId: String, rawAgentKey: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            socket = Socket()
+            socket?.connect(InetSocketAddress(serverIp, agentPort), 10000) // Longer timeout
+            writer = socket?.getOutputStream()
+
+            // Startup handshake is mandatory for Wazuh to accept following logs
+            val currentCounter = globalCounter + 1
+            globalCounter = currentCounter
+            
+            val startupText = "#!-agent startup {\"version\":\"Resistine-Android/1.0\"}"
+            val startupPacket = WazuhCrypto.buildPacket(agentId, rawAgentKey, startupText, currentCounter)
+            writer?.write(packForWazuhTcp(startupPacket))
+            writer?.flush()
+            
+            // Critical delay: give the manager time to register the connection
+            delay(3000)
             true
         } catch (e: Exception) {
             Log.e("WazuhLogger", "OneShot connection failed: ${e.message}")
@@ -109,7 +114,12 @@ class WazuhLogger(private val context: Context, private val serverIp: String, pr
             }
             try {
                 globalCounter++
-                val logPacket = WazuhCrypto.buildPacket(agentId, rawAgentKey, logMessage, globalCounter)
+                // Prefix the log with '1:WazuhAgent:' as required by Wazuh protocol for log events.
+                // '1' indicates a log message, followed by the location/source name.
+                val formattedMessage = "1:WazuhAgent:${logMessage.trim()}"
+
+                val logPacket = WazuhCrypto.buildPacket(agentId, rawAgentKey, formattedMessage, globalCounter)
+//                val logPacket = WazuhCrypto.buildPacket(agentId, rawAgentKey, logMessage, globalCounter)
 
                 synchronized(this) {
                     writer?.write(packForWazuhTcp(logPacket))

@@ -13,9 +13,16 @@ import javax.net.ssl.SSLSocket
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 
-class WazuhAuthdManager(private val serverIp: String, private val authPort: Int = 1515) {
+class WazuhAuthdManager() {
 
-    suspend fun registerAndGetKey(context: Context, agentName: String, userEmail: String, enrollmentPassword: String = ""): Pair<String, String> {
+    suspend fun registerAndGetKey(
+        context: Context,
+        serverIp: String,
+        authPort: Int,
+        agentName: String,
+        userEmail: String,
+        enrollmentPassword: String = ""
+    ): Pair<String, String> {
         return withContext(Dispatchers.IO) {
             var socket: SSLSocket? = null
             try {
