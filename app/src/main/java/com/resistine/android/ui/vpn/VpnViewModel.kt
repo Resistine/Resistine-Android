@@ -410,7 +410,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 override fun onStateChange(state: State) {
                     _vpnStatus.postValue("VPN state: $state")
                     if (state == State.UP) {
-                        startWazuhServiceAutomatically()
+                        startWazuhService()
                     } else {
                         stopWazuhService()
                     }
@@ -444,7 +444,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun startWazuhServiceAutomatically() {
+    private fun startWazuhService() {
         val context = getApplication<Application>()
         val prefs = context.getSharedPreferences("wazuh_prefs", Context.MODE_PRIVATE)
         val agentId = prefs.getString("agent_id", null)
@@ -452,7 +452,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         val agentName = prefs.getString("agent_name", null)
 
         if (agentId != null && agentKey != null && agentName != null) {
-            // Již registrováno, jen spustíme službu
+            // Already registered, just start the service
             val intent = Intent(context, WazuhService::class.java).apply {
                 putExtra("AGENT_ID", agentId)
                 putExtra("AGENT_KEY", agentKey)
@@ -464,7 +464,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 context.startService(intent)
             }
         } else {
-            // Není registrováno, zkusíme automatickou registraci
+            // Not registered, try automatic registration
             if (isRegistering.getAndSet(true)) return
 
             viewModelScope.launch(Dispatchers.IO) {
@@ -475,14 +475,23 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                     
                     val sanitizedModel = Build.MODEL.replace(Regex("[^a-zA-Z0-9.-]"), "_")
                     val sanitizedEmail = email.replace(Regex("[^a-zA-Z0-9.-]"), "_")
-                    val newAgentName = "$sanitizedModel-$sanitizedEmail"//-${(1000..9999).random()}"
+                    val newAgentName = "$sanitizedModel-$sanitizedEmail-${(1000..9999).random()}"
+
+                    // Extraction of VPN IP if available
+                    val vpnIp = try {
+                        val vpnConfig = loadWireGuardConfig(context)
+                        vpnConfig?.`interface`?.addresses?.firstOrNull()?.address?.hostAddress
+                    } catch (e: Exception) {
+                        null
+                    }
 
                     val (newId, newKey) = authdManager.registerAndGetKey(
                         context,
                         configManager.serverIp,
                         configManager.authPort,
                         newAgentName,
-                        email
+                        email,
+                        agentIp = vpnIp
                     )
 
                     prefs.edit().apply {
@@ -492,9 +501,9 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                         apply()
                     }
 
-                    // Po registraci spustíme s prodlevou pro synchronizaci manageru
-//                    delay(15000)
-                    startWazuhServiceAutomatically()
+                    // After registration, start with a delay for manager synchronization
+                    delay(15000) // to make sure wazuh reads key file
+                    startWazuhService()
                 } catch (e: Exception) {
                     e.printStackTrace()
                 } finally {

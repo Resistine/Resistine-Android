@@ -3,6 +3,7 @@ package com.resistine.android.network
 import android.content.Context
 import com.resistine.android.R
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
@@ -21,7 +22,8 @@ class WazuhAuthdManager() {
         authPort: Int,
         agentName: String,
         userEmail: String,
-        enrollmentPassword: String = ""
+        enrollmentPassword: String = "",
+        agentIp: String? = null
     ): Pair<String, String> {
         return withContext(Dispatchers.IO) {
             var socket: SSLSocket? = null
@@ -46,10 +48,12 @@ class WazuhAuthdManager() {
 
                 // 1. Send registration payload (beware of newline at the end)
                 val group = userEmail.replace("@", ".")
+                val ip = agentIp
+//                val ip = "10.0.0.2"
                 val payload = if (enrollmentPassword.isNotEmpty()) {
-                    "OSSEC PASS: $enrollmentPassword OSSEC A:'$agentName' G:'$group'\n"
+                    "OSSEC PASS: $enrollmentPassword\nOSSEC A:'$agentName' G:'$group' IP:'$ip'\n"
                 } else {
-                    "OSSEC A:'$agentName' G:'$group'\n"
+                    "OSSEC A:'$agentName' G:'$group' IP:'$ip'\n"
                 }
 
                 writer.write(payload)

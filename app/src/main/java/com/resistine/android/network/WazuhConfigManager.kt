@@ -7,7 +7,8 @@ class WazuhConfigManager(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     var serverIp: String
-        get() = prefs.getString(KEY_SERVER_IP, "10.0.0.24") ?: "10.0.0.24"
+        get() = prefs.getString(KEY_SERVER_IP, "10.49.64.53") ?: "10.49.64.53"
+//        get() = prefs.getString(KEY_SERVER_IP, "10.0.0.24") ?: "10.0.0.24"
         set(value) = prefs.edit().putString(KEY_SERVER_IP, value).apply()
 
     var authPort: Int

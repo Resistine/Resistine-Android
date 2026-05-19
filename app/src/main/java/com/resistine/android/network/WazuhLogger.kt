@@ -116,7 +116,7 @@ class WazuhLogger(private val context: Context) {
                 globalCounter++
                 // Prefix the log with '1:WazuhAgent:' as required by Wazuh protocol for log events.
                 // '1' indicates a log message, followed by the location/source name.
-                val formattedMessage = "1:WazuhAgent:${logMessage.trim()}"
+                val formattedMessage = "1:WazuhAgent: ${logMessage.trim()}"
 
                 val logPacket = WazuhCrypto.buildPacket(agentId, rawAgentKey, formattedMessage, globalCounter)
 //                val logPacket = WazuhCrypto.buildPacket(agentId, rawAgentKey, logMessage, globalCounter)
