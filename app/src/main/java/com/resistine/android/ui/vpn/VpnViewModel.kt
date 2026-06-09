@@ -474,7 +474,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                     val authdManager = WazuhAuthdManager()
                     
                     val sanitizedModel = Build.MODEL.replace(Regex("[^a-zA-Z0-9.-]"), "_")
-                    val sanitizedEmail = email.replace(Regex("[^a-zA-Z0-9.-]"), "_")
+                    val sanitizedEmail = email.replace(Regex("[^a-zA-Z0-9.-]"), ".")
                     val newAgentName = "$sanitizedModel-$sanitizedEmail-${(1000..9999).random()}"
 
                     // Extraction of VPN IP if available
