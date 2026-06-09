@@ -127,6 +127,7 @@ class WazuhAgent(private val context: Context) {
     }
 
     fun logNetworkState(isConnected: Boolean, networkType: String) {
+        val vpnActive = isVpnActive()
         val status = if (isConnected) {
             context.getString(R.string.wazuh_network_connected)
         } else {
@@ -135,7 +136,18 @@ class WazuhAgent(private val context: Context) {
         val data = JSONObject()
         data.put("status", status)
         data.put("type", if (networkType == "None") context.getString(R.string.wazuh_network_none) else networkType)
+        data.put("vpn_active", vpnActive)
         log(LogLevel.INFO, context.getString(R.string.wazuh_log_network_state_changed), data)
+    }
+
+    private fun isVpnActive(): Boolean {
+        return try {
+            java.net.NetworkInterface.getNetworkInterfaces()?.asSequence()?.any {
+                it.isUp && (it.name.contains("tun") || it.name.contains("wg") || it.name.contains("wireguard"))
+            } ?: false
+        } catch (e: Exception) {
+            false
+        }
     }
 
     private fun logDeviceInfo() {
@@ -144,7 +156,28 @@ class WazuhAgent(private val context: Context) {
         data.put("model", Build.MODEL)
         data.put("android_version", Build.VERSION.RELEASE)
         data.put("api_level", Build.VERSION.SDK_INT)
+        data.put("is_rooted", isDeviceRooted())
         log(LogLevel.NOTICE, context.getString(R.string.wazuh_log_device_info), data)
+    }
+
+    private fun isDeviceRooted(): Boolean {
+        val buildTags = Build.TAGS
+        if (buildTags != null && buildTags.contains("test-keys")) return true
+
+        val paths = arrayOf(
+            "/system/app/Superuser.apk", "/sbin/su", "/system/bin/su", "/system/xbin/su",
+            "/data/local/xbin/su", "/data/local/bin/su", "/system/sd/xbin/su",
+            "/system/bin/failsafe/su", "/data/local/su", "/su/bin/su"
+        )
+        for (path in paths) {
+            if (File(path).exists()) return true
+        }
+
+        return try {
+            Runtime.getRuntime().exec("which su").inputStream.bufferedReader().readLine() != null
+        } catch (t: Throwable) {
+            false
+        }
     }
 
     companion object {

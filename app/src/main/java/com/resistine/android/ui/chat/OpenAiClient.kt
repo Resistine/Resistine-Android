@@ -14,8 +14,8 @@ object OpenAiClient {
         .build()
 
     fun getChatResponse(userText: String, callback: (String) -> Unit) {
-//        val url = "http://10.49.64.53:8001/v1/chat/completions"
-        val url = " http://dashboard.resisti.net:8001/v1"
+        val url = "http://10.49.64.53:8001/v1/chat/completions"
+//        val url = " http://dashboard.resisti.net:8001/v1"
         val jsonBody = JSONObject()
         jsonBody.put("model", "ministral-3:14b")
         val messagesArray = JSONObject().apply {
