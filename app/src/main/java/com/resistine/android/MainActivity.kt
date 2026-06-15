@@ -88,12 +88,23 @@ class MainActivity : AppCompatActivity() {
                 true
             }
             R.id.action_logout -> {
-                vpnViewModel.logout(this)
-                navController.navigate(R.id.nav_welcome)
+                showLogoutConfirmationDialog(navController)
                 true
             }
             else -> super.onOptionsItemSelected(item)
         }
+    }
+
+    private fun showLogoutConfirmationDialog(navController: androidx.navigation.NavController) {
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle("Confirm Logout")
+            .setMessage("Are you sure you want to log out? This will disconnect VPN and delete your session data.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Logout") { _, _ ->
+                vpnViewModel.logout(this)
+                navController.navigate(R.id.nav_welcome)
+            }
+            .show()
     }
 
     override fun onSupportNavigateUp(): Boolean {

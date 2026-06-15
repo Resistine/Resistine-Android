@@ -20,6 +20,7 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.AndroidViewModel
@@ -27,6 +28,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.resistine.android.R
+import com.resistine.android.database.AppDatabase
 import com.resistine.android.network.WazuhAuthdManager
 import com.resistine.android.network.WazuhConfigManager
 import com.resistine.android.security.CryptoManager
@@ -132,8 +134,8 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     private var currentWifiSecurityProfile: WifiSecurityProfile? = null
 
     init {
-//        loadPhoneInfo()
-//        fetchLocationData()
+        loadPhoneInfo()
+        fetchLocationData()
         _autoVpnPolicy.value = loadAutoVpnPolicy()
         _autoProtectUnknownWifi.value = loadAutoProtectUnknownWifi()
         createRiskNotificationChannelIfNeeded()
@@ -149,7 +151,28 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         if (isVpnConnected) {
             disconnectVpn()
         }
+        
+        // 1. Clear CryptoManager data (Email, Config)
         CryptoManager.deleteStoredData(context)
+        
+        // 2. Clear Wazuh Agent preferences
+        context.getSharedPreferences("wazuh_prefs", Context.MODE_PRIVATE).edit().clear().apply()
+        
+        // 3. Clear Wi-Fi trust profiles
+        context.getSharedPreferences("wifi_trust_profiles", Context.MODE_PRIVATE).edit().clear().apply()
+        
+        // 4. Clear Database (Logs, Chat History)
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                AppDatabase.getDatabase(context).clearAllTables()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        
+        // 5. Reset local state
+        _ipAddress.postValue("Address: Disconnected")
+        _locationString.postValue("Location: N/A")
     }
 
     fun toggleVpn(context: Context) {
@@ -411,8 +434,11 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                     _vpnStatus.postValue("VPN state: $state")
                     if (state == State.UP) {
                         startWazuhService()
+                        fetchLocationData() // Test connectivity and update IP info
                     } else {
                         stopWazuhService()
+                        _ipAddress.postValue("Address: Disconnected")
+                        _locationString.postValue("Location: N/A")
                     }
                 }
             }
@@ -451,7 +477,10 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         val agentKey = prefs.getString("agent_key", null)
         val agentName = prefs.getString("agent_name", null)
 
+        Log.d("WazuhAuth", "startWazuhService called. Current ID: $agentId")
+
         if (agentId != null && agentKey != null && agentName != null) {
+            Log.d("WazuhAuth", "Agent already registered. Starting service...")
             // Already registered, just start the service
             val intent = Intent(context, WazuhService::class.java).apply {
                 putExtra("AGENT_ID", agentId)
@@ -465,10 +494,18 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             }
         } else {
             // Not registered, try automatic registration
-            if (isRegistering.getAndSet(true)) return
+            if (isRegistering.getAndSet(true)) {
+                Log.d("WazuhAuth", "Registration already in progress, skipping.")
+                return
+            }
 
+            Log.d("WazuhAuth", "Starting automatic registration...")
             viewModelScope.launch(Dispatchers.IO) {
                 try {
+                    // Small delay to ensure VPN routing is fully established
+                    Log.d("WazuhAuth", "Waiting 3s for VPN stability...")
+                    delay(3000)
+
                     val email = CryptoManager.loadDecryptedEmail(context) ?: "auto_registered@resistine.com"
                     val configManager = WazuhConfigManager.getInstance(context)
                     val authdManager = WazuhAuthdManager()
@@ -484,6 +521,8 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                     } catch (e: Exception) {
                         null
                     }
+                    
+                    Log.d("WazuhAuth", "Registering agent '$newAgentName' with IP $vpnIp at ${configManager.serverIp}:${configManager.authPort}")
 
                     val (newId, newKey) = authdManager.registerAndGetKey(
                         context,
@@ -494,6 +533,8 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                         agentIp = vpnIp
                     )
 
+                    Log.d("WazuhAuth", "Registration successful! New ID: $newId")
+
                     prefs.edit().apply {
                         putString("agent_id", newId)
                         putString("agent_key", newKey)
@@ -502,10 +543,11 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                     }
 
                     // After registration, start with a delay for manager synchronization
-                    delay(15000) // to make sure wazuh reads key file
+                    Log.d("WazuhAuth", "Waiting 15s for manager sync before connecting...")
+                    delay(15000) 
                     startWazuhService()
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    Log.e("WazuhAuth", "Registration failed: ${e.message}", e)
                 } finally {
                     isRegistering.set(false)
                 }
@@ -554,57 +596,59 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-//    private fun loadPhoneInfo() {
-//        _androidVersion.value = "Android Version: ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})"
-//        _batteryLevel.value = "Battery Level: ${getBatteryLevel(getApplication())}%"
-//        _deviceModel.value = "Device: ${Build.MANUFACTURER} ${Build.MODEL}"
-//    }
-//
-//    fun fetchLocationData() {
-//        val client = OkHttpClient()
-//        val request = Request.Builder()
-//            .url("https://ipwho.is")
-//            .build()
-//
-//        _ipAddress.postValue("Address: Fetching...")
-//        _locationString.postValue("Location: Fetching...")
-//
-//        client.newCall(request).enqueue(object : Callback {
-//            override fun onFailure(call: Call, e: IOException) {
-//                _locationString.postValue("Location fetch error: ${e.message}")
-//                _ipAddress.postValue("Address: Fetch error")
-//            }
-//
-//            override fun onResponse(call: Call, response: Response) {
-//                response.use {
-//                    if (!response.isSuccessful) {
-//                        _locationString.postValue("Location fetch failed")
-//                        _ipAddress.postValue("Address: Fetch error")
-//                        return
-//                    }
-//
-//                    val json = response.body?.string()
-//                    try {
-//                        val obj = JSONObject(json!!)
-//                        val region = obj.optString("regionName")
-//                        val country = obj.optString("country")
-//                        val lat = obj.optDouble("lat")
-//                        val lon = obj.optDouble("lon")
-//
-//                        val text = buildString {
-//                            if (country.isNotEmpty()) append(country)
-//                            if (region.isNotEmpty()) append(", $region")
-//                            if (!lat.isNaN() && !lon.isNaN()) append(" (Lat: $lat, Lon: $lon)")
-//                        }
-//                        _ipAddress.postValue("Public IP Address: ${obj.optString("ip")}")
-//                        _locationString.postValue("Location: $text")
-//                    } catch (e: Exception) {
-//                        _locationString.postValue("Location parse error: ${e.message}")
-//                    }
-//                }
-//            }
-//        })
-//    }
+    private fun loadPhoneInfo() {
+        _androidVersion.value = "Android Version: ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})"
+        _batteryLevel.value = "Battery Level: ${getBatteryLevel(getApplication())}%"
+        _deviceModel.value = "Device: ${Build.MANUFACTURER} ${Build.MODEL}"
+    }
+
+    fun fetchLocationData() {
+        val client = OkHttpClient.Builder()
+            .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+        val request = Request.Builder()
+            .url("https://ipwho.is")
+            .build()
+
+        _ipAddress.postValue("Address: Verifying...")
+        _locationString.postValue("Location: Verifying...")
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                _locationString.postValue("Connectivity check failed: ${e.message}")
+                _ipAddress.postValue("Address: Offline or No Data")
+                _vpnStatus.postValue("VPN connected (No internet)")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    if (!response.isSuccessful) {
+                        _locationString.postValue("Verification failed")
+                        _ipAddress.postValue("Address: Server error")
+                        _vpnStatus.postValue("VPN connected (Verification error)")
+                        return
+                    }
+
+                    val json = response.body?.string()
+                    try {
+                        val obj = JSONObject(json!!)
+                        val region = obj.optString("region")
+                        val country = obj.optString("country")
+                        val ip = obj.optString("ip")
+                        
+                        val text = if (country.isNotEmpty()) "$country, $region" else "Unknown location"
+                        
+                        _ipAddress.postValue("Public IP Address: $ip")
+                        _locationString.postValue("Location: $text")
+                        _vpnStatus.postValue("VPN connected & verified")
+                    } catch (e: Exception) {
+                        _locationString.postValue("Parse error")
+                        _vpnStatus.postValue("VPN connected (Metadata error)")
+                    }
+                }
+            }
+        })
+    }
 
     private fun buildWifiSecurityAlert(): WifiSecurityAlert {
         val context = getApplication<Application>()

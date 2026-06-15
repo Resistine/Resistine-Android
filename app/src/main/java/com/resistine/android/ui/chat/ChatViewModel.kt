@@ -1,39 +1,62 @@
 package com.resistine.android.ui.chat
 
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.*
+import com.resistine.android.database.AppDatabase
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
-class ChatViewModel : ViewModel() {
+class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val _messages = MutableLiveData<MutableList<ChatMessage>>(mutableListOf())
-    val messages: LiveData<MutableList<ChatMessage>> = _messages
+    private val chatDao = AppDatabase.getDatabase(application).chatDao()
+    
+    val messages: LiveData<List<ChatMessage>> = chatDao.getAllMessages().asLiveData()
+
+    private val _isTyping = MutableLiveData(false)
+    val isTyping: LiveData<Boolean> = _isTyping
 
     init {
-        // Initial greeting message from the assistant
-        _messages.value?.add(ChatMessage("Hello! I am Resistine, your AI security assistant. I'm actively monitoring your device for any security threats. How can I help you today?", false))
+        checkAndAddGreeting()
+    }
+
+    private fun checkAndAddGreeting() {
+        viewModelScope.launch(Dispatchers.IO) {
+            // Check if there are any messages in DB
+            val currentMessages = chatDao.getMessagesSync()
+            if (currentMessages.isEmpty()) {
+                val greeting = ChatMessage(
+                    text = "Hello! I am Resistine, your AI security assistant. I'm actively monitoring your device for any security threats. How can I help you today?",
+                    isUser = false
+                )
+                chatDao.insertMessage(greeting)
+            }
+        }
     }
 
     fun sendMessage(userText: String) {
-        // Add user's message and a temporary typing indicator
-        val currentMessages = _messages.value ?: mutableListOf()
-        currentMessages.add(ChatMessage(userText, true))
-        currentMessages.add(ChatMessage("Typing...", false))
-        _messages.value = currentMessages
+        if (userText.isBlank()) return
 
-        // Get the response from the AI
-        OpenAiClient.getChatResponse(userText) { response ->
-            // Find the typing message and replace it with the actual response
-            val updatedMessages = _messages.value ?: mutableListOf()
-            val typingMessageIndex = updatedMessages.indexOfLast { it.text == "Typing..." && !it.isUser }
-            if (typingMessageIndex != -1) {
-                updatedMessages[typingMessageIndex] = ChatMessage(response, false)
-                _messages.postValue(updatedMessages) // Use postValue for background thread update
-            } else {
-                // Fallback in case typing message is not found
-                updatedMessages.add(ChatMessage(response, false))
-                _messages.postValue(updatedMessages)
+        viewModelScope.launch(Dispatchers.IO) {
+            // 1. Uložit zprávu uživatele
+            chatDao.insertMessage(ChatMessage(text = userText, isUser = true))
+            
+            // 2. Indikace psaní
+            _isTyping.postValue(true)
+
+            // 3. Volání AI
+            OpenAiClient.getChatResponse(userText) { response ->
+                viewModelScope.launch(Dispatchers.IO) {
+                    // 4. Uložit odpověď (i kdyby to byla chyba, ať uživatel vidí zpětnou vazbu)
+                    chatDao.insertMessage(ChatMessage(text = response, isUser = false))
+                    _isTyping.postValue(false)
+                }
             }
+        }
+    }
+    
+    fun clearHistory() {
+        viewModelScope.launch(Dispatchers.IO) {
+            chatDao.deleteAllMessages()
         }
     }
 }

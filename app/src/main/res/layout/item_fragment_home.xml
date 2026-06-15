@@ -60,7 +60,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:gravity="start"
-                            android:text="Protected"
+                            tools:text="Protected"
                             android:textStyle="bold"
                             android:textSize="20dp"
                             android:textColor="@color/success_green" />

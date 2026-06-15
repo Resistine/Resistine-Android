@@ -29,4 +29,9 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             recyclerView.adapter = adapter
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        viewModel.updateCards()
+    }
 }

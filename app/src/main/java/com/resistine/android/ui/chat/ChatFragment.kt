@@ -27,8 +27,10 @@ class ChatFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        adapter = ChatAdapter(mutableListOf())
-        binding.recyclerViewChat.layoutManager = LinearLayoutManager(requireContext())
+        adapter = ChatAdapter(emptyList())
+        binding.recyclerViewChat.layoutManager = LinearLayoutManager(requireContext()).apply {
+            stackFromEnd = true
+        }
         binding.recyclerViewChat.adapter = adapter
 
         binding.buttonSend.setOnClickListener {
@@ -39,10 +41,30 @@ class ChatFragment : Fragment() {
             }
         }
 
+        // Sledování zpráv
         viewModel.messages.observe(viewLifecycleOwner) { list ->
-            adapter = ChatAdapter(list)
-            binding.recyclerViewChat.adapter = adapter
-            binding.recyclerViewChat.scrollToPosition(list.size - 1)
+            adapter.updateMessages(list, viewModel.isTyping.value ?: false)
+            if (list.isNotEmpty() || viewModel.isTyping.value == true) {
+                val scrollPos = if (viewModel.isTyping.value == true) list.size else list.size - 1
+                if (scrollPos >= 0) {
+                    binding.recyclerViewChat.smoothScrollToPosition(scrollPos)
+                }
+            }
+        }
+        
+        // Sledování indikátoru psaní
+        viewModel.isTyping.observe(viewLifecycleOwner) { isTyping ->
+            // Aktualizovat adaptér, aby přidal/odebral bublinu
+            adapter.updateMessages(viewModel.messages.value ?: emptyList(), isTyping)
+            
+            if (isTyping) {
+                binding.buttonSend.isEnabled = false
+                binding.editTextMessage.hint = "AI is thinking..."
+                binding.recyclerViewChat.smoothScrollToPosition(adapter.itemCount - 1)
+            } else {
+                binding.buttonSend.isEnabled = true
+                binding.editTextMessage.hint = "Type your message here"
+            }
         }
     }
 
@@ -50,5 +72,4 @@ class ChatFragment : Fragment() {
         super.onDestroyView()
         _binding = null
     }
-
 }

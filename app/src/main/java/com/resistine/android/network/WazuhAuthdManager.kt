@@ -1,6 +1,7 @@
 package com.resistine.android.network
 
 import android.content.Context
+import android.util.Log
 import com.resistine.android.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -39,32 +40,41 @@ class WazuhAuthdManager() {
                 sslContext.init(null, trustAll, SecureRandom())
 
                 // Create TLS socket
+                Log.d("WazuhAuth", "Connecting to socket at $serverIp:$authPort...")
                 socket = sslContext.socketFactory.createSocket(serverIp, authPort) as SSLSocket
-                socket.soTimeout = 10000 // 10 seconds timeout
+                socket.soTimeout = 15000 // 15 seconds timeout
+                
+                Log.d("WazuhAuth", "Starting SSL Handshake...")
                 socket.startHandshake()
+                Log.d("WazuhAuth", "Handshake successful.")
 
                 val writer = OutputStreamWriter(socket.outputStream, Charsets.UTF_8)
                 val reader = InputStreamReader(socket.inputStream, Charsets.UTF_8)
 
-                // 1. Send registration payload (beware of newline at the end)
-                val group = userEmail.replace("@", ".")
+                // 1. Send registration payload
+                val group = userEmail.replace("@", "-")
                 val ip = agentIp
-//                val ip = "10.0.0.2"
                 val payload = if (enrollmentPassword.isNotEmpty()) {
                     "OSSEC PASS: $enrollmentPassword\nOSSEC A:'$agentName' G:'$group' IP:'$ip'\n"
                 } else {
                     "OSSEC A:'$agentName' G:'$group' IP:'$ip'\n"
                 }
 
+                Log.d("WazuhAuth", "Sending payload: ${payload.trim()}")
                 writer.write(payload)
                 writer.flush()
 
                 // 2. Read response
+                Log.d("WazuhAuth", "Waiting for server response...")
                 val responseBuffer = CharArray(1024)
                 val bytesRead = reader.read(responseBuffer)
-                if (bytesRead == -1) throw Exception(context.getString(R.string.wazuh_server_closed_connection))
+                if (bytesRead == -1) {
+                    Log.e("WazuhAuth", "Server closed connection without data.")
+                    throw Exception(context.getString(R.string.wazuh_server_closed_connection))
+                }
 
                 val response = String(responseBuffer, 0, bytesRead).trim()
+                Log.d("WazuhAuth", "Raw response from server: $response")
 
                 // 3. Process result
                 if (response.startsWith("ERROR") || response.startsWith("ERR")) {

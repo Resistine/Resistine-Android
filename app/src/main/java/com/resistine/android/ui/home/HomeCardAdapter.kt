@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.resistine.android.R
 
@@ -25,6 +26,7 @@ class HomeCardAdapter(
             title.text = item.title
             summary.text = item.summary
             status.text = item.status
+            status.setTextColor(ContextCompat.getColor(itemView.context, item.statusColorResId))
 
             itemView.setOnClickListener { onItemClick(item) }
         }

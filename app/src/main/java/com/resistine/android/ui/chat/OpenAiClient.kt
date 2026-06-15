@@ -14,10 +14,18 @@ object OpenAiClient {
         .build()
 
     fun getChatResponse(userText: String, callback: (String) -> Unit) {
-        val url = "http://10.49.64.53:8001/v1/chat/completions"
-//        val url = " http://dashboard.resisti.net:8001/v1"
+        // --- Local AI Server (Current) ---
+         val url = "http://10.49.64.53:8001/v1/chat/completions"
+         val model = "ministral-3:14b"
+         val apiKey = "" // Not needed for local typically
+
+        // --- ChatGPT (OpenAI API Test) ---
+//        val url = "https://api.openai.com/v1/chat/completions"
+//        val model = "gpt-3.5-turbo"
+//        val apiKey = "apikey" //
+
         val jsonBody = JSONObject()
-        jsonBody.put("model", "ministral-3:14b")
+        jsonBody.put("model", model)
         val messagesArray = JSONObject().apply {
             put("role", "user")
             put("content", userText)
@@ -27,6 +35,11 @@ object OpenAiClient {
         val request = Request.Builder()
             .url(url)
             .addHeader("Content-Type", "application/json")
+            .apply {
+                if (apiKey.isNotEmpty()) {
+                    addHeader("Authorization", "Bearer $apiKey")
+                }
+            }
             .post(jsonBody.toString().toRequestBody("application/json".toMediaType()))
             .build()
 
