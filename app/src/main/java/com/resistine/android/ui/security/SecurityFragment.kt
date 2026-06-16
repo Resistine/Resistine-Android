@@ -11,10 +11,22 @@ import com.resistine.android.R
 import com.resistine.android.databinding.FragmentSecurityBinding
 import com.resistine.android.ui.vpn.VpnViewModel
 
+/**
+ * Fragment that displays a detailed security and system status overview.
+ * 
+ * It shows information about:
+ * - Wazuh Agent connectivity
+ * - Public IP and Geographic Location
+ * - Device Hardware (Model, Android Version, Battery)
+ */
 class SecurityFragment : Fragment() {
 
     private var _binding: FragmentSecurityBinding? = null
     private val binding get() = _binding!!
+    
+    /**
+     * Sharing the activity-scoped ViewModel to get real-time network and device data.
+     */
     private val vpnViewModel: VpnViewModel by activityViewModels()
 
     override fun onCreateView(
@@ -29,7 +41,7 @@ class SecurityFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Observe common data from VpnViewModel
+        // Observe network and device data from VpnViewModel
         vpnViewModel.ipAddress.observe(viewLifecycleOwner) {
             binding.textViewIpAddress.text = it
         }
@@ -50,15 +62,20 @@ class SecurityFragment : Fragment() {
             binding.textViewBatteryLevel.text = it
         }
 
-        // Wazuh connection observation
+        // Wazuh connection state is tied to VPN status in the current implementation
         vpnViewModel.isVpnConnectedLiveData.observe(viewLifecycleOwner) { isVpnUp ->
             updateWazuhStatus(isVpnUp)
         }
         
-        // Refresh data on start
+        // Refresh Wi-Fi alerts to ensure we have fresh data
         vpnViewModel.refreshWifiSecurityAlert()
     }
 
+    /**
+     * Updates the UI representation of the Wazuh Agent status.
+     * 
+     * @param isVpnUp True if the VPN tunnel (and thus agent connectivity) is active.
+     */
     private fun updateWazuhStatus(isVpnUp: Boolean) {
         if (isVpnUp) {
             binding.textViewWazuhStatus.text = "Agent: Active & Monitoring"

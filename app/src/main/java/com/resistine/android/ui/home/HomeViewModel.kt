@@ -9,15 +9,30 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.resistine.android.R
 
+/**
+ * ViewModel for the Home screen dashboard.
+ * 
+ * It generates and updates the list of dashboard cards based on the
+ * current system state (VPN connectivity, Wi-Fi status, etc.).
+ * 
+ * @param application The application context.
+ */
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _cards = MutableLiveData<List<HomeCardItem>>()
+    /**
+     * LiveData holding the current list of [HomeCardItem] to be displayed in the dashboard.
+     */
     val cards: LiveData<List<HomeCardItem>> = _cards
 
     init {
         updateCards()
     }
 
+    /**
+     * Refreshes the dashboard cards by checking the current connectivity state.
+     * Updates [cards] with the new status and colors.
+     */
     fun updateCards() {
         val appContext = getApplication<Application>().applicationContext
         
@@ -81,6 +96,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
+    /**
+     * Checks if a VPN transport is currently active.
+     */
     private fun isVpnActive(): Boolean {
         val connectivityManager = getApplication<Application>().getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val activeNetwork = connectivityManager.activeNetwork ?: return false
@@ -88,6 +106,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
     }
 
+    /**
+     * Checks if a Wi-Fi transport is currently active.
+     */
     private fun isWifiActive(): Boolean {
         val connectivityManager = getApplication<Application>().getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val activeNetwork = connectivityManager.activeNetwork ?: return false

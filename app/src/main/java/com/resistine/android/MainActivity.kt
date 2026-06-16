@@ -17,6 +17,13 @@ import com.resistine.android.databinding.ActivityMainBinding
 import com.resistine.android.security.CryptoManager
 import com.resistine.android.ui.vpn.VpnViewModel
 
+/**
+ * The main entry point Activity of the application.
+ * 
+ * It hosts the Navigation Drawer, Toolbar, and the Fragment container.
+ * Coordinates high-level UI states like login/logout visibility and
+ * drawer locking based on the current destination.
+ */
 class MainActivity : AppCompatActivity() {
 
     private lateinit var appBarConfiguration: AppBarConfiguration
@@ -35,6 +42,7 @@ class MainActivity : AppCompatActivity() {
         val navView: NavigationView = binding.navView
         val navController = findNavController(R.id.nav_host_fragment_content_main)
 
+        // Set up the top-level destinations (no back button, show hamburger instead)
         appBarConfiguration = AppBarConfiguration(
             setOf(R.id.nav_home),
             drawerLayout
@@ -45,23 +53,27 @@ class MainActivity : AppCompatActivity() {
         val headerView = navView.getHeaderView(0)
         val emailTextView = headerView.findViewById<TextView>(R.id.textView)
 
+        // Monitor navigation changes to update UI state
         navController.addOnDestinationChangedListener { _, destination, _ ->
             when (destination.id) {
                 R.id.nav_home -> {
+                    // Unlock drawer on home screen and update email in header
                     drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED)
                     val userEmail = CryptoManager.loadDecryptedEmail(this)
                     emailTextView.text = userEmail ?: "Not logged in"
                 }
                 R.id.nav_welcome -> {
+                    // Lock drawer and hide back button on the welcome/login screen
                     drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
                     supportActionBar?.setDisplayHomeAsUpEnabled(false)
                 }
                 else -> {
+                    // Lock drawer for detail screens and show back button
                     drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
                     supportActionBar?.setDisplayHomeAsUpEnabled(true)
                 }
             }
-            invalidateOptionsMenu()
+            invalidateOptionsMenu() // Refresh menu items (Login/Logout)
         }
     }
 
@@ -70,6 +82,9 @@ class MainActivity : AppCompatActivity() {
         return true
     }
 
+    /**
+     * Dynamically updates the menu items (Login vs Logout) based on session state.
+     */
     override fun onPrepareOptionsMenu(menu: Menu): Boolean {
         val loginItem = menu.findItem(R.id.action_login)
         val logoutItem = menu.findItem(R.id.action_logout)
@@ -95,6 +110,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Shows a confirmation dialog before proceeding with logout.
+     */
     private fun showLogoutConfirmationDialog(navController: androidx.navigation.NavController) {
         com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
             .setTitle("Confirm Logout")

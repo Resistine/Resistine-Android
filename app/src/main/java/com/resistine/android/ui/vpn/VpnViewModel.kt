@@ -71,6 +71,15 @@ import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
 
+/**
+ * ViewModel responsible for managing VPN state, Wi-Fi security monitoring,
+ * and device information updates.
+ *
+ * It coordinates WireGuard tunnel operations, Wazuh agent lifecycle,
+ * and real-time Wi-Fi safety assessments.
+ *
+ * @param application The application context.
+ */
 class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
     private var backend: GoBackend? = null
@@ -78,48 +87,76 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     private val tunnelName = "MyWireGuardTunnel"
 
     private val _vpnStatus = MutableLiveData<String>()
+    /** LiveData representing the current readable status of the VPN connection. */
     val vpnStatus: LiveData<String> = _vpnStatus
+
     private val _isVpnConnected = MutableLiveData(false)
+    /** LiveData boolean indicating whether the VPN is currently connected. */
     val isVpnConnectedLiveData: LiveData<Boolean> = _isVpnConnected
 
     private var isVpnConnected = false
     private val isRegistering = AtomicBoolean(false)
 
     private val _ipAddress = MutableLiveData<String>()
+    /** LiveData holding the public IP address of the device. */
     val ipAddress: LiveData<String> = _ipAddress
 
     private val _androidVersion = MutableLiveData<String>()
+    /** LiveData holding the formatted Android version and SDK level. */
     val androidVersion: LiveData<String> = _androidVersion
 
     private val _batteryLevel = MutableLiveData<String>()
+    /** LiveData holding the current battery percentage as a formatted string. */
     val batteryLevel: LiveData<String> = _batteryLevel
 
     private val _deviceModel = MutableLiveData<String>()
+    /** LiveData holding the device manufacturer and model name. */
     val deviceModel: LiveData<String> = _deviceModel
 
     private val _locationString = MutableLiveData<String>()
+    /** LiveData holding the location information (City, Country) inferred from the IP. */
     val locationString: LiveData<String> = _locationString
 
     private val _wifiSecurityAlert = MutableLiveData<WifiSecurityAlert>()
+    /** LiveData containing the current high-level Wi-Fi security alert status. */
     val wifiSecurityAlert: LiveData<WifiSecurityAlert> = _wifiSecurityAlert
+
     private val _nearbyWifiNetworksState = MutableLiveData(WifiNearbyNetworksState())
+    /** LiveData representing the state of nearby Wi-Fi networks found in scans. */
     val nearbyWifiNetworksState: LiveData<WifiNearbyNetworksState> = _nearbyWifiNetworksState
+
     private val _trustedWifiNetworks = MutableLiveData<List<TrustedWifiProfile>>(emptyList())
+    /** LiveData list of Wi-Fi networks previously marked as trusted by the user. */
     val trustedWifiNetworks: LiveData<List<TrustedWifiProfile>> = _trustedWifiNetworks
+
     private val _wifiSafetyAssessment = MutableLiveData(WifiSafetyAssessment())
+    /** LiveData containing the detailed security score and risk level for the current network. */
     val wifiSafetyAssessment: LiveData<WifiSafetyAssessment> = _wifiSafetyAssessment
+
     private val _wifiAdvancedChecks = MutableLiveData<List<WifiAdvancedCheckItem>>(emptyList())
+    /** LiveData list of specific security check items (Encryption, PMF, Evil Twin, etc.). */
     val wifiAdvancedChecks: LiveData<List<WifiAdvancedCheckItem>> = _wifiAdvancedChecks
+
     private val _wifiRiskTransitionAlert = MutableLiveData<WifiRiskTransitionAlert?>()
+    /** LiveData triggered when the Wi-Fi risk level changes significantly. */
     val wifiRiskTransitionAlert: LiveData<WifiRiskTransitionAlert?> = _wifiRiskTransitionAlert
+
     private val _autoVpnPolicy = MutableLiveData(AutoVpnPolicy.OFF)
+    /** LiveData representing the current automatic VPN connection policy. */
     val autoVpnPolicy: LiveData<AutoVpnPolicy> = _autoVpnPolicy
+
     private val _autoProtectUnknownWifi = MutableLiveData(false)
+    /** LiveData indicating if VPN should auto-connect on networks with limited data. */
     val autoProtectUnknownWifi: LiveData<Boolean> = _autoProtectUnknownWifi
+
     private val _autoVpnActionMessageRes = MutableLiveData<Int?>()
+    /** LiveData for passing string resource IDs of feedback messages (e.g., auto-disconnected). */
     val autoVpnActionMessageRes: LiveData<Int?> = _autoVpnActionMessageRes
+
     private val _backgroundScanState = MutableLiveData(WifiBackgroundScanState())
+    /** LiveData describing the interval and active status of background Wi-Fi monitoring. */
     val backgroundScanState: LiveData<WifiBackgroundScanState> = _backgroundScanState
+
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var isWifiMonitoringStarted = false
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -147,6 +184,12 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Performs a complete logout by disconnecting VPN, clearing all stored credentials,
+     * resetting local preferences, and purging the local database.
+     *
+     * @param context The context used to access SharedPreferences and Database.
+     */
     fun logout(context: Context) {
         if (isVpnConnected) {
             disconnectVpn()
@@ -175,6 +218,11 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         _locationString.postValue("Location: N/A")
     }
 
+    /**
+     * Toggles the VPN state. Connects if disconnected, and vice-versa.
+     *
+     * @param context Application context.
+     */
     fun toggleVpn(context: Context) {
         if (isVpnConnected) {
             disconnectVpn()
@@ -183,18 +231,31 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Ensures the VPN is connected.
+     *
+     * @param context Application context.
+     */
     fun connectVpnIfNeeded(context: Context) {
         if (!isVpnConnected) {
             connectVpn(context)
         }
     }
 
+    /**
+     * Ensures the VPN is disconnected.
+     */
     fun disconnectVpnIfConnected() {
         if (isVpnConnected) {
             disconnectVpn()
         }
     }
 
+    /**
+     * Sets and persists the automatic VPN activation policy.
+     *
+     * @param enabled True to enable auto-connection on risky networks.
+     */
     fun setAutoVpnEnabled(enabled: Boolean) {
         val current = _autoVpnPolicy.value ?: AutoVpnPolicy.OFF
         val updated = when {
@@ -213,6 +274,12 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Toggles whether the VPN should automatically disconnect when moving from a risky
+     * network to a safe one.
+     *
+     * @param enabled True to enable automatic disconnection on safe networks.
+     */
     fun setAutoVpnDisconnectOnSafe(enabled: Boolean) {
         val current = _autoVpnPolicy.value ?: AutoVpnPolicy.OFF
         val updated = when {
@@ -227,12 +294,23 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Sets whether unknown Wi-Fi networks (where security type cannot be fully detected)
+     * should trigger an automatic VPN connection.
+     *
+     * @param enabled True to treat unknown networks as risky.
+     */
     fun setAutoProtectUnknownWifi(enabled: Boolean) {
         saveAutoProtectUnknownWifi(enabled)
         _autoProtectUnknownWifi.postValue(enabled)
         _wifiSafetyAssessment.value?.let { applyAutoVpnPolicy(it) }
     }
 
+    /**
+     * Enables or disables periodic background Wi-Fi scanning.
+     *
+     * @param enabled True to enable background monitoring.
+     */
     fun setBackgroundScanEnabled(enabled: Boolean) {
         saveBackgroundScanEnabled(enabled)
         if (enabled) {
@@ -243,14 +321,21 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         updateBackgroundScanState()
     }
 
+    /** Clears the current risk transition alert. */
     fun clearRiskTransitionAlert() {
         _wifiRiskTransitionAlert.postValue(null)
     }
 
+    /** Clears the current auto-VPN action feedback message. */
     fun clearAutoVpnActionMessage() {
         _autoVpnActionMessageRes.postValue(null)
     }
 
+    /**
+     * Triggers a manual refresh of the Wi-Fi security alert and safety assessment.
+     *
+     * @param lightweight If true, avoids triggering a fresh system Wi-Fi scan to save battery.
+     */
     fun refreshWifiSecurityAlert(lightweight: Boolean = false) {
         var alert = buildWifiSecurityAlert()
         var nearbyState = buildNearbyWifiNetworksState(
@@ -284,6 +369,13 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Toggles the "trusted" status of the network the device is currently connected to.
+     * Saving a trusted baseline allows the app to detect unauthorized access point
+     * replacements (Evil Twins).
+     *
+     * @return String resource ID of the feedback message.
+     */
     fun toggleCurrentNetworkTrusted(): Int {
         val context = getApplication<Application>()
         val ssid = currentWifiSsid ?: return R.string.wifi_trust_unavailable
@@ -330,6 +422,12 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Removes a specific network from the trusted baselines.
+     *
+     * @param ssid The SSID of the network to untrust.
+     * @return String resource ID of the feedback message.
+     */
     fun removeTrustedNetwork(ssid: String): Int {
         if (ssid.isBlank()) return R.string.wifi_trust_unavailable
         removeTrustedProfile(ssid)
@@ -337,6 +435,9 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         return R.string.wifi_trust_removed
     }
 
+    /**
+     * Toggles trust for a network, typically called from a list of nearby networks.
+     */
     fun toggleTrustedNetwork(
         ssid: String,
         bssid: String?,
@@ -370,6 +471,10 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         return R.string.wifi_trust_added
     }
 
+    /**
+     * Registers a network callback to monitor connectivity changes and triggers
+     * Wi-Fi security refreshes.
+     */
     fun startWifiMonitoring() {
         if (isWifiMonitoringStarted) {
             return
@@ -399,6 +504,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         refreshWifiSecurityAlert()
     }
 
+    /** Unregisters the network callback and stops Wi-Fi monitoring. */
     fun stopWifiMonitoring() {
         if (!isWifiMonitoringStarted) {
             return
@@ -602,6 +708,10 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         _deviceModel.value = "Device: ${Build.MANUFACTURER} ${Build.MODEL}"
     }
 
+    /**
+     * Fetches public IP and location metadata from an external service.
+     * Updates [ipAddress] and [locationString] LiveData.
+     */
     fun fetchLocationData() {
         val client = OkHttpClient.Builder()
             .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
@@ -2826,44 +2936,77 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     }
 }
 
+/** Severity levels for Wi-Fi security status. */
 enum class WifiAlertLevel {
+    /** Network is considered secure. */
     SECURE,
+    /** Potential risks detected, caution advised. */
     WARNING,
+    /** Informational status (e.g., disconnected or limited data). */
     INFO
 }
 
+/** Specific reasons for a Wi-Fi security alert. */
 enum class WifiAlertReason {
+    /** Monitoring service is unavailable. */
     UNAVAILABLE,
+    /** No active network connection. */
     NO_NETWORK,
+    /** Device is on a non-Wi-Fi network (e.g., Cellular). */
     NOT_WIFI,
+    /** Network has a captive portal (sign-in required). */
     CAPTIVE_PORTAL,
+    /** Connectivity is established but not yet validated. */
     UNVALIDATED,
+    /** Android version is too old for detailed security detection. */
     LEGACY_NO_SECURITY_TYPE,
+    /** Location permission missing (required for SSID/BSSID). */
     MISSING_PERMISSION,
+    /** Location services disabled (required for Wi-Fi scanning). */
     LOCATION_SERVICES_DISABLED,
+    /** Network is open or uses obsolete WEP encryption. */
     OPEN_OR_WEP,
+    /** Encryption details could not be determined. */
     UNKNOWN_SECURITY,
+    /** Legacy weak ciphers (like TKIP) are in use. */
     WEAK_LEGACY_CIPHER,
+    /** WPS is enabled, which is a security vulnerability. */
     WPS_ENABLED,
+    /** Current BSSID does not match the trusted baseline. */
     TRUSTED_BSSID_MISMATCH,
+    /** Security fingerprint has changed from the trusted baseline. */
     TRUSTED_FINGERPRINT_CHANGED,
+    /** Security is weaker than what was recorded in the baseline. */
     TRUSTED_SECURITY_DOWNGRADE,
+    /** Network appears secure and matches baseline (if any). */
     SECURE
 }
 
+/** Broad classification of Wi-Fi security type. */
 enum class WifiSecurityType {
+    /** No encryption. */
     OPEN,
+    /** Obsolete WEP encryption. */
     WEP,
+    /** Encryption type is not identified. */
     UNKNOWN,
+    /** Modern secure encryption (WPA2/WPA3). */
     SECURE
 }
 
+/** High-level risk levels for network safety. */
 enum class WifiNetworkRiskLevel {
+    /** Safe to use. */
     SAFE,
+    /** Use with caution, VPN recommended. */
     WARNING,
+    /** High risk, VPN strongly recommended or auto-connected. */
     DANGER
 }
 
+/**
+ * Data model for a Wi-Fi network discovered nearby.
+ */
 data class WifiNearbyNetwork(
     val ssid: String,
     val bssid: String?,
@@ -2888,11 +3031,13 @@ data class WifiNearbyNetwork(
     val canToggleTrust: Boolean = false
 )
 
+/** Represents the aggregate state of all nearby networks. */
 data class WifiNearbyNetworksState(
     val networks: List<WifiNearbyNetwork> = emptyList(),
     val messageResId: Int? = null
 )
 
+/** Aggregate data for the current Wi-Fi security alert. */
 data class WifiSecurityAlert(
     val level: WifiAlertLevel,
     val reason: WifiAlertReason,
@@ -2918,6 +3063,7 @@ data class WifiSecurityAlert(
     val trustDetail: String? = null
 )
 
+/** Stored profile for a network the user has explicitly trusted. */
 data class TrustedWifiProfile(
     val ssid: String,
     val bssid: String?,
@@ -2933,9 +3079,11 @@ data class TrustedWifiProfile(
     val pendingLastGateway: String? = null,
     val pendingLastSeenMillis: Long? = null
 ) {
+    /** The broad security type of this trusted profile. */
     val securityType: WifiSecurityType get() = securityProfile.broadType
 }
 
+/** Represents a single technical check item in the security assessment. */
 data class WifiAdvancedCheckItem(
     val key: String,
     val dimension: WifiRiskDimension,
@@ -2945,6 +3093,7 @@ data class WifiAdvancedCheckItem(
     val penalty: Int
 )
 
+/** The results of a comprehensive safety assessment. */
 data class WifiSafetyAssessment(
     val score: Int = 100,
     val level: WifiNetworkRiskLevel = WifiNetworkRiskLevel.SAFE,
@@ -2956,17 +3105,23 @@ data class WifiSafetyAssessment(
     val dimensions: List<WifiScoreDimensionResult> = emptyList()
 )
 
+/** A summary of a network's score and checks, used for previews. */
 data class WifiNetworkScorePreview(
     val assessment: WifiSafetyAssessment,
     val checks: List<WifiAdvancedCheckItem>
 )
 
+/** Policies for automatic VPN connection. */
 enum class AutoVpnPolicy {
+    /** No automatic connection. */
     OFF,
+    /** Connect when a risk is detected. */
     CONNECT_ON_RISK,
+    /** Connect on risk, and automatically disconnect when safe. */
     CONNECT_AND_DISCONNECT_ON_SAFE
 }
 
+/** Data for an alert triggered by a change in risk level. */
 data class WifiRiskTransitionAlert(
     val id: Long,
     val fromLevel: WifiNetworkRiskLevel,
@@ -2976,6 +3131,7 @@ data class WifiRiskTransitionAlert(
     val worsened: Boolean
 )
 
+/** State information for background scanning activities. */
 data class WifiBackgroundScanState(
     val enabled: Boolean = false,
     val intervalMinutes: Int = 0,

@@ -15,8 +15,27 @@ import javax.net.ssl.SSLSocket
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 
+/**
+ * Manager responsible for automatic agent registration via the Wazuh 'authd' service.
+ * 
+ * It communicates over a secure TLS socket to request a unique Agent ID and Key
+ * using the device and user metadata.
+ */
 class WazuhAuthdManager() {
 
+    /**
+     * Connects to the Wazuh authd service and performs registration.
+     * 
+     * @param context Application context for resource access.
+     * @param serverIp IP address of the Wazuh Manager.
+     * @param authPort Port of the authd service (typically 1515).
+     * @param agentName Desired name for the new agent.
+     * @param userEmail Email associated with the agent (used for grouping).
+     * @param enrollmentPassword Optional password if authd is password-protected.
+     * @param agentIp Optional specific IP to register for the agent.
+     * @return A [Pair] containing the (Agent ID, Agent Key).
+     * @throws Exception if connection fails, handshake fails, or server returns an error.
+     */
     suspend fun registerAndGetKey(
         context: Context,
         serverIp: String,
@@ -29,7 +48,8 @@ class WazuhAuthdManager() {
         return withContext(Dispatchers.IO) {
             var socket: SSLSocket? = null
             try {
-                // Wazuh uses its own self-signed certificates, for now we must trust all
+                // SSL SETUP: Wazuh often uses self-signed certs. 
+                // Currently trusting all to facilitate dynamic registration.
                 val trustAll = arrayOf<TrustManager>(object : X509TrustManager {
                     override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
                     override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
@@ -39,7 +59,7 @@ class WazuhAuthdManager() {
                 val sslContext = SSLContext.getInstance("TLS")
                 sslContext.init(null, trustAll, SecureRandom())
 
-                // Create TLS socket
+                // TLS Socket Initialization
                 Log.d("WazuhAuth", "Connecting to socket at $serverIp:$authPort...")
                 socket = sslContext.socketFactory.createSocket(serverIp, authPort) as SSLSocket
                 socket.soTimeout = 15000 // 15 seconds timeout
@@ -51,7 +71,7 @@ class WazuhAuthdManager() {
                 val writer = OutputStreamWriter(socket.outputStream, Charsets.UTF_8)
                 val reader = InputStreamReader(socket.inputStream, Charsets.UTF_8)
 
-                // 1. Send registration payload
+                // 1. Prepare and send the registration payload
                 val group = userEmail.replace("@", "-")
                 val ip = agentIp
                 val payload = if (enrollmentPassword.isNotEmpty()) {
@@ -64,7 +84,7 @@ class WazuhAuthdManager() {
                 writer.write(payload)
                 writer.flush()
 
-                // 2. Read response
+                // 2. Read and parse the server response
                 Log.d("WazuhAuth", "Waiting for server response...")
                 val responseBuffer = CharArray(1024)
                 val bytesRead = reader.read(responseBuffer)
@@ -76,19 +96,19 @@ class WazuhAuthdManager() {
                 val response = String(responseBuffer, 0, bytesRead).trim()
                 Log.d("WazuhAuth", "Raw response from server: $response")
 
-                // 3. Process result
+                // 3. Process registration result
                 if (response.startsWith("ERROR") || response.startsWith("ERR")) {
                     throw Exception(context.getString(R.string.wazuh_authd_server_error, response))
                 }
 
                 if (response.startsWith("OSSEC K:'")) {
-                    // Remove header and trailing apostrophe -> "001 Name 10.0.0.50 a1b2c3d4..."
+                    // Extract data from format: OSSEC K:'ID Name IP KEY'
                     val content = response.substringAfter("OSSEC K:'").substringBeforeLast("'")
                     val parts = content.split(" ")
 
                     if (parts.size >= 4) {
                         val agentId = parts[0]
-                        val agentKey = parts[3] // Get clean hexadecimal key
+                        val agentKey = parts[3] 
                         return@withContext Pair(agentId, agentKey)
                     } else {
                         throw Exception(context.getString(R.string.wazuh_invalid_key_format, content))

@@ -14,6 +14,15 @@ import com.resistine.android.network.WazuhLogger
 import kotlinx.coroutines.*
 import java.net.NetworkInterface
 
+/**
+ * A Foreground Service that manages the Wazuh Agent lifecycle.
+ * 
+ * Responsibilities:
+ * - Maintains a persistent connection to the Wazuh Manager.
+ * - Sends periodic "Keepalive" signals to report agent health.
+ * - Flushes pending system logs from the local database to the manager.
+ * - Ensures connection only happens when a secure VPN tunnel is detected.
+ */
 class WazuhService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -28,6 +37,9 @@ class WazuhService : Service() {
 
     private var isRunning = false
 
+    /**
+     * Handles service commands. Supports normal start and custom "STOP" action.
+     */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
         
@@ -44,6 +56,7 @@ class WazuhService : Service() {
             return START_STICKY
         }
 
+        // Credentials can be passed via Intent or read from prefs
         val agentId = intent?.getStringExtra("AGENT_ID")
         val agentKey = intent?.getStringExtra("AGENT_KEY")
         val agentName = intent?.getStringExtra("AGENT_NAME")
@@ -67,6 +80,9 @@ class WazuhService : Service() {
         return startWithCredentials(finalId, finalKey, finalName)
     }
 
+    /**
+     * Initiates the background loop for agent connectivity and log syncing.
+     */
     private fun startWithCredentials(agentId: String, agentKey: String, agentName: String): Int {
         isRunning = true
         val configManager = WazuhConfigManager.getInstance(this)
@@ -86,7 +102,7 @@ class WazuhService : Service() {
                     val currentLogger = logger ?: WazuhLogger(applicationContext).also { logger = it }
                     
                     if (!currentLogger.isConnected()) {
-                        // Security check: Only connect if VPN is up
+                        // SECURITY GUARD: Only connect if VPN is active
                         if (!isVpnActive()) {
                             updateNotification(getString(R.string.wazuh_waiting_for_vpn))
                             delay(5000)
@@ -109,7 +125,7 @@ class WazuhService : Service() {
                         }
                     }
 
-                    // Re-check VPN before sending data
+                    // Double check VPN before any data transmission
                     if (!isVpnActive()) {
                         currentLogger.disconnect()
                         updateNotification(getString(R.string.wazuh_waiting_for_vpn))
@@ -117,7 +133,7 @@ class WazuhService : Service() {
                         continue
                     }
 
-                    // 1. Send pending logs
+                    // 1. Sync pending system logs from Database to Server
                     val pendingLogs = logDao.getPendingLogs()
                     if (pendingLogs.isNotEmpty()) {
                         var anyFailed = false
@@ -144,13 +160,13 @@ class WazuhService : Service() {
                         }
                     }
 
-                    // 2. Send Keepalive if time has passed
+                    // 2. Periodic Keepalive to keep the agent 'Active' in Wazuh Dashboard
                     if (System.currentTimeMillis() - lastKeepaliveTime > keepaliveInterval) {
                         currentLogger.sendKeepalive(agentId, rawAgentKey = agentKey, agentName = agentName)
                         lastKeepaliveTime = System.currentTimeMillis()
                     }
 
-                    delay(2000) // Check for logs/keepalive every 2 seconds
+                    delay(2000) // Polling interval
 
                 } catch (e: Exception) {
                     updateNotification(getString(R.string.wazuh_connection_interrupted, e.message ?: "Unknown error"))
@@ -170,7 +186,7 @@ class WazuhService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.wazuh_notification_title))
             .setContentText(content)
-            .setSmallIcon(android.R.drawable.ic_dialog_info) // Replace with your own icon
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setOngoing(true)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, getString(R.string.wazuh_stop), stopPendingIntent)
             .build()
@@ -193,6 +209,10 @@ class WazuhService : Service() {
         }
     }
 
+    /**
+     * Inspects active network interfaces to detect a VPN tunnel.
+     * Looks for interface names containing 'tun', 'wg', or 'wireguard'.
+     */
     private fun isVpnActive(): Boolean {
         return try {
             val networkInterfaces = NetworkInterface.getNetworkInterfaces()

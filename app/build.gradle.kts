@@ -4,6 +4,7 @@ import java.io.FileInputStream
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.jetbrains.dokka)
     id("kotlin-kapt")
 }
 
@@ -58,6 +59,13 @@ android {
     kapt {
         correctErrorTypes = true
     }
+
+    // Dokka V2 configuration for multiple formats
+//    dokka {
+//        dokkaPublications.register("gfm") {
+//            // For generating Markdown (GFM)
+//        }
+//    }
 }
 
 dependencies {
@@ -89,4 +97,7 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+
+    // Dokka GFM (Markdown) support
+//    dokkaPlugin(libs.dokka.gfm.plugin)
 }
