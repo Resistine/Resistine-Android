@@ -1,0 +1,6 @@
+//[app](../../../index.md)/[com.resistine.android.ui.vpn](../index.md)/[WifiSafetyAssessment](index.md)/[WifiSafetyAssessment](-wifi-safety-assessment.md)
+
+# WifiSafetyAssessment
+
+[androidJvm]\
+constructor(score: [Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html) = 100, level: [WifiNetworkRiskLevel](../-wifi-network-risk-level/index.md) = WifiNetworkRiskLevel.SAFE, summary: [String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html) = &quot;&quot;, recommendationResId: [Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html) = R.string.wifi_security_recommendation_secure, isLimitedData: [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html) = false, isOnWifi: [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html) = false, uncertainties: [Set](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/-set/index.html)&lt;[WifiAssessmentUncertainty](../../com.resistine.android.ui.wifi/-wifi-assessment-uncertainty/index.md)&gt; = emptySet(), dimensions: [List](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/-list/index.html)&lt;[WifiScoreDimensionResult](../../com.resistine.android.ui.wifi/-wifi-score-dimension-result/index.md)&gt; = emptyList())

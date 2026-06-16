@@ -1,0 +1,6 @@
+//[app](../../../index.md)/[com.resistine.android.ui.vpn](../index.md)/[WifiSafetyAssessment](index.md)/[summary](summary.md)
+
+# summary
+
+[androidJvm]\
+val [summary](summary.md): [String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html)

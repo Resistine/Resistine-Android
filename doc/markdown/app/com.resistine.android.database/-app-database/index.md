@@ -1,0 +1,53 @@
+//[app](../../../index.md)/[com.resistine.android.database](../index.md)/[AppDatabase](index.md)
+
+# AppDatabase
+
+[androidJvm]\
+abstract class [AppDatabase](index.md) : [RoomDatabase](https://developer.android.com/reference/kotlin/androidx/room/RoomDatabase.html)
+
+## Constructors
+
+| | |
+|---|---|
+| [AppDatabase](-app-database.md) | [androidJvm]<br>constructor() |
+
+## Types
+
+| Name | Summary |
+|---|---|
+| [Companion](-companion/index.md) | [androidJvm]<br>object [Companion](-companion/index.md) |
+
+## Properties
+
+| Name | Summary |
+|---|---|
+| [backingFieldMap](index.md#155738858%2FProperties%2F1606452474) | [androidJvm]<br>@get:[RestrictTo](https://developer.android.com/reference/kotlin/androidx/annotation/RestrictTo.html)(value = [[RestrictTo.Scope.LIBRARY_GROUP](https://developer.android.com/reference/kotlin/androidx/annotation/RestrictTo.Scope.html#LIBRARY_GROUP)])<br>val [backingFieldMap](index.md#155738858%2FProperties%2F1606452474): [MutableMap](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/-mutable-map/index.html)&lt;[String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html), [Any](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-any/index.html)&gt; |
+| [invalidationTracker](index.md#-990093491%2FProperties%2F1606452474) | [androidJvm]<br>open val [invalidationTracker](index.md#-990093491%2FProperties%2F1606452474): [InvalidationTracker](https://developer.android.com/reference/kotlin/androidx/room/InvalidationTracker.html) |
+| [isOpen](index.md#-277138657%2FProperties%2F1606452474) | [androidJvm]<br>open val [isOpen](index.md#-277138657%2FProperties%2F1606452474): [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html) |
+| [isOpenInternal](index.md#475302114%2FProperties%2F1606452474) | [androidJvm]<br>@get:[RestrictTo](https://developer.android.com/reference/kotlin/androidx/annotation/RestrictTo.html)(value = [[RestrictTo.Scope.LIBRARY_GROUP](https://developer.android.com/reference/kotlin/androidx/annotation/RestrictTo.Scope.html#LIBRARY_GROUP)])<br>val [isOpenInternal](index.md#475302114%2FProperties%2F1606452474): [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html) |
+| [openHelper](index.md#-1864821605%2FProperties%2F1606452474) | [androidJvm]<br>open val [openHelper](index.md#-1864821605%2FProperties%2F1606452474): [SupportSQLiteOpenHelper](https://developer.android.com/reference/kotlin/androidx/sqlite/db/SupportSQLiteOpenHelper.html) |
+| [queryExecutor](index.md#-177284564%2FProperties%2F1606452474) | [androidJvm]<br>open val [queryExecutor](index.md#-177284564%2FProperties%2F1606452474): [Executor](https://developer.android.com/reference/kotlin/java/util/concurrent/Executor.html) |
+| [suspendingTransactionId](index.md#1027959380%2FProperties%2F1606452474) | [androidJvm]<br>@get:[RestrictTo](https://developer.android.com/reference/kotlin/androidx/annotation/RestrictTo.html)(value = [[RestrictTo.Scope.LIBRARY_GROUP](https://developer.android.com/reference/kotlin/androidx/annotation/RestrictTo.Scope.html#LIBRARY_GROUP)])<br>val [suspendingTransactionId](index.md#1027959380%2FProperties%2F1606452474): [ThreadLocal](https://developer.android.com/reference/kotlin/java/lang/ThreadLocal.html)&lt;[Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html)&gt; |
+| [transactionExecutor](index.md#722320214%2FProperties%2F1606452474) | [androidJvm]<br>open val [transactionExecutor](index.md#722320214%2FProperties%2F1606452474): [Executor](https://developer.android.com/reference/kotlin/java/util/concurrent/Executor.html) |
+
+## Functions
+
+| Name | Summary |
+|---|---|
+| [assertNotMainThread](index.md#-917214377%2FFunctions%2F1606452474) | [androidJvm]<br>@[RestrictTo](https://developer.android.com/reference/kotlin/androidx/annotation/RestrictTo.html)(value = [[RestrictTo.Scope.LIBRARY_GROUP_PREFIX](https://developer.android.com/reference/kotlin/androidx/annotation/RestrictTo.Scope.html#LIBRARY_GROUP_PREFIX)])<br>open fun [assertNotMainThread](index.md#-917214377%2FFunctions%2F1606452474)() |
+| [assertNotSuspendingTransaction](index.md#1166251624%2FFunctions%2F1606452474) | [androidJvm]<br>@[RestrictTo](https://developer.android.com/reference/kotlin/androidx/annotation/RestrictTo.html)(value = [[RestrictTo.Scope.LIBRARY_GROUP](https://developer.android.com/reference/kotlin/androidx/annotation/RestrictTo.Scope.html#LIBRARY_GROUP)])<br>open fun [assertNotSuspendingTransaction](index.md#1166251624%2FFunctions%2F1606452474)() |
+| [beginTransaction](index.md#1020009182%2FFunctions%2F1606452474) | [androidJvm]<br>open fun [~~beginTransaction~~](index.md#1020009182%2FFunctions%2F1606452474)() |
+| [chatDao](chat-dao.md) | [androidJvm]<br>abstract fun [chatDao](chat-dao.md)(): [ChatDao](../-chat-dao/index.md) |
+| [clearAllTables](index.md#404244410%2FFunctions%2F1606452474) | [androidJvm]<br>@[WorkerThread](https://developer.android.com/reference/kotlin/androidx/annotation/WorkerThread.html)<br>abstract fun [clearAllTables](index.md#404244410%2FFunctions%2F1606452474)() |
+| [close](index.md#1674273423%2FFunctions%2F1606452474) | [androidJvm]<br>open fun [close](index.md#1674273423%2FFunctions%2F1606452474)() |
+| [compileStatement](index.md#162913197%2FFunctions%2F1606452474) | [androidJvm]<br>open fun [compileStatement](index.md#162913197%2FFunctions%2F1606452474)(sql: [String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html)): [SupportSQLiteStatement](https://developer.android.com/reference/kotlin/androidx/sqlite/db/SupportSQLiteStatement.html) |
+| [endTransaction](index.md#622722960%2FFunctions%2F1606452474) | [androidJvm]<br>open fun [~~endTransaction~~](index.md#622722960%2FFunctions%2F1606452474)() |
+| [getAutoMigrations](index.md#178130989%2FFunctions%2F1606452474) | [androidJvm]<br>@[RestrictTo](https://developer.android.com/reference/kotlin/androidx/annotation/RestrictTo.html)(value = [[RestrictTo.Scope.LIBRARY_GROUP](https://developer.android.com/reference/kotlin/androidx/annotation/RestrictTo.Scope.html#LIBRARY_GROUP)])<br>@[JvmSuppressWildcards](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.jvm/-jvm-suppress-wildcards/index.html)<br>open fun [getAutoMigrations](index.md#178130989%2FFunctions%2F1606452474)(autoMigrationSpecs: [Map](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/-map/index.html)&lt;[Class](https://developer.android.com/reference/kotlin/java/lang/Class.html)&lt;out [AutoMigrationSpec](https://developer.android.com/reference/kotlin/androidx/room/migration/AutoMigrationSpec.html)&gt;, [AutoMigrationSpec](https://developer.android.com/reference/kotlin/androidx/room/migration/AutoMigrationSpec.html)&gt;): [List](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/-list/index.html)&lt;[Migration](https://developer.android.com/reference/kotlin/androidx/room/migration/Migration.html)&gt; |
+| [getRequiredAutoMigrationSpecs](index.md#1623281881%2FFunctions%2F1606452474) | [androidJvm]<br>@[RestrictTo](https://developer.android.com/reference/kotlin/androidx/annotation/RestrictTo.html)(value = [[RestrictTo.Scope.LIBRARY_GROUP](https://developer.android.com/reference/kotlin/androidx/annotation/RestrictTo.Scope.html#LIBRARY_GROUP)])<br>open fun [getRequiredAutoMigrationSpecs](index.md#1623281881%2FFunctions%2F1606452474)(): [Set](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/-set/index.html)&lt;[Class](https://developer.android.com/reference/kotlin/java/lang/Class.html)&lt;out [AutoMigrationSpec](https://developer.android.com/reference/kotlin/androidx/room/migration/AutoMigrationSpec.html)&gt;&gt; |
+| [getTypeConverter](index.md#-194849133%2FFunctions%2F1606452474) | [androidJvm]<br>open fun &lt;[T](index.md#-194849133%2FFunctions%2F1606452474)&gt; [getTypeConverter](index.md#-194849133%2FFunctions%2F1606452474)(klass: [Class](https://developer.android.com/reference/kotlin/java/lang/Class.html)&lt;[T](index.md#-194849133%2FFunctions%2F1606452474)&gt;): [T](index.md#-194849133%2FFunctions%2F1606452474)? |
+| [init](index.md#1039887154%2FFunctions%2F1606452474) | [androidJvm]<br>@[CallSuper](https://developer.android.com/reference/kotlin/androidx/annotation/CallSuper.html)<br>open fun [init](index.md#1039887154%2FFunctions%2F1606452474)(configuration: [DatabaseConfiguration](https://developer.android.com/reference/kotlin/androidx/room/DatabaseConfiguration.html)) |
+| [inTransaction](index.md#-1889647314%2FFunctions%2F1606452474) | [androidJvm]<br>open fun [inTransaction](index.md#-1889647314%2FFunctions%2F1606452474)(): [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html) |
+| [logDao](log-dao.md) | [androidJvm]<br>abstract fun [logDao](log-dao.md)(): [LogDao](../-log-dao/index.md) |
+| [query](index.md#604106995%2FFunctions%2F1606452474) | [androidJvm]<br>@[JvmOverloads](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.jvm/-jvm-overloads/index.html)<br>open fun [query](index.md#604106995%2FFunctions%2F1606452474)(query: [SupportSQLiteQuery](https://developer.android.com/reference/kotlin/androidx/sqlite/db/SupportSQLiteQuery.html), signal: [CancellationSignal](https://developer.android.com/reference/kotlin/android/os/CancellationSignal.html)?): [Cursor](https://developer.android.com/reference/kotlin/android/database/Cursor.html)<br>open fun [query](index.md#-1376474873%2FFunctions%2F1606452474)(query: [String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html), args: [Array](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-array/index.html)&lt;out [Any](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-any/index.html)?&gt;?): [Cursor](https://developer.android.com/reference/kotlin/android/database/Cursor.html) |
+| [runInTransaction](index.md#1063989044%2FFunctions%2F1606452474) | [androidJvm]<br>open fun [runInTransaction](index.md#1063989044%2FFunctions%2F1606452474)(body: [Runnable](https://developer.android.com/reference/kotlin/java/lang/Runnable.html))<br>open fun &lt;[V](index.md#-1842697888%2FFunctions%2F1606452474)&gt; [runInTransaction](index.md#-1842697888%2FFunctions%2F1606452474)(body: [Callable](https://developer.android.com/reference/kotlin/java/util/concurrent/Callable.html)&lt;[V](index.md#-1842697888%2FFunctions%2F1606452474)&gt;): [V](index.md#-1842697888%2FFunctions%2F1606452474) |
+| [setTransactionSuccessful](index.md#954356125%2FFunctions%2F1606452474) | [androidJvm]<br>open fun [~~setTransactionSuccessful~~](index.md#954356125%2FFunctions%2F1606452474)() |
