@@ -33,6 +33,8 @@ import com.resistine.android.network.WazuhAuthdManager
 import com.resistine.android.network.WazuhConfigManager
 import com.resistine.android.security.CryptoManager
 import com.resistine.android.service.WazuhService
+import com.resistine.android.ui.security.SecurityCheckItem
+import com.resistine.android.ui.security.SecurityChecksManager
 import com.resistine.android.ui.wifi.WifiAssessmentUncertainty
 import com.resistine.android.ui.wifi.WifiAutoProtectionDecider
 import com.resistine.android.ui.wifi.WifiClassificationInput
@@ -156,6 +158,10 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     private val _backgroundScanState = MutableLiveData(WifiBackgroundScanState())
     /** LiveData describing the interval and active status of background Wi-Fi monitoring. */
     val backgroundScanState: LiveData<WifiBackgroundScanState> = _backgroundScanState
+
+    private val _securityChecks = MutableLiveData<List<SecurityCheckItem>>(emptyList())
+    /** LiveData containing a list of system security core checks. */
+    val securityChecks: LiveData<List<SecurityCheckItem>> = _securityChecks
 
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var isWifiMonitoringStarted = false
@@ -337,6 +343,12 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
      * @param lightweight If true, avoids triggering a fresh system Wi-Fi scan to save battery.
      */
     fun refreshWifiSecurityAlert(lightweight: Boolean = false) {
+        // Refresh System Security Checks
+        viewModelScope.launch(Dispatchers.IO) {
+            val checks = SecurityChecksManager(getApplication()).performAllChecks()
+            _securityChecks.postValue(checks)
+        }
+
         var alert = buildWifiSecurityAlert()
         var nearbyState = buildNearbyWifiNetworksState(
             currentAlert = alert,

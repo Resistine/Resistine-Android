@@ -83,6 +83,12 @@ dependencies {
     implementation(libs.navigation.fragment.ktx)
     implementation(libs.navigation.ui.ktx)
     implementation(libs.play.services.location)
+    implementation("androidx.biometric:biometric:1.1.0")
+    
+    // Markwon for Markdown rendering
+    implementation(libs.markwon.core)
+    implementation(libs.markwon.ext.tables)
+    implementation(libs.markwon.ext.strikethrough)
 
     // Room
     val roomVersion = "2.6.1"

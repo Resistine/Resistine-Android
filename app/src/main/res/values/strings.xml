@@ -403,4 +403,10 @@
     <string name="agent_registration_failed">Registration failed: %1$s</string>
     <string name="agent_initiating_connection">Initiating connection...</string>
     <string name="agent_log_sent">SSH Log sent!</string>
+
+    <string name="device_admin_label">Resistine Security Guard</string>
+    <string name="device_admin_description">Enables detection of unauthorized lock screen attempts and other system security events.</string>
+    <string name="wazuh_log_lock_failed">Lock screen security: Failed password attempt detected.</string>
+    <string name="enable_lock_screen_monitoring">Enable Lock Screen Protection</string>
+    <string name="lock_screen_monitoring_active">Lock Screen Protection is Active</string>
 </resources>

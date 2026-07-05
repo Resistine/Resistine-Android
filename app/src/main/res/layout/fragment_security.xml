@@ -106,7 +106,17 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Device Info Card -->
+        <!-- Core Security Checks Section -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Core Security Checks"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="8dp"
+            android:textColor="?attr/colorSecondary" />
+
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -115,38 +125,12 @@
             app:cardBackgroundColor="?attr/backgroundColor">
 
             <LinearLayout
+                android:id="@+id/containerSecurityChecks"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="16dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Hardware &amp; System"
-                    android:textStyle="bold"
-                    android:textSize="16sp"
-                    android:layout_marginBottom="8dp"/>
-
-                <TextView
-                    android:id="@+id/textViewDeviceModel"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Device: Loading..."
-                    android:layout_marginBottom="4dp"/>
-
-                <TextView
-                    android:id="@+id/textViewAndroidVersion"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Android Version: Loading..."
-                    android:layout_marginBottom="4dp"/>
-
-                <TextView
-                    android:id="@+id/textViewBatteryLevel"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Battery: Loading..."/>
+                <!-- Checks will be added here programmatically -->
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 

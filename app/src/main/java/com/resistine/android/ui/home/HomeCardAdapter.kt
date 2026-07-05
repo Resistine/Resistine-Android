@@ -24,7 +24,11 @@ class HomeCardAdapter(
         fun bind(item: HomeCardItem) {
             icon.setImageResource(item.iconResId)
             title.text = item.title
+            
+            // Allow multiline for summary if it contains multiple statuses
             summary.text = item.summary
+            summary.maxLines = 2
+
             status.text = item.status
             status.setTextColor(ContextCompat.getColor(itemView.context, item.statusColorResId))
 

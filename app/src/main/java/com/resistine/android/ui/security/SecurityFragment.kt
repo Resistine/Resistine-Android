@@ -9,24 +9,23 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import com.resistine.android.R
 import com.resistine.android.databinding.FragmentSecurityBinding
+import com.resistine.android.databinding.ItemSecurityCategoryBinding
+import com.resistine.android.databinding.ItemSecurityCheckBinding
 import com.resistine.android.ui.vpn.VpnViewModel
 
 /**
  * Fragment that displays a detailed security and system status overview.
- * 
+ *
  * It shows information about:
  * - Wazuh Agent connectivity
  * - Public IP and Geographic Location
  * - Device Hardware (Model, Android Version, Battery)
+ * - Core Security Checks (Updates, Lock, Radio Surface, etc.)
  */
 class SecurityFragment : Fragment() {
 
     private var _binding: FragmentSecurityBinding? = null
     private val binding get() = _binding!!
-    
-    /**
-     * Sharing the activity-scoped ViewModel to get real-time network and device data.
-     */
     private val vpnViewModel: VpnViewModel by activityViewModels()
 
     override fun onCreateView(
@@ -41,41 +40,79 @@ class SecurityFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Observe network and device data from VpnViewModel
-        vpnViewModel.ipAddress.observe(viewLifecycleOwner) {
-            binding.textViewIpAddress.text = it
-        }
+        // Basic Info Observations
+        vpnViewModel.ipAddress.observe(viewLifecycleOwner) { binding.textViewIpAddress.text = it }
+        vpnViewModel.locationString.observe(viewLifecycleOwner) { binding.textViewLocation.text = it }
+//        vpnViewModel.deviceModel.observe(viewLifecycleOwner) { binding.textViewDeviceModel.text = it }
+//        vpnViewModel.androidVersion.observe(viewLifecycleOwner) { binding.textViewAndroidVersion.text = it }
+//        vpnViewModel.batteryLevel.observe(viewLifecycleOwner) { binding.textViewBatteryLevel.text = it }
 
-        vpnViewModel.locationString.observe(viewLifecycleOwner) {
-            binding.textViewLocation.text = it
-        }
-
-        vpnViewModel.deviceModel.observe(viewLifecycleOwner) {
-            binding.textViewDeviceModel.text = it
-        }
-
-        vpnViewModel.androidVersion.observe(viewLifecycleOwner) {
-            binding.textViewAndroidVersion.text = it
-        }
-
-        vpnViewModel.batteryLevel.observe(viewLifecycleOwner) {
-            binding.textViewBatteryLevel.text = it
-        }
-
-        // Wazuh connection state is tied to VPN status in the current implementation
+        // Agent status observation
         vpnViewModel.isVpnConnectedLiveData.observe(viewLifecycleOwner) { isVpnUp ->
             updateWazuhStatus(isVpnUp)
         }
+
+        // System Security Checks observation
+        vpnViewModel.securityChecks.observe(viewLifecycleOwner) { checks ->
+            updateSecurityChecksUI(checks)
+        }
         
-        // Refresh Wi-Fi alerts to ensure we have fresh data
+        // Refresh data on start
+        vpnViewModel.refreshWifiSecurityAlert()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Ensure checks are up to date when returning to screen
         vpnViewModel.refreshWifiSecurityAlert()
     }
 
     /**
-     * Updates the UI representation of the Wazuh Agent status.
-     * 
-     * @param isVpnUp True if the VPN tunnel (and thus agent connectivity) is active.
+     * Dynamically builds the UI rows for security checks grouped by category.
      */
+    private fun updateSecurityChecksUI(checks: List<SecurityCheckItem>) {
+        val container = binding.containerSecurityChecks
+        container.removeAllViews()
+
+        if (checks.isEmpty()) return
+
+        var currentCategory: SecurityCategory? = null
+
+        for (check in checks) {
+            // Add Category Header if it changed
+            if (check.category != currentCategory) {
+                currentCategory = check.category
+                val categoryBinding = ItemSecurityCategoryBinding.inflate(layoutInflater, container, false)
+                categoryBinding.textCategoryTitle.text = check.category.title
+                container.addView(categoryBinding.root)
+            }
+
+            // Add Check Row
+            val checkBinding = ItemSecurityCheckBinding.inflate(layoutInflater, container, false)
+            checkBinding.textTitle.text = check.title
+            checkBinding.textValue.text = check.value
+            checkBinding.textDescription.text = check.description
+            
+            val statusColor = when (check.status) {
+                SecurityStatus.SAFE -> R.color.success_green
+                SecurityStatus.WARNING -> R.color.wifi_risk_warning_text
+                SecurityStatus.DANGER -> R.color.error_red
+                SecurityStatus.INFO -> R.color.dark_blue
+            }
+            checkBinding.imageStatus.setColorFilter(ContextCompat.getColor(requireContext(), statusColor))
+            
+            container.addView(checkBinding.root)
+
+            // Add simple divider
+            val divider = View(requireContext()).apply {
+                layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1)
+                setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.light_grey))
+                alpha = 0.5f
+            }
+            container.addView(divider)
+        }
+    }
+
     private fun updateWazuhStatus(isVpnUp: Boolean) {
         if (isVpnUp) {
             binding.textViewWazuhStatus.text = "Agent: Active & Monitoring"

@@ -12,11 +12,13 @@ import androidx.recyclerview.widget.RecyclerView
 import com.resistine.android.R
 import com.resistine.android.databinding.ItemMessageBinding
 import com.resistine.android.databinding.ItemTypingBinding
+import io.noties.markwon.Markwon
 
 class ChatAdapter(private var messages: List<ChatMessage>) :
     RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     private var isTyping: Boolean = false
+    private var markwon: Markwon? = null
 
     companion object {
         private const val VIEW_TYPE_MESSAGE = 1
@@ -77,17 +79,26 @@ class ChatAdapter(private var messages: List<ChatMessage>) :
 
         val messageViewHolder = holder as MessageViewHolder
         val message = messages[position]
-        messageViewHolder.binding.textViewMessage.text = message.text
+        
+        // Initialize Markwon if needed
+        if (markwon == null) {
+            markwon = Markwon.create(holder.itemView.context)
+        }
 
         val layoutParams = messageViewHolder.binding.textViewMessage.layoutParams as ViewGroup.MarginLayoutParams
 
         if (message.isUser) {
+            // User message: Plain text is fine
+            messageViewHolder.binding.textViewMessage.text = message.text
             messageViewHolder.binding.textViewMessage.setBackgroundResource(R.drawable.background_home2)
             messageViewHolder.binding.textViewMessage.setTextColor(Color.WHITE)
             layoutParams.marginStart = 100
             layoutParams.marginEnd = 0
             messageViewHolder.binding.root.gravity = Gravity.END
         } else {
+            // Bot message: Render Markdown
+            markwon?.setMarkdown(messageViewHolder.binding.textViewMessage, message.text)
+
             messageViewHolder.binding.textViewMessage.setBackgroundResource(R.drawable.background_home)
             val context = holder.itemView.context
             val isDarkMode = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES

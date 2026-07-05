@@ -1,6 +1,5 @@
 package com.resistine.android.ui.login
 
-import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.text.Editable
@@ -23,7 +22,6 @@ class OtpFragment : Fragment(R.layout.fragment_otp) {
     private var timer: CountDownTimer? = null
     private lateinit var otpFields: List<EditText>
     private var isResendTimerRunning = false
-    private var originalButtonBackgrounds: MutableMap<Button, Drawable> = mutableMapOf()
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -41,10 +39,6 @@ class OtpFragment : Fragment(R.layout.fragment_otp) {
         val resendButton = view.findViewById<Button>(R.id.resendButton)
         val changeEmailButton = view.findViewById<Button>(R.id.changeEmailButton)
         val loadingIndicator = view.findViewById<ProgressBar>(R.id.loadingIndicator)
-
-        originalButtonBackgrounds[verifyButton] = verifyButton.background
-        originalButtonBackgrounds[resendButton] = resendButton.background
-        originalButtonBackgrounds[changeEmailButton] = changeEmailButton.background
 
         setupOtpFields()
 
@@ -160,11 +154,9 @@ class OtpFragment : Fragment(R.layout.fragment_otp) {
 
     private fun setButtonState(button: Button, isEnabled: Boolean) {
         button.isEnabled = isEnabled
-        if (isEnabled) {
-            button.background = originalButtonBackgrounds[button]
-        } else {
-            button.setBackgroundResource(R.drawable.button_background_disabled)
-        }
+        // Místo natvrdo nastaveného šedého pozadí použijeme průhlednost, 
+        // což vypadá lépe u všech typů tlačítek (včetně borderless).
+        button.alpha = if (isEnabled) 1.0f else 0.5f
     }
 
     override fun onDestroyView() {
