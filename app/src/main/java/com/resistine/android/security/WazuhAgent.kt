@@ -77,7 +77,9 @@ class WazuhAgent(private val context: Context) {
 
         // Save to Room database for background upload
         scope.launch {
-            database.logDao().insert(LogEntry(timestamp = System.currentTimeMillis(), message = logMessage))
+            database.logDao().insertBounded(
+                LogEntry(timestamp = System.currentTimeMillis(), message = logMessage)
+            )
             // scheduleLogUpload() - Disabling worker, WazuhService will handle upload through its persistent connection
         }
     }

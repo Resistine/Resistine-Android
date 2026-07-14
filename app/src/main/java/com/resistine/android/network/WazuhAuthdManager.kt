@@ -4,16 +4,19 @@ import android.content.Context
 import android.util.Log
 import com.resistine.android.R
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayInputStream
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
+import java.net.InetSocketAddress
+import java.security.KeyStore
 import java.security.SecureRandom
+import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
-import javax.net.ssl.TrustManager
-import javax.net.ssl.X509TrustManager
+import javax.net.ssl.SSLSocketFactory
+import javax.net.ssl.TrustManagerFactory
 
 /**
  * Manager responsible for automatic agent registration via the Wazuh 'authd' service.
@@ -21,7 +24,9 @@ import javax.net.ssl.X509TrustManager
  * It communicates over a secure TLS socket to request a unique Agent ID and Key
  * using the device and user metadata.
  */
-class WazuhAuthdManager() {
+class WazuhAuthdManager(
+    private val socketFactoryProvider: (String?) -> SSLSocketFactory = ::createSocketFactory
+) {
 
     /**
      * Connects to the Wazuh authd service and performs registration.
@@ -30,7 +35,7 @@ class WazuhAuthdManager() {
      * @param serverIp IP address of the Wazuh Manager.
      * @param authPort Port of the authd service (typically 1515).
      * @param agentName Desired name for the new agent.
-     * @param userEmail Email associated with the agent (used for grouping).
+     * @param agentGroup A group that already exists on the manager.
      * @param enrollmentPassword Optional password if authd is password-protected.
      * @param agentIp Optional specific IP to register for the agent.
      * @return A [Pair] containing the (Agent ID, Agent Key).
@@ -41,28 +46,21 @@ class WazuhAuthdManager() {
         serverIp: String,
         authPort: Int,
         agentName: String,
-        userEmail: String,
+        agentGroup: String = "default",
         enrollmentPassword: String = "",
-        agentIp: String? = null
+        agentIp: String? = null,
+        managerCaPem: String? = null
     ): Pair<String, String> {
         return withContext(Dispatchers.IO) {
             var socket: SSLSocket? = null
             try {
-                // SSL SETUP: Wazuh often uses self-signed certs. 
-                // Currently trusting all to facilitate dynamic registration.
-                val trustAll = arrayOf<TrustManager>(object : X509TrustManager {
-                    override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
-                    override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
-                    override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
-                })
-
-                val sslContext = SSLContext.getInstance("TLS")
-                sslContext.init(null, trustAll, SecureRandom())
-
-                // TLS Socket Initialization
                 Log.d("WazuhAuth", "Connecting to socket at $serverIp:$authPort...")
-                socket = sslContext.socketFactory.createSocket(serverIp, authPort) as SSLSocket
-                socket.soTimeout = 15000 // 15 seconds timeout
+                socket = socketFactoryProvider(managerCaPem).createSocket() as SSLSocket
+                socket.sslParameters = socket.sslParameters.apply {
+                    endpointIdentificationAlgorithm = "HTTPS"
+                }
+                socket.soTimeout = READ_TIMEOUT_MS
+                socket.connect(InetSocketAddress(serverIp, authPort), CONNECT_TIMEOUT_MS)
                 
                 Log.d("WazuhAuth", "Starting SSL Handshake...")
                 socket.startHandshake()
@@ -72,15 +70,12 @@ class WazuhAuthdManager() {
                 val reader = InputStreamReader(socket.inputStream, Charsets.UTF_8)
 
                 // 1. Prepare and send the registration payload
-                val group = userEmail.replace("@", "-")
-                val ip = agentIp
-                val payload = if (enrollmentPassword.isNotEmpty()) {
-                    "OSSEC PASS: $enrollmentPassword\nOSSEC A:'$agentName' G:'$group' IP:'$ip'\n"
-                } else {
-                    "OSSEC A:'$agentName' G:'$group' IP:'$ip'\n"
-                }
-
-                Log.d("WazuhAuth", "Sending payload: ${payload.trim()}")
+                val payload = buildEnrollmentPayload(
+                    agentName = agentName,
+                    agentGroup = agentGroup,
+                    enrollmentPassword = enrollmentPassword,
+                    agentIp = agentIp
+                )
                 writer.write(payload)
                 writer.flush()
 
@@ -94,31 +89,92 @@ class WazuhAuthdManager() {
                 }
 
                 val response = String(responseBuffer, 0, bytesRead).trim()
-                Log.d("WazuhAuth", "Raw response from server: $response")
-
-                // 3. Process registration result
                 if (response.startsWith("ERROR") || response.startsWith("ERR")) {
                     throw Exception(context.getString(R.string.wazuh_authd_server_error, response))
                 }
 
-                if (response.startsWith("OSSEC K:'")) {
-                    // Extract data from format: OSSEC K:'ID Name IP KEY'
-                    val content = response.substringAfter("OSSEC K:'").substringBeforeLast("'")
-                    val parts = content.split(" ")
-
-                    if (parts.size >= 4) {
-                        val agentId = parts[0]
-                        val agentKey = parts[3] 
-                        return@withContext Pair(agentId, agentKey)
-                    } else {
-                        throw Exception(context.getString(R.string.wazuh_invalid_key_format, content))
-                    }
-                } else {
+                val registration = parseEnrollmentResponse(response)
+                if (registration == null) {
                     throw Exception(context.getString(R.string.wazuh_unknown_server_response, response))
                 }
+                return@withContext registration
+            } catch (error: Exception) {
+                Log.e(TAG, "Wazuh enrollment failed: ${error.message}", error)
+                throw error
             } finally {
                 socket?.close()
             }
+        }
+    }
+
+    companion object {
+        private const val CONNECT_TIMEOUT_MS = 10_000
+        private const val READ_TIMEOUT_MS = 15_000
+        private const val TAG = "WazuhAuth"
+
+        internal fun buildEnrollmentPayload(
+            agentName: String,
+            agentGroup: String,
+            enrollmentPassword: String,
+            agentIp: String?
+        ): String {
+            require('\n' !in agentName && '\'' !in agentName) { "Invalid agent name" }
+            require(agentGroup.isNotBlank() && '\n' !in agentGroup && '\'' !in agentGroup) {
+                "Invalid agent group"
+            }
+            require('\n' !in enrollmentPassword) { "Invalid enrollment password" }
+            require(agentIp == null || ('\n' !in agentIp && '\'' !in agentIp)) { "Invalid agent IP" }
+
+            return buildString {
+                if (enrollmentPassword.isNotEmpty()) {
+                    append("OSSEC PASS: ")
+                    append(enrollmentPassword)
+                    append('\n')
+                }
+                append("OSSEC A:'")
+                append(agentName)
+                append("' G:'")
+                append(agentGroup)
+                append('\'')
+                agentIp?.takeIf { it.isNotBlank() }?.let {
+                    append(" IP:'")
+                    append(it)
+                    append('\'')
+                }
+                append('\n')
+            }
+        }
+
+        internal fun parseEnrollmentResponse(response: String): Pair<String, String>? {
+            if (!response.startsWith("OSSEC K:'") || !response.endsWith('\'')) return null
+            val content = response.removePrefix("OSSEC K:'").dropLast(1)
+            val parts = content.split(' ', limit = 4)
+            if (parts.size != 4 || parts[0].isBlank() || parts[3].isBlank()) return null
+            return parts[0] to parts[3]
+        }
+
+        private fun createSocketFactory(managerCaPem: String?): SSLSocketFactory {
+            if (managerCaPem.isNullOrBlank()) {
+                return SSLContext.getDefault().socketFactory
+            }
+
+            val certificate = ByteArrayInputStream(managerCaPem.toByteArray(Charsets.US_ASCII)).use {
+                CertificateFactory.getInstance("X.509").generateCertificate(it) as X509Certificate
+            }
+            certificate.checkValidity()
+
+            val keyStore = KeyStore.getInstance(KeyStore.getDefaultType()).apply {
+                load(null)
+                setCertificateEntry("wazuh-manager-ca", certificate)
+            }
+            val trustManagerFactory = TrustManagerFactory.getInstance(
+                TrustManagerFactory.getDefaultAlgorithm()
+            ).apply {
+                init(keyStore)
+            }
+            return SSLContext.getInstance("TLS").apply {
+                init(null, trustManagerFactory.trustManagers, SecureRandom())
+            }.socketFactory
         }
     }
 }

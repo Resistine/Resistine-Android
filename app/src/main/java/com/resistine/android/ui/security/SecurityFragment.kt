@@ -9,6 +9,9 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import com.resistine.android.R
 import com.resistine.android.databinding.FragmentSecurityBinding
+import com.resistine.android.network.WazuhConnectionMonitor
+import com.resistine.android.network.WazuhConnectionState
+import com.resistine.android.network.WazuhConnectionStatus
 import com.resistine.android.ui.vpn.VpnViewModel
 
 /**
@@ -62,9 +65,8 @@ class SecurityFragment : Fragment() {
             binding.textViewBatteryLevel.text = it
         }
 
-        // Wazuh connection state is tied to VPN status in the current implementation
-        vpnViewModel.isVpnConnectedLiveData.observe(viewLifecycleOwner) { isVpnUp ->
-            updateWazuhStatus(isVpnUp)
+        WazuhConnectionMonitor.status.observe(viewLifecycleOwner) { status ->
+            updateWazuhStatus(status)
         }
         
         // Refresh Wi-Fi alerts to ensure we have fresh data
@@ -74,18 +76,22 @@ class SecurityFragment : Fragment() {
     /**
      * Updates the UI representation of the Wazuh Agent status.
      * 
-     * @param isVpnUp True if the VPN tunnel (and thus agent connectivity) is active.
+     * @param status Actual uploader socket state reported by WazuhService.
      */
-    private fun updateWazuhStatus(isVpnUp: Boolean) {
-        if (isVpnUp) {
-            binding.textViewWazuhStatus.text = "Agent: Active & Monitoring"
-            binding.imageViewWazuhStatus.setImageResource(R.drawable.shield_with_star)
-            binding.imageViewWazuhStatus.setColorFilter(ContextCompat.getColor(requireContext(), R.color.success_green))
-        } else {
-            binding.textViewWazuhStatus.text = "Agent: Offline (Requires VPN)"
-            binding.imageViewWazuhStatus.setImageResource(R.drawable.shield_with_star)
-            binding.imageViewWazuhStatus.setColorFilter(ContextCompat.getColor(requireContext(), R.color.error_red))
+    private fun updateWazuhStatus(status: WazuhConnectionStatus) {
+        binding.textViewWazuhStatus.text = "Agent: ${status.detail}"
+        binding.imageViewWazuhStatus.setImageResource(R.drawable.shield_with_star)
+        val color = when (status.state) {
+            WazuhConnectionState.CONNECTED -> R.color.success_green
+            WazuhConnectionState.LOCAL_ONLY,
+            WazuhConnectionState.ENROLLING,
+            WazuhConnectionState.CONNECTING,
+            WazuhConnectionState.WAITING_FOR_VPN -> R.color.dark_blue
+            WazuhConnectionState.STOPPED,
+            WazuhConnectionState.MISSING_CREDENTIALS,
+            WazuhConnectionState.ERROR -> R.color.error_red
         }
+        binding.imageViewWazuhStatus.setColorFilter(ContextCompat.getColor(requireContext(), color))
     }
 
     override fun onDestroyView() {

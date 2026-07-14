@@ -1,13 +1,16 @@
 package com.resistine.android.security
 
+import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
+import java.security.SecureRandom
+import java.util.Locale
 import java.util.zip.Deflater
 import javax.crypto.Cipher
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
-import kotlin.random.Random
 
 object WazuhCrypto {
+    private val secureRandom = SecureRandom()
 
     private fun md5(input: ByteArray): ByteArray {
         return MessageDigest.getInstance("MD5").digest(input)
@@ -24,6 +27,9 @@ object WazuhCrypto {
      * @param globalCount Message counter (for simplicity you can send an incrementally increasing number)
      */
     fun buildPacket(agentId: String, rawSharedKey: String, message: String, globalCount: Long = 1): ByteArray {
+        require(agentId.matches(Regex("[0-9]{1,8}"))) { "Invalid Wazuh agent ID" }
+        require(rawSharedKey.isNotBlank()) { "Wazuh agent key is required" }
+        require(globalCount in 0..9_999_999_999L) { "Wazuh message counter is out of range" }
 
         // 1. Key derivation (exactly as in Swift: MD5 of the shared key)
         val cleanSharedKey = rawSharedKey.trim()
@@ -33,8 +39,8 @@ object WazuhCrypto {
         val secretKey = SecretKeySpec(aesKeyHex.toByteArray(Charsets.UTF_8), "AES")
 
         // 2. Header assembly with counter
-        val rand1 = Random.nextInt(0, 65536)
-        val counterHeader = String.format("%05d%010d:%04d:", rand1, globalCount, 0)
+        val rand1 = secureRandom.nextInt(65_536)
+        val counterHeader = String.format(Locale.US, "%05d%010d:%04d:", rand1, globalCount, 0)
 
         // 3. Connection and protective MD5
         val combined = counterHeader + message
@@ -49,12 +55,16 @@ object WazuhCrypto {
         deflater.setInput(finMsgData)
         deflater.finish()
 
-        val compressedBuffer = ByteArray(finMsgData.size + 1024)
-        val compressedSize = deflater.deflate(compressedBuffer)
-        deflater.end()
-
-        val compressedData = ByteArray(compressedSize)
-        System.arraycopy(compressedBuffer, 0, compressedData, 0, compressedSize)
+        val compressedData = ByteArrayOutputStream(finMsgData.size).use { compressed ->
+            val buffer = ByteArray(4096)
+            while (!deflater.finished()) {
+                val count = deflater.deflate(buffer)
+                if (count <= 0 && deflater.needsInput()) break
+                compressed.write(buffer, 0, count)
+            }
+            deflater.end()
+            compressed.toByteArray()
+        }
 
         // 6. Padding with exclamation marks (!) BEFORE compressed data, exactly according to Swift
         val bfsize = (8 - (compressedData.size % 8)) % 8

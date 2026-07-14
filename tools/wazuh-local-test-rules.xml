@@ -1,0 +1,6 @@
+<group name="resistine,">
+  <rule id="100100" level="5">
+    <match>resistine_flow_test</match>
+    <description>Resistine synthetic flow integration test</description>
+  </rule>
+</group>

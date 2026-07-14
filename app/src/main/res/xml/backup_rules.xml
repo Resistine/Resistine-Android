@@ -6,8 +6,7 @@
    See https://developer.android.com/about/versions/12/backup-restore
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <exclude domain="sharedpref" path="wazuh_secure_credentials.xml" />
+    <exclude domain="sharedpref" path="wazuh_secure_enrollment.xml" />
+    <exclude domain="sharedpref" path="wazuh_prefs.xml" />
 </full-backup-content>
