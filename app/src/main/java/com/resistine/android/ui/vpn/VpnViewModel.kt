@@ -1,6 +1,7 @@
 package com.resistine.android.ui.vpn
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -26,13 +27,20 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.Observer
 import androidx.lifecycle.viewModelScope
 import com.resistine.android.R
 import com.resistine.android.database.AppDatabase
-import com.resistine.android.network.WazuhAuthdManager
 import com.resistine.android.network.WazuhConfigManager
+import com.resistine.android.network.WazuhConnectionMonitor
+import com.resistine.android.network.WazuhConnectionState
+import com.resistine.android.network.WazuhCredentialStore
+import com.resistine.android.network.WazuhEnrollmentSecretStore
+import com.resistine.android.network.WazuhManagerEndpoint
+import com.resistine.android.network.WazuhRemoteReadinessValidator
+import com.resistine.android.network.flow.FlowWazuhDeliveryMode
+import com.resistine.android.network.flow.FlowWazuhDeliveryStore
 import com.resistine.android.security.CryptoManager
-import com.resistine.android.service.WazuhService
 import com.resistine.android.ui.wifi.WifiAssessmentUncertainty
 import com.resistine.android.ui.wifi.WifiAutoProtectionDecider
 import com.resistine.android.ui.wifi.WifiClassificationInput
@@ -54,13 +62,13 @@ import com.resistine.android.ui.wifi.WifiTrustBaselineStatus
 import com.resistine.android.ui.wifi.WifiTrustPolicy
 import com.resistine.android.ui.wifi.WifiTrustedBaselineManager
 import com.resistine.android.ui.wifi.WifiTrustedFingerprintObservation
-import com.wireguard.android.backend.GoBackend
-import com.wireguard.android.backend.Tunnel
-import com.wireguard.android.backend.Tunnel.State
-import com.wireguard.config.Config
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.delay
+import com.resistine.android.ui.vpn.runtime.VpnRuntime
+import com.resistine.android.ui.vpn.runtime.VpnRuntimeMode
+import com.resistine.android.ui.vpn.runtime.VpnRuntimeStatus
+import com.resistine.android.ui.vpn.runtime.WireGuardVpnRuntime
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.OkHttpClient
@@ -69,7 +77,6 @@ import okhttp3.Response
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
-import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * ViewModel responsible for managing VPN state, Wi-Fi security monitoring,
@@ -82,10 +89,6 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
-    private var backend: GoBackend? = null
-    private var tunnel: Tunnel? = null
-    private val tunnelName = "MyWireGuardTunnel"
-
     private val _vpnStatus = MutableLiveData<String>()
     /** LiveData representing the current readable status of the VPN connection. */
     val vpnStatus: LiveData<String> = _vpnStatus
@@ -95,7 +98,31 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     val isVpnConnectedLiveData: LiveData<Boolean> = _isVpnConnected
 
     private var isVpnConnected = false
-    private val isRegistering = AtomicBoolean(false)
+    private val flowWazuhDeliveryStore = FlowWazuhDeliveryStore.fromContext(application)
+    private val wazuhConfigManager = WazuhConfigManager.getInstance(application)
+
+    private val _flowWazuhDeliveryMode = MutableLiveData(flowWazuhDeliveryStore.load())
+    val flowWazuhDeliveryMode: LiveData<FlowWazuhDeliveryMode> = _flowWazuhDeliveryMode
+
+    private val _pendingFlowLogCount = MutableLiveData(0)
+    val pendingFlowLogCount: LiveData<Int> = _pendingFlowLogCount
+
+    private val _vpnRuntimeStatus = MutableLiveData(
+        VpnRuntimeStatus(
+            mode = VpnRuntimeMode.WIREGUARD_TELEMETRY,
+            isRunning = false,
+            label = "WireGuard with flow telemetry",
+            detail = "Disconnected"
+        )
+    )
+    val vpnRuntimeStatus: LiveData<VpnRuntimeStatus> = _vpnRuntimeStatus
+
+    private val runtimeStatusObserver = Observer<VpnRuntimeStatus> { status ->
+        isVpnConnected = status.isRunning
+        _isVpnConnected.postValue(status.isRunning)
+        _vpnRuntimeStatus.postValue(status)
+    }
+    private val currentRuntime: VpnRuntime = createRuntime()
 
     private val _ipAddress = MutableLiveData<String>()
     /** LiveData holding the public IP address of the device. */
@@ -171,12 +198,14 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     private var currentWifiSecurityProfile: WifiSecurityProfile? = null
 
     init {
+        observeCurrentRuntime()
         loadPhoneInfo()
         fetchLocationData()
         _autoVpnPolicy.value = loadAutoVpnPolicy()
         _autoProtectUnknownWifi.value = loadAutoProtectUnknownWifi()
         createRiskNotificationChannelIfNeeded()
         updateBackgroundScanState()
+        observePendingFlowLogCount()
         if (loadBackgroundScanEnabled()) {
             startWifiMonitoring()
         } else {
@@ -198,8 +227,10 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         // 1. Clear CryptoManager data (Email, Config)
         CryptoManager.deleteStoredData(context)
         
-        // 2. Clear Wazuh Agent preferences
-        context.getSharedPreferences("wazuh_prefs", Context.MODE_PRIVATE).edit().clear().apply()
+        // 2. Clear Wazuh agent credentials from encrypted storage.
+        WazuhCredentialStore(context).clear()
+        WazuhEnrollmentSecretStore(context).clear()
+        wazuhConfigManager.managerCaPem = null
         
         // 3. Clear Wi-Fi trust profiles
         context.getSharedPreferences("wifi_trust_profiles", Context.MODE_PRIVATE).edit().clear().apply()
@@ -209,7 +240,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 AppDatabase.getDatabase(context).clearAllTables()
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.e(TAG, "Could not clear local data during logout", e)
             }
         }
         
@@ -249,6 +280,150 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         if (isVpnConnected) {
             disconnectVpn()
         }
+    }
+
+    fun setFlowWazuhDeliveryMode(mode: FlowWazuhDeliveryMode) {
+        if (isVpnConnected) {
+            _vpnStatus.postValue("Disconnect WireGuard before changing Wazuh delivery")
+            return
+        }
+        if (mode == FlowWazuhDeliveryMode.REMOTE_MANAGER) {
+            val readiness = runCatching {
+                WazuhRemoteReadinessValidator.validate(
+                    wazuhConfigManager.endpoint(),
+                    wazuhConfigManager.managerCaPem
+                )
+            }.getOrElse { error ->
+                flowWazuhDeliveryStore.save(FlowWazuhDeliveryMode.LOCAL_QUEUE_ONLY)
+                _vpnStatus.postValue(error.message ?: "Invalid Wazuh manager configuration")
+                _flowWazuhDeliveryMode.postValue(FlowWazuhDeliveryMode.LOCAL_QUEUE_ONLY)
+                return
+            }
+            if (!readiness.ready) {
+                flowWazuhDeliveryStore.save(FlowWazuhDeliveryMode.LOCAL_QUEUE_ONLY)
+                _vpnStatus.postValue(readiness.issues.joinToString("; "))
+                _flowWazuhDeliveryMode.postValue(FlowWazuhDeliveryMode.LOCAL_QUEUE_ONLY)
+                return
+            }
+        }
+        flowWazuhDeliveryStore.save(mode)
+        _flowWazuhDeliveryMode.postValue(mode)
+        when (mode) {
+            FlowWazuhDeliveryMode.LOCAL_QUEUE_ONLY -> WazuhConnectionMonitor.update(
+                WazuhConnectionState.LOCAL_ONLY,
+                "Flow records remain on this device"
+            )
+
+            FlowWazuhDeliveryMode.REMOTE_MANAGER -> WazuhConnectionMonitor.update(
+                WazuhConnectionState.STOPPED,
+                "Remote delivery selected; restart telemetry to connect"
+            )
+        }
+    }
+
+    fun wazuhManagerEndpoint(): WazuhManagerEndpoint = wazuhConfigManager.endpoint()
+
+    fun updateWazuhManagerEndpoint(host: String, authPort: Int, logPort: Int): String? {
+        if (isVpnConnected) {
+            return "Disconnect WireGuard before changing the manager endpoint"
+        }
+        return runCatching {
+            val updatedEndpoint = WazuhManagerEndpoint(
+                host = host.trim(),
+                authPort = authPort,
+                logPort = logPort
+            )
+            if (updatedEndpoint != wazuhConfigManager.endpoint()) {
+                wazuhConfigManager.updateEndpoint(updatedEndpoint)
+                WazuhCredentialStore(getApplication()).clear()
+            }
+        }.exceptionOrNull()?.message
+    }
+
+    fun hasWazuhEnrollmentPassword(): Boolean =
+        WazuhEnrollmentSecretStore(getApplication()).hasPassword()
+
+    fun saveWazuhEnrollmentPassword(password: String): String? {
+        if (isVpnConnected) {
+            return "Disconnect WireGuard before changing the enrollment password"
+        }
+        return runCatching {
+            WazuhEnrollmentSecretStore(getApplication()).savePassword(password)
+            WazuhCredentialStore(getApplication()).clear()
+        }.exceptionOrNull()?.message
+    }
+
+    fun clearWazuhEnrollmentPassword(): String? {
+        if (isVpnConnected) {
+            return "Disconnect WireGuard before changing the enrollment password"
+        }
+        return runCatching {
+            WazuhEnrollmentSecretStore(getApplication()).clear()
+            WazuhCredentialStore(getApplication()).clear()
+        }.exceptionOrNull()?.message
+    }
+
+    fun hasWazuhManagerCa(): Boolean = !wazuhConfigManager.managerCaPem.isNullOrBlank()
+
+    fun importWazuhManagerCa(pem: String): String? {
+        if (isVpnConnected) {
+            return "Disconnect WireGuard before changing the manager CA"
+        }
+        return runCatching {
+            require(pem.isNotBlank()) { "Manager CA certificate is empty" }
+            val readiness = WazuhRemoteReadinessValidator.validate(
+                wazuhConfigManager.endpoint(),
+                pem
+            )
+            require(readiness.ready) { readiness.issues.joinToString("; ") }
+            wazuhConfigManager.managerCaPem = pem
+            WazuhCredentialStore(getApplication()).clear()
+        }.exceptionOrNull()?.message
+    }
+
+    fun clearWazuhManagerCa(): String? {
+        if (isVpnConnected) {
+            return "Disconnect WireGuard before changing the manager CA"
+        }
+        return runCatching {
+            wazuhConfigManager.managerCaPem = null
+            WazuhCredentialStore(getApplication()).clear()
+        }.exceptionOrNull()?.message
+    }
+
+    fun refreshPendingFlowLogCount() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val count = runCatching {
+                AppDatabase.getDatabase(getApplication()).logDao().countPendingFlowLogs()
+            }.getOrDefault(0)
+            _pendingFlowLogCount.postValue(count)
+        }
+    }
+
+    private fun observePendingFlowLogCount() {
+        viewModelScope.launch(Dispatchers.IO) {
+            AppDatabase.getDatabase(getApplication()).logDao()
+                .observePendingFlowLogCount()
+                .collectLatest(_pendingFlowLogCount::postValue)
+        }
+    }
+
+    private fun createRuntime(): VpnRuntime {
+        val context = getApplication<Application>()
+        return WireGuardVpnRuntime(
+            context = context,
+            onStatusMessage = { message -> _vpnStatus.postValue(message) },
+            onTunnelUp = { fetchLocationData() },
+            onTunnelDown = {
+                _ipAddress.postValue("Address: Disconnected")
+                _locationString.postValue("Location: N/A")
+            }
+        )
+    }
+
+    private fun observeCurrentRuntime() {
+        currentRuntime.status().observeForever(runtimeStatusObserver)
+        currentRuntime.status().value?.let(runtimeStatusObserver::onChanged)
     }
 
     /**
@@ -526,179 +701,14 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun connectVpn(context: Context) {
-        if (backend == null) {
-            backend = GoBackend(context.applicationContext)
+        viewModelScope.launch {
+            currentRuntime.start()
         }
-        val config = loadWireGuardConfig(context) ?: run {
-            _vpnStatus.value = "Error: Configuration not found"
-            return
-        }
-        if (tunnel == null) {
-            tunnel = object : Tunnel {
-                override fun getName() = tunnelName
-                override fun onStateChange(state: State) {
-                    _vpnStatus.postValue("VPN state: $state")
-                    if (state == State.UP) {
-                        startWazuhService()
-                        fetchLocationData() // Test connectivity and update IP info
-                    } else {
-                        stopWazuhService()
-                        _ipAddress.postValue("Address: Disconnected")
-                        _locationString.postValue("Location: N/A")
-                    }
-                }
-            }
-        }
-        try {
-            backend?.setState(tunnel!!, State.UP, config)
-            isVpnConnected = true
-            _isVpnConnected.postValue(true)
-            _vpnStatus.postValue("VPN connected")
-        } catch (e: Exception) {
-            val reason = e::class.java.getDeclaredField("reason").apply { isAccessible = true }.get(e)?.toString()
-            if (reason?.contains("UNABLE_TO_START_VPN") == true) {
-                Handler(Looper.getMainLooper()).postDelayed({
-                    try {
-                        backend?.setState(tunnel!!, State.UP, config)
-                        isVpnConnected = true
-                        _isVpnConnected.postValue(true)
-                        _vpnStatus.postValue("VPN connected")
-                    } catch (retryException: Exception) {
-                        retryException.printStackTrace()
-                        val retryReason = retryException::class.java.getDeclaredField("reason").apply { isAccessible = true }
-                            .get(retryException)?.toString()
-                        _vpnStatus.postValue("Error connecting VPN: ${retryReason ?: retryException.message ?: "Unknown error"}")
-                    }
-                }, 500)
-            } else {
-                _vpnStatus.postValue("Error connecting VPN: ${reason ?: e.message ?: "Unknown error"}")
-            }
-        }
-    }
-
-    private fun startWazuhService() {
-        val context = getApplication<Application>()
-        val prefs = context.getSharedPreferences("wazuh_prefs", Context.MODE_PRIVATE)
-        val agentId = prefs.getString("agent_id", null)
-        val agentKey = prefs.getString("agent_key", null)
-        val agentName = prefs.getString("agent_name", null)
-
-        Log.d("WazuhAuth", "startWazuhService called. Current ID: $agentId")
-
-        if (agentId != null && agentKey != null && agentName != null) {
-            Log.d("WazuhAuth", "Agent already registered. Starting service...")
-            // Already registered, just start the service
-            val intent = Intent(context, WazuhService::class.java).apply {
-                putExtra("AGENT_ID", agentId)
-                putExtra("AGENT_KEY", agentKey)
-                putExtra("AGENT_NAME", agentName)
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
-        } else {
-            // Not registered, try automatic registration
-            if (isRegistering.getAndSet(true)) {
-                Log.d("WazuhAuth", "Registration already in progress, skipping.")
-                return
-            }
-
-            Log.d("WazuhAuth", "Starting automatic registration...")
-            viewModelScope.launch(Dispatchers.IO) {
-                try {
-                    // Small delay to ensure VPN routing is fully established
-                    Log.d("WazuhAuth", "Waiting 3s for VPN stability...")
-                    delay(3000)
-
-                    val email = CryptoManager.loadDecryptedEmail(context) ?: "auto_registered@resistine.com"
-                    val configManager = WazuhConfigManager.getInstance(context)
-                    val authdManager = WazuhAuthdManager()
-                    
-                    val sanitizedModel = Build.MODEL.replace(Regex("[^a-zA-Z0-9.-]"), "_")
-                    val sanitizedEmail = email.replace(Regex("[^a-zA-Z0-9.-]"), ".")
-                    val newAgentName = "$sanitizedModel-$sanitizedEmail-${(1000..9999).random()}"
-
-                    // Extraction of VPN IP if available
-                    val vpnIp = try {
-                        val vpnConfig = loadWireGuardConfig(context)
-                        vpnConfig?.`interface`?.addresses?.firstOrNull()?.address?.hostAddress
-                    } catch (e: Exception) {
-                        null
-                    }
-                    
-                    Log.d("WazuhAuth", "Registering agent '$newAgentName' with IP $vpnIp at ${configManager.serverIp}:${configManager.authPort}")
-
-                    val (newId, newKey) = authdManager.registerAndGetKey(
-                        context,
-                        configManager.serverIp,
-                        configManager.authPort,
-                        newAgentName,
-                        email,
-                        agentIp = vpnIp
-                    )
-
-                    Log.d("WazuhAuth", "Registration successful! New ID: $newId")
-
-                    prefs.edit().apply {
-                        putString("agent_id", newId)
-                        putString("agent_key", newKey)
-                        putString("agent_name", newAgentName)
-                        apply()
-                    }
-
-                    // After registration, start with a delay for manager synchronization
-                    Log.d("WazuhAuth", "Waiting 15s for manager sync before connecting...")
-                    delay(15000) 
-                    startWazuhService()
-                } catch (e: Exception) {
-                    Log.e("WazuhAuth", "Registration failed: ${e.message}", e)
-                } finally {
-                    isRegistering.set(false)
-                }
-            }
-        }
-    }
-
-    private fun stopWazuhService() {
-        val context = getApplication<Application>()
-        val intent = Intent(context, WazuhService::class.java).apply {
-            action = "STOP"
-        }
-        context.startService(intent)
     }
 
     private fun disconnectVpn() {
-        try {
-            stopWazuhService()
-            tunnel?.let {
-                backend?.setState(it, State.DOWN, null)
-                isVpnConnected = false
-                _isVpnConnected.postValue(false)
-                _vpnStatus.postValue("VPN disconnected")
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            _vpnStatus.postValue("Error disconnecting VPN: ${e.message}")
-        }
-    }
-
-    private fun loadWireGuardConfig(context: Context): Config? {
-        return try {
-            val encryptedConfig = CryptoManager.loadEncryptedConfig(context)
-
-            if (encryptedConfig.isNullOrBlank()) {
-                println("Failed to load configuration - no saved configuration found.")
-                return null
-            }
-
-            val decryptedText = CryptoManager.decryptData(encryptedConfig)
-            val inputStream = decryptedText.byteInputStream(Charsets.UTF_8)
-            Config.parse(inputStream)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
+        viewModelScope.launch {
+            currentRuntime.stop()
         }
     }
 
@@ -760,6 +770,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         })
     }
 
+    @SuppressLint("MissingPermission")
     private fun buildWifiSecurityAlert(): WifiSecurityAlert {
         val context = getApplication<Application>()
         val checkedAtMillis = currentTimeMillis()
@@ -808,7 +819,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         val hasLocationAccess = hasLocationPermission(context)
         val isLocationServicesEnabled = isLocationServicesEnabled(context)
         val canInspectWifiDetails = hasLocationAccess && isLocationServicesEnabled
-        val wifiInfo = caps.transportInfo as? WifiInfo
+        val wifiInfo = wifiInfoFromCapabilities(caps)
         var ssid = normalizeSsid(wifiInfo?.ssid)
         var bssid = normalizeBssid(wifiInfo?.bssid)
         val wifiSecurityProfile = resolveWifiSecurityProfile(
@@ -985,6 +996,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
+    @SuppressLint("MissingPermission")
     private fun buildNearbyWifiNetworksState(
         currentAlert: WifiSecurityAlert,
         requestFreshScan: Boolean
@@ -2277,7 +2289,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 WifiTransportCandidate(
                     network = network,
                     capabilities = caps,
-                    wifiInfo = caps.transportInfo as? WifiInfo
+                    wifiInfo = wifiInfoFromCapabilities(caps)
                 )
             }
         }.getOrNull().orEmpty()
@@ -2616,7 +2628,19 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun isLocationServicesEnabled(context: Context): Boolean {
         val manager = context.getSystemService(LocationManager::class.java) ?: return true
-        return runCatching { manager.isLocationEnabled }.getOrDefault(true)
+        return runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                manager.isLocationEnabled
+            } else {
+                manager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+                    manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+            }
+        }.getOrDefault(true)
+    }
+
+    private fun wifiInfoFromCapabilities(caps: NetworkCapabilities): WifiInfo? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
+        return caps.transportInfo as? WifiInfo
     }
 
     private fun resolveWifiSecurityProfile(
@@ -2627,10 +2651,15 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         if (!caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
             return null
         }
-        if (!supportsSecurityTypeDetection || !hasLocationPermission) {
+        if (
+            !supportsSecurityTypeDetection ||
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            !hasLocationPermission
+        ) {
             return null
         }
-        val wifiInfo = caps.transportInfo as? WifiInfo ?: return WifiSecurityProfile(mode = WifiSecurityMode.UNKNOWN)
+        val wifiInfo = wifiInfoFromCapabilities(caps)
+            ?: return WifiSecurityProfile(mode = WifiSecurityMode.UNKNOWN)
         return wifiInfo.currentSecurityType.toWifiSecurityProfile()
     }
 
@@ -2920,12 +2949,14 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     override fun onCleared() {
-        stopWazuhService()
+        currentRuntime.status().removeObserver(runtimeStatusObserver)
+        currentRuntime.close()
         stopWifiMonitoring()
         super.onCleared()
     }
 
     private companion object {
+        private const val TAG = "VpnViewModel"
         private const val WIFI_TRUST_PREFS = "wifi_trust_profiles"
         private const val TRUSTED_PROFILES_KEY = "trusted_profiles_json"
         private const val AUTO_VPN_POLICY_KEY = "auto_vpn_policy"
