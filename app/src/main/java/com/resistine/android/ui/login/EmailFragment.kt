@@ -1,6 +1,7 @@
 package com.resistine.android.ui.login
 
 import android.os.Bundle
+import android.util.Patterns
 import android.view.View
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -31,14 +32,20 @@ class EmailFragment : Fragment(R.layout.fragment_email) {
                 viewModel.otpSent.postValue(false) // Reset the value
             }
         }
+        viewModel.errorMessage.observe(viewLifecycleOwner) { error ->
+            if (error != null) {
+                Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+                viewModel.errorMessage.postValue(null)
+            }
+        }
 
         sendButton.setOnClickListener {
             val email = emailInput.text.toString().trim()
-            if (email.isNotEmpty()) {
+            if (Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
                 viewModel.email.value = email
                 viewModel.sendOtp(email)
             } else {
-                Toast.makeText(context, getString(R.string.please_enter_email), Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, getString(R.string.please_enter_valid_email), Toast.LENGTH_SHORT).show()
             }
         }
 

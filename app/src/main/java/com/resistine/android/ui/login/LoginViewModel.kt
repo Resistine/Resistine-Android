@@ -2,12 +2,13 @@ package com.resistine.android.ui.login
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.MutableLiveData
 import com.resistine.android.R
 import com.resistine.android.security.CryptoManager
+import com.wireguard.config.Config
 import com.wireguard.crypto.KeyPair
-import org.json.JSONObject
 
 class LoginViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -24,6 +25,7 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
         private const val LOGIN_PREFS = "login_state"
         private const val KEY_WELCOME_FLOW_COMPLETED = "welcome_flow_completed"
         private const val KEY_REGISTRATION_SKIPPED = "registration_skipped"
+        private const val TAG = "LoginProvisioning"
 
         fun hasCompletedWelcomeFlow(context: Context): Boolean {
             return context.getSharedPreferences(LOGIN_PREFS, Context.MODE_PRIVATE)
@@ -76,7 +78,11 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
             loading.postValue(false)
             if (isSuccess && config != null) {
                 try {
-                    val formattedConfig = formatConfigForWireguard(config, keyPair.privateKey.toBase64())
+                    val formattedConfig = WireGuardProvisioningConfigFormatter.format(
+                        config,
+                        keyPair.privateKey.toBase64()
+                    )
+                    Config.parse(formattedConfig.byteInputStream(Charsets.UTF_8))
                     CryptoManager.saveEncryptedConfig(getApplication(), formattedConfig)
                     wireguardConfig.postValue(formattedConfig)
                     persistWelcomeFlowState(
@@ -86,41 +92,13 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
                     loginSuccess.postValue(true)
                     isRegistrationSkipped.postValue(false)
                 } catch (e: Exception) {
+                    Log.e(TAG, "Could not process the returned WireGuard configuration", e)
                     errorMessage.postValue(getApplication<Application>().getString(R.string.error_processing_config, e.message))
                 }
             } else {
                 errorMessage.postValue(error ?: getApplication<Application>().getString(R.string.verification_failed))
             }
         }
-    }
-
-    private fun formatConfigForWireguard(jsonConfig: String, privateKey: String): String {
-        val configJson = JSONObject(jsonConfig)
-        val peer = configJson.getJSONObject("Peer")
-        val interfaceJson = configJson.getJSONObject("Interface")
-
-        val peerPublicKey = peer.getString("PublicKey")
-        val endpoint = peer.getString("Endpoint")
-        val allowedIPs = peer.getString("AllowedIPs")
-
-
-        val interfaceAddress = interfaceJson.getString("Address")
-        val dnsArray = interfaceJson.getJSONArray("DNS")
-        val dnsList = (0 until dnsArray.length()).map { dnsArray.getString(it).removePrefix("/") }.toMutableList()
-//        dnsList.add("1.1.1.1")
-        val interfaceDns = dnsList.joinToString(", ")
-
-        return """
-            [Interface]
-            PrivateKey = $privateKey
-            Address = $interfaceAddress
-            DNS = $interfaceDns
-
-            [Peer]
-            PublicKey = $peerPublicKey
-            AllowedIPs = $allowedIPs
-            Endpoint = $endpoint
-        """.trimIndent()
     }
 
     private fun persistWelcomeFlowState(
@@ -134,4 +112,5 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
             .putBoolean(KEY_REGISTRATION_SKIPPED, skipped)
             .apply()
     }
+
 }
