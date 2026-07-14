@@ -181,7 +181,7 @@ class WireGuardFlowTelemetryCoordinator(
             FlowWazuhDeliveryMode.REMOTE_MANAGER -> {
                 val config = WazuhConfigManager.getInstance(appContext)
                 val readiness = runCatching {
-                    WazuhRemoteReadinessValidator.validate(config.endpoint(), config.managerCaPem)
+                    WazuhRemoteReadinessValidator.validate(config.endpoint())
                 }.getOrElse { error ->
                     reportWazuhConfigurationError(
                         error.message ?: "Invalid Wazuh manager configuration"

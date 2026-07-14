@@ -1,6 +1,5 @@
 package com.resistine.android.network
 
-import android.util.Base64
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.delay
@@ -22,17 +21,8 @@ class WazuhLocalManagerIntegrationTest {
         val authPort = arguments.getString("wazuh_auth_port")?.toIntOrNull() ?: 1515
         val logPort = arguments.getString("wazuh_log_port")?.toIntOrNull() ?: 1514
         val agentGroup = arguments.getString("wazuh_agent_group") ?: "default"
-        val enrollmentPassword = arguments.getString("wazuh_enrollment_password").orEmpty()
-        val managerCaPem = arguments.getString("wazuh_ca_base64")?.let {
-            String(Base64.decode(it, Base64.DEFAULT), Charsets.US_ASCII)
-        } ?: context.getFileStreamPath("wazuh-test-ca.pem").let { caFile ->
-            require(caFile.isFile) {
-                "Pass -e wazuh_ca_base64 or provision files/wazuh-test-ca.pem"
-            }
-            caFile.readText(Charsets.US_ASCII)
-        }
         val endpoint = WazuhManagerEndpoint(managerHost, authPort, logPort)
-        val readiness = WazuhRemoteReadinessValidator.validate(endpoint, managerCaPem)
+        val readiness = WazuhRemoteReadinessValidator.validate(endpoint)
         require(readiness.ready) { readiness.issues.joinToString("; ") }
         val suffix = System.currentTimeMillis().toString().takeLast(8)
         val agentName = "resistine-android-test-$suffix"
@@ -44,9 +34,7 @@ class WazuhLocalManagerIntegrationTest {
             authPort = endpoint.authPort,
             agentName = agentName,
             agentGroup = agentGroup,
-            enrollmentPassword = enrollmentPassword,
-            agentIp = "any",
-            managerCaPem = managerCaPem
+            agentIp = "any"
         )
         assertTrue(agentId.isNotBlank())
         assertTrue(agentKey.isNotBlank())

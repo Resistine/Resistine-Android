@@ -11,7 +11,6 @@ class WazuhAuthdManagerTest {
         val payload = WazuhAuthdManager.buildEnrollmentPayload(
             agentName = "android-test",
             agentGroup = "default",
-            enrollmentPassword = "",
             agentIp = null
         )
 
@@ -19,16 +18,15 @@ class WazuhAuthdManagerTest {
     }
 
     @Test
-    fun `payload includes password and agent IP`() {
+    fun `payload includes agent IP`() {
         val payload = WazuhAuthdManager.buildEnrollmentPayload(
             agentName = "android-test",
             agentGroup = "mobile",
-            enrollmentPassword = "secret",
             agentIp = "10.0.0.2"
         )
 
         assertEquals(
-            "OSSEC PASS: secret\nOSSEC A:'android-test' G:'mobile' IP:'10.0.0.2'\n",
+            "OSSEC A:'android-test' G:'mobile' IP:'10.0.0.2'\n",
             payload
         )
     }
@@ -39,7 +37,6 @@ class WazuhAuthdManagerTest {
             WazuhAuthdManager.buildEnrollmentPayload(
                 agentName = "android\nOSSEC PASS: attacker",
                 agentGroup = "default",
-                enrollmentPassword = "",
                 agentIp = null
             )
         }

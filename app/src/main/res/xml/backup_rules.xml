@@ -7,6 +7,5 @@
 -->
 <full-backup-content>
     <exclude domain="sharedpref" path="wazuh_secure_credentials.xml" />
-    <exclude domain="sharedpref" path="wazuh_secure_enrollment.xml" />
     <exclude domain="sharedpref" path="wazuh_prefs.xml" />
 </full-backup-content>

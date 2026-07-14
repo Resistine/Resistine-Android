@@ -35,7 +35,6 @@ import com.resistine.android.network.WazuhConfigManager
 import com.resistine.android.network.WazuhConnectionMonitor
 import com.resistine.android.network.WazuhConnectionState
 import com.resistine.android.network.WazuhCredentialStore
-import com.resistine.android.network.WazuhEnrollmentSecretStore
 import com.resistine.android.network.WazuhManagerEndpoint
 import com.resistine.android.network.WazuhRemoteReadinessValidator
 import com.resistine.android.network.flow.FlowWazuhDeliveryMode
@@ -229,8 +228,6 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         
         // 2. Clear Wazuh agent credentials from encrypted storage.
         WazuhCredentialStore(context).clear()
-        WazuhEnrollmentSecretStore(context).clear()
-        wazuhConfigManager.managerCaPem = null
         
         // 3. Clear Wi-Fi trust profiles
         context.getSharedPreferences("wifi_trust_profiles", Context.MODE_PRIVATE).edit().clear().apply()
@@ -289,10 +286,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         }
         if (mode == FlowWazuhDeliveryMode.REMOTE_MANAGER) {
             val readiness = runCatching {
-                WazuhRemoteReadinessValidator.validate(
-                    wazuhConfigManager.endpoint(),
-                    wazuhConfigManager.managerCaPem
-                )
+                WazuhRemoteReadinessValidator.validate(wazuhConfigManager.endpoint())
             }.getOrElse { error ->
                 flowWazuhDeliveryStore.save(FlowWazuhDeliveryMode.LOCAL_QUEUE_ONLY)
                 _vpnStatus.postValue(error.message ?: "Invalid Wazuh manager configuration")
@@ -337,57 +331,6 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 wazuhConfigManager.updateEndpoint(updatedEndpoint)
                 WazuhCredentialStore(getApplication()).clear()
             }
-        }.exceptionOrNull()?.message
-    }
-
-    fun hasWazuhEnrollmentPassword(): Boolean =
-        WazuhEnrollmentSecretStore(getApplication()).hasPassword()
-
-    fun saveWazuhEnrollmentPassword(password: String): String? {
-        if (isVpnConnected) {
-            return "Disconnect WireGuard before changing the enrollment password"
-        }
-        return runCatching {
-            WazuhEnrollmentSecretStore(getApplication()).savePassword(password)
-            WazuhCredentialStore(getApplication()).clear()
-        }.exceptionOrNull()?.message
-    }
-
-    fun clearWazuhEnrollmentPassword(): String? {
-        if (isVpnConnected) {
-            return "Disconnect WireGuard before changing the enrollment password"
-        }
-        return runCatching {
-            WazuhEnrollmentSecretStore(getApplication()).clear()
-            WazuhCredentialStore(getApplication()).clear()
-        }.exceptionOrNull()?.message
-    }
-
-    fun hasWazuhManagerCa(): Boolean = !wazuhConfigManager.managerCaPem.isNullOrBlank()
-
-    fun importWazuhManagerCa(pem: String): String? {
-        if (isVpnConnected) {
-            return "Disconnect WireGuard before changing the manager CA"
-        }
-        return runCatching {
-            require(pem.isNotBlank()) { "Manager CA certificate is empty" }
-            val readiness = WazuhRemoteReadinessValidator.validate(
-                wazuhConfigManager.endpoint(),
-                pem
-            )
-            require(readiness.ready) { readiness.issues.joinToString("; ") }
-            wazuhConfigManager.managerCaPem = pem
-            WazuhCredentialStore(getApplication()).clear()
-        }.exceptionOrNull()?.message
-    }
-
-    fun clearWazuhManagerCa(): String? {
-        if (isVpnConnected) {
-            return "Disconnect WireGuard before changing the manager CA"
-        }
-        return runCatching {
-            wazuhConfigManager.managerCaPem = null
-            WazuhCredentialStore(getApplication()).clear()
         }.exceptionOrNull()?.message
     }
 

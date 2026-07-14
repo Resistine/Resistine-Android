@@ -2,6 +2,7 @@ package com.resistine.android.network
 
 import android.content.Context
 import android.content.SharedPreferences
+import java.security.KeyStore
 
 data class WazuhManagerEndpoint(
     val host: String,
@@ -31,6 +32,22 @@ data class WazuhManagerEndpoint(
 class WazuhConfigManager(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
+    init {
+        prefs.edit().remove(REMOVED_MANAGER_CA_KEY).apply()
+        context.getSharedPreferences(REMOVED_ENROLLMENT_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .apply()
+        runCatching {
+            KeyStore.getInstance(ANDROID_KEY_STORE).apply {
+                load(null)
+                if (containsAlias(REMOVED_ENROLLMENT_KEY_ALIAS)) {
+                    deleteEntry(REMOVED_ENROLLMENT_KEY_ALIAS)
+                }
+            }
+        }
+    }
+
     var serverIp: String
         get() = prefs.getString(KEY_SERVER_IP, "10.49.64.53") ?: "10.49.64.53"
         set(value) = prefs.edit().putString(KEY_SERVER_IP, value).apply()
@@ -42,18 +59,6 @@ class WazuhConfigManager(context: Context) {
     var logPort: Int
         get() = prefs.getInt(KEY_LOG_PORT, 1514)
         set(value) = prefs.edit().putInt(KEY_LOG_PORT, value).apply()
-
-    var managerCaPem: String?
-        get() = prefs.getString(KEY_MANAGER_CA_PEM, null)?.takeIf { it.isNotBlank() }
-        set(value) {
-            prefs.edit().apply {
-                if (value.isNullOrBlank()) {
-                    remove(KEY_MANAGER_CA_PEM)
-                } else {
-                    putString(KEY_MANAGER_CA_PEM, value.trim())
-                }
-            }.apply()
-        }
 
     fun endpoint(): WazuhManagerEndpoint {
         return WazuhManagerEndpoint(
@@ -76,7 +81,10 @@ class WazuhConfigManager(context: Context) {
         private const val KEY_SERVER_IP = "server_ip"
         private const val KEY_AUTH_PORT = "auth_port"
         private const val KEY_LOG_PORT = "log_port"
-        private const val KEY_MANAGER_CA_PEM = "manager_ca_pem"
+        private const val REMOVED_MANAGER_CA_KEY = "manager_ca_pem"
+        private const val REMOVED_ENROLLMENT_PREFS = "wazuh_secure_enrollment"
+        private const val REMOVED_ENROLLMENT_KEY_ALIAS = "resistine_wazuh_enrollment_v1"
+        private const val ANDROID_KEY_STORE = "AndroidKeyStore"
 
         @Volatile
         private var INSTANCE: WazuhConfigManager? = null

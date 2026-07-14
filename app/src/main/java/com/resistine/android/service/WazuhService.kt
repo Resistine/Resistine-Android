@@ -19,7 +19,6 @@ import com.resistine.android.network.WazuhConfigManager
 import com.resistine.android.network.WazuhConnectionMonitor
 import com.resistine.android.network.WazuhConnectionState
 import com.resistine.android.network.WazuhCredentialStore
-import com.resistine.android.network.WazuhEnrollmentSecretStore
 import com.resistine.android.network.WazuhLogger
 import com.resistine.android.network.WazuhRemoteReadinessValidator
 import com.resistine.android.network.WazuhRetryPolicy
@@ -93,7 +92,7 @@ class WazuhService : Service() {
                 updateStatus(WazuhConnectionState.ERROR, error.message ?: "Invalid manager endpoint")
                 return null
             }
-            val readiness = WazuhRemoteReadinessValidator.validate(endpoint, configManager.managerCaPem)
+            val readiness = WazuhRemoteReadinessValidator.validate(endpoint)
             if (!readiness.ready) {
                 updateStatus(WazuhConnectionState.ERROR, readiness.issues.joinToString("; "))
                 return null
@@ -110,9 +109,7 @@ class WazuhService : Service() {
                     serverIp = endpoint.host,
                     authPort = endpoint.authPort,
                     agentName = agentName,
-                    enrollmentPassword = WazuhEnrollmentSecretStore(this).loadPassword(),
-                    agentIp = "any",
-                    managerCaPem = configManager.managerCaPem
+                    agentIp = "any"
                 )
                 WazuhAgentCredentials(agentId, agentKey, agentName)
             }

@@ -5,18 +5,11 @@ import android.util.Log
 import com.resistine.android.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayInputStream
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.InetSocketAddress
-import java.security.KeyStore
-import java.security.SecureRandom
-import java.security.cert.CertificateFactory
-import java.security.cert.X509Certificate
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
-import javax.net.ssl.SSLSocketFactory
-import javax.net.ssl.TrustManagerFactory
 
 /**
  * Manager responsible for automatic agent registration via the Wazuh 'authd' service.
@@ -24,9 +17,7 @@ import javax.net.ssl.TrustManagerFactory
  * It communicates over a secure TLS socket to request a unique Agent ID and Key
  * using the device and user metadata.
  */
-class WazuhAuthdManager(
-    private val socketFactoryProvider: (String?) -> SSLSocketFactory = ::createSocketFactory
-) {
+class WazuhAuthdManager {
 
     /**
      * Connects to the Wazuh authd service and performs registration.
@@ -36,7 +27,6 @@ class WazuhAuthdManager(
      * @param authPort Port of the authd service (typically 1515).
      * @param agentName Desired name for the new agent.
      * @param agentGroup A group that already exists on the manager.
-     * @param enrollmentPassword Optional password if authd is password-protected.
      * @param agentIp Optional specific IP to register for the agent.
      * @return A [Pair] containing the (Agent ID, Agent Key).
      * @throws Exception if connection fails, handshake fails, or server returns an error.
@@ -47,15 +37,13 @@ class WazuhAuthdManager(
         authPort: Int,
         agentName: String,
         agentGroup: String = "default",
-        enrollmentPassword: String = "",
-        agentIp: String? = null,
-        managerCaPem: String? = null
+        agentIp: String? = null
     ): Pair<String, String> {
         return withContext(Dispatchers.IO) {
             var socket: SSLSocket? = null
             try {
                 Log.d("WazuhAuth", "Connecting to socket at $serverIp:$authPort...")
-                socket = socketFactoryProvider(managerCaPem).createSocket() as SSLSocket
+                socket = SSLContext.getDefault().socketFactory.createSocket() as SSLSocket
                 socket.sslParameters = socket.sslParameters.apply {
                     endpointIdentificationAlgorithm = "HTTPS"
                 }
@@ -73,7 +61,6 @@ class WazuhAuthdManager(
                 val payload = buildEnrollmentPayload(
                     agentName = agentName,
                     agentGroup = agentGroup,
-                    enrollmentPassword = enrollmentPassword,
                     agentIp = agentIp
                 )
                 writer.write(payload)
@@ -115,22 +102,15 @@ class WazuhAuthdManager(
         internal fun buildEnrollmentPayload(
             agentName: String,
             agentGroup: String,
-            enrollmentPassword: String,
             agentIp: String?
         ): String {
             require('\n' !in agentName && '\'' !in agentName) { "Invalid agent name" }
             require(agentGroup.isNotBlank() && '\n' !in agentGroup && '\'' !in agentGroup) {
                 "Invalid agent group"
             }
-            require('\n' !in enrollmentPassword) { "Invalid enrollment password" }
             require(agentIp == null || ('\n' !in agentIp && '\'' !in agentIp)) { "Invalid agent IP" }
 
             return buildString {
-                if (enrollmentPassword.isNotEmpty()) {
-                    append("OSSEC PASS: ")
-                    append(enrollmentPassword)
-                    append('\n')
-                }
                 append("OSSEC A:'")
                 append(agentName)
                 append("' G:'")
@@ -153,28 +133,5 @@ class WazuhAuthdManager(
             return parts[0] to parts[3]
         }
 
-        private fun createSocketFactory(managerCaPem: String?): SSLSocketFactory {
-            if (managerCaPem.isNullOrBlank()) {
-                return SSLContext.getDefault().socketFactory
-            }
-
-            val certificate = ByteArrayInputStream(managerCaPem.toByteArray(Charsets.US_ASCII)).use {
-                CertificateFactory.getInstance("X.509").generateCertificate(it) as X509Certificate
-            }
-            certificate.checkValidity()
-
-            val keyStore = KeyStore.getInstance(KeyStore.getDefaultType()).apply {
-                load(null)
-                setCertificateEntry("wazuh-manager-ca", certificate)
-            }
-            val trustManagerFactory = TrustManagerFactory.getInstance(
-                TrustManagerFactory.getDefaultAlgorithm()
-            ).apply {
-                init(keyStore)
-            }
-            return SSLContext.getInstance("TLS").apply {
-                init(null, trustManagerFactory.trustManagers, SecureRandom())
-            }.socketFactory
-        }
     }
 }

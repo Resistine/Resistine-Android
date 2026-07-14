@@ -10,16 +10,11 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
-import androidx.lifecycle.lifecycleScope
 import com.resistine.android.R
 import com.resistine.android.databinding.FragmentVpnBinding
 import com.resistine.android.network.WazuhConnectionMonitor
 import com.resistine.android.network.flow.FlowWazuhDeliveryMode
 import com.resistine.android.ui.login.LoginViewModel
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
 
 class VpnFragment : Fragment() {
 
@@ -36,28 +31,6 @@ class VpnFragment : Fragment() {
                 binding.textViewVpnStatus.text = getString(R.string.vpn_access_denied)
                 binding.switchVpnToggle.isEnabled = true
                 binding.switchVpnToggle.isChecked = false
-            }
-        }
-
-    private val managerCaPicker =
-        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            if (uri == null || _binding == null) return@registerForActivityResult
-            viewLifecycleOwner.lifecycleScope.launch {
-                val result = runCatching {
-                    withContext(Dispatchers.IO) {
-                        requireContext().contentResolver.openInputStream(uri)?.use(::readManagerCa)
-                            ?: error("Could not open the selected CA file")
-                    }
-                }.mapCatching { pem ->
-                    vpnViewModel.importWazuhManagerCa(pem)?.let(::error)
-                }
-                refreshWazuhSecurityStatus()
-                Toast.makeText(
-                    requireContext(),
-                    result.exceptionOrNull()?.message
-                        ?: getString(R.string.flow_wazuh_manager_ca_saved),
-                    Toast.LENGTH_LONG
-                ).show()
             }
         }
 
@@ -128,60 +101,17 @@ class VpnFragment : Fragment() {
                 ).show()
                 return@setOnClickListener
             }
-            var error = vpnViewModel.updateWazuhManagerEndpoint(
+            val error = vpnViewModel.updateWazuhManagerEndpoint(
                 host = binding.editTextWazuhManagerHost.text?.toString().orEmpty(),
                 authPort = authPort,
                 logPort = logPort
             )
-            val enrollmentPassword =
-                binding.editTextWazuhEnrollmentPassword.text?.toString().orEmpty()
-            if (error == null && enrollmentPassword.isNotEmpty()) {
-                error = vpnViewModel.saveWazuhEnrollmentPassword(enrollmentPassword)
-                if (error == null) {
-                    binding.editTextWazuhEnrollmentPassword.text?.clear()
-                }
-            }
-            refreshWazuhSecurityStatus()
             Toast.makeText(
                 requireContext(),
                 error ?: getString(R.string.flow_wazuh_endpoint_saved),
                 Toast.LENGTH_SHORT
             ).show()
         }
-
-        binding.buttonClearWazuhEnrollmentPassword.setOnClickListener {
-            val error = vpnViewModel.clearWazuhEnrollmentPassword()
-            binding.editTextWazuhEnrollmentPassword.text?.clear()
-            refreshWazuhSecurityStatus()
-            Toast.makeText(
-                requireContext(),
-                error ?: getString(R.string.flow_wazuh_enrollment_password_cleared),
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-
-        binding.buttonImportWazuhCa.setOnClickListener {
-            managerCaPicker.launch(
-                arrayOf(
-                    "application/x-pem-file",
-                    "application/x-x509-ca-cert",
-                    "text/plain",
-                    "application/octet-stream"
-                )
-            )
-        }
-
-        binding.buttonClearWazuhCa.setOnClickListener {
-            val error = vpnViewModel.clearWazuhManagerCa()
-            refreshWazuhSecurityStatus()
-            Toast.makeText(
-                requireContext(),
-                error ?: getString(R.string.flow_wazuh_manager_ca_cleared),
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-
-        refreshWazuhSecurityStatus()
 
         binding.layoutFlowWazuhSettings.visibility = View.VISIBLE
         vpnViewModel.refreshPendingFlowLogCount()
@@ -233,11 +163,7 @@ class VpnFragment : Fragment() {
             binding.editTextWazuhManagerHost.isEnabled = settingsEnabled
             binding.editTextWazuhAuthPort.isEnabled = settingsEnabled
             binding.editTextWazuhLogPort.isEnabled = settingsEnabled
-            binding.editTextWazuhEnrollmentPassword.isEnabled = settingsEnabled
             binding.buttonSaveWazuhEndpoint.isEnabled = settingsEnabled
-            binding.buttonClearWazuhEnrollmentPassword.isEnabled = settingsEnabled
-            binding.buttonImportWazuhCa.isEnabled = settingsEnabled
-            binding.buttonClearWazuhCa.isEnabled = settingsEnabled
             if (!status.isRunning) {
                 vpnViewModel.refreshPendingFlowLogCount()
             }
@@ -292,37 +218,6 @@ class VpnFragment : Fragment() {
         }
     }
 
-    private fun refreshWazuhSecurityStatus() {
-        binding.textViewWazuhEnrollmentPasswordStatus.setText(
-            if (vpnViewModel.hasWazuhEnrollmentPassword()) {
-                R.string.flow_wazuh_enrollment_password_set
-            } else {
-                R.string.flow_wazuh_enrollment_password_not_set
-            }
-        )
-        binding.textViewWazuhCaStatus.setText(
-            if (vpnViewModel.hasWazuhManagerCa()) {
-                R.string.flow_wazuh_manager_ca_set
-            } else {
-                R.string.flow_wazuh_manager_ca_not_set
-            }
-        )
-    }
-
-    private fun readManagerCa(input: java.io.InputStream): String {
-        val output = ByteArrayOutputStream()
-        val buffer = ByteArray(8 * 1024)
-        while (true) {
-            val read = input.read(buffer)
-            if (read == -1) break
-            output.write(buffer, 0, read)
-            require(output.size() <= MAX_MANAGER_CA_BYTES) {
-                getString(R.string.flow_wazuh_manager_ca_too_large)
-            }
-        }
-        return output.toString(Charsets.US_ASCII.name())
-    }
-
     override fun onStart() {
         super.onStart()
         vpnViewModel.startWifiMonitoring()
@@ -341,9 +236,5 @@ class VpnFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
-    }
-
-    private companion object {
-        private const val MAX_MANAGER_CA_BYTES = 256 * 1024
     }
 }
