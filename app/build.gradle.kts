@@ -68,6 +68,42 @@ android {
 //    }
 }
 
+tasks.register<Exec>("buildWireGuardTelemetryNative") {
+    group = "build"
+    description = "Builds the telemetry-enabled wireguard-go library for all Android ABIs."
+    workingDir(rootProject.projectDir)
+    commandLine(
+        "powershell.exe",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        rootProject.file("tools/build_wireguard_telemetry.ps1").absolutePath
+    )
+}
+
+val wireGuardTelemetryAbis = listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+val verifyWireGuardTelemetryNative by tasks.registering {
+    group = "verification"
+    description = "Verifies that every supported ABI has the pinned telemetry backend."
+    val libraries = wireGuardTelemetryAbis.map { abi ->
+        layout.projectDirectory.file("src/main/jniLibs/$abi/libwg-go-telemetry.so")
+    }
+    inputs.files(libraries)
+    doLast {
+        libraries.forEach { library ->
+            val file = library.asFile
+            check(file.isFile && file.length() >= 1_000_000L) {
+                "Missing or invalid WireGuard telemetry backend: ${file.absolutePath}"
+            }
+        }
+    }
+}
+
+tasks.named("preBuild").configure {
+    dependsOn(verifyWireGuardTelemetryNative)
+}
+
 dependencies {
     implementation(libs.firebase.crashlytics.buildtools)
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
