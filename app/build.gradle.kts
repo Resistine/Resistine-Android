@@ -31,6 +31,23 @@ android {
         // Read the API key from local.properties
         val apiKey = localProperties.getProperty("OPENAI_API_KEY") ?: ""
         buildConfigField("String", "OPENAI_API_KEY", "\"$apiKey\"")
+
+        val integrityProjectNumber = localProperties
+            .getProperty("PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER")
+            ?.toLongOrNull() ?: 0L
+        val integrityVerificationUrl = localProperties
+            .getProperty("PLAY_INTEGRITY_VERIFICATION_URL")
+            .orEmpty()
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+        buildConfigField("long", "PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER", "${integrityProjectNumber}L")
+        buildConfigField("String", "PLAY_INTEGRITY_VERIFICATION_URL", "\"$integrityVerificationUrl\"")
+        val networkDiagnosticUrl = localProperties
+            .getProperty("NETWORK_DIAGNOSTIC_URL")
+            .orEmpty()
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+        buildConfigField("String", "NETWORK_DIAGNOSTIC_URL", "\"$networkDiagnosticUrl\"")
     }
 
     buildTypes {
@@ -110,6 +127,7 @@ dependencies {
     implementation("com.wireguard.android:tunnel:1.0.20260102")
     implementation("androidx.recyclerview:recyclerview:1.4.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.google.android.play:integrity:1.6.0")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)

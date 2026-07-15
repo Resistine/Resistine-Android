@@ -1,6 +1,7 @@
 package com.resistine.android.ui.apps
 
 import android.Manifest
+import android.app.AppOpsManager
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.os.Build
@@ -13,12 +14,20 @@ internal class AppScanEngine(
     fun scan(
         entry: AppEntry,
         capabilities: ScanUtils.DeviceCapabilitySnapshot,
-        nowMillis: Long = System.currentTimeMillis()
+        nowMillis: Long = System.currentTimeMillis(),
+        reuseInstallProvenance: Boolean = false
     ): AppEntry {
         val info = entry.packageInfo
         val packageName = info.packageName
         val appInfo = info.applicationInfo
-        val source = ScanUtils.resolveInstallSource(context, info)
+        val source = if (reuseInstallProvenance && entry.scanResult != null) {
+            ScanUtils.InstallSource(
+                entry.scanResult.provenance,
+                installerPackage = entry.scanResult.installerPackage
+            )
+        } else {
+            ScanUtils.resolveInstallSource(context, info)
+        }
         val badges = mutableListOf<Badge>()
 
         when (source.provenance) {
@@ -117,6 +126,37 @@ internal class AppScanEngine(
             )
         }
 
+        val overlayEnabled = ScanUtils.hasOverlayAccess(context, info)
+        if (overlayEnabled) {
+            badges += Badge(
+                BadgeType.OVERLAY_ENABLED,
+                "Display over other apps enabled",
+                "Android currently allows this app to place content above other apps. Review this if the app does not need it."
+            )
+        }
+
+        val usageAccessEnabled = ScanUtils.hasEffectiveAppOp(
+            context,
+            info,
+            AppOpsManager.OPSTR_GET_USAGE_STATS
+        )
+        if (usageAccessEnabled) {
+            badges += Badge(
+                BadgeType.USAGE_ACCESS_ENABLED,
+                "Usage access enabled",
+                "This app can inspect app-usage history and foreground activity."
+            )
+        }
+
+        val batteryOptimizationExempt = ScanUtils.isBatteryOptimizationExempt(context, packageName)
+        if (batteryOptimizationExempt && source.provenance != InstallProvenance.SYSTEM) {
+            badges += Badge(
+                BadgeType.BATTERY_OPTIMIZATION_EXEMPT,
+                "Unrestricted background activity",
+                "Android allows this app to keep running outside normal battery optimizations. This is contextual, not a threat by itself."
+            )
+        }
+
         val declaresVpn = ScanUtils.declaresServicePermission(info, Manifest.permission.BIND_VPN_SERVICE) ||
             info.services?.any { it.name == VpnService::class.java.name } == true
         if (declaresVpn) {
@@ -137,6 +177,8 @@ internal class AppScanEngine(
                 accessibilityEnabled = accessibilityEnabled,
                 deviceAdminActive = deviceAdminActive,
                 notificationAccessEnabled = notificationAccess,
+                overlayEnabled = overlayEnabled,
+                usageAccessEnabled = usageAccessEnabled,
                 declaresInstallerCapability = canRequestInstalls,
                 declaresOverlayCapability = canOverlay
             )
@@ -155,6 +197,7 @@ internal class AppScanEngine(
                 badges = badges,
                 highRiskPermissions = sensitivePermissions,
                 provenance = source.provenance,
+                installerPackage = source.installerPackage,
                 identityConfidence = identityConfidence,
                 scannedAtMillis = nowMillis
             )

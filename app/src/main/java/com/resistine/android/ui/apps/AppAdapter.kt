@@ -184,6 +184,9 @@ class AppAdapter(
             BadgeType.NOTIFICATION_ACCESS -> R.string.badge_desc_notification_access
             BadgeType.INSTALLER_CAPABILITY -> R.string.badge_desc_installer_capability
             BadgeType.OVERLAY_CAPABILITY -> R.string.badge_desc_overlay_capability
+            BadgeType.OVERLAY_ENABLED -> R.string.badge_desc_overlay_enabled
+            BadgeType.USAGE_ACCESS_ENABLED -> R.string.badge_desc_usage_access_enabled
+            BadgeType.BATTERY_OPTIMIZATION_EXEMPT -> R.string.badge_desc_battery_optimization_exempt
             BadgeType.VPN_CAPABILITY -> R.string.badge_desc_vpn_capability
         }
         return context.getString(resId)

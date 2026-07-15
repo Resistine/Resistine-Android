@@ -22,6 +22,8 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import com.resistine.android.R
 import com.resistine.android.databinding.FragmentAppsBinding
+import com.resistine.android.ui.integrity.IntegrityCheckStatus
+import com.resistine.android.ui.integrity.IntegrityUiState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -53,6 +55,9 @@ class AppsFragment : Fragment() {
             BadgeType.ACCESSIBILITY_ENABLED to getString(R.string.badge_accessibility_enabled),
             BadgeType.DEVICE_ADMIN to getString(R.string.badge_device_admin),
             BadgeType.NOTIFICATION_ACCESS to getString(R.string.badge_notification_access),
+            BadgeType.OVERLAY_ENABLED to getString(R.string.badge_overlay_enabled),
+            BadgeType.USAGE_ACCESS_ENABLED to getString(R.string.badge_usage_access_enabled),
+            BadgeType.BATTERY_OPTIMIZATION_EXEMPT to getString(R.string.badge_battery_optimization_exempt),
             BadgeType.LOCAL_INSTALL to getString(R.string.badge_local_install),
             BadgeType.DEBUGGABLE to getString(R.string.badge_debuggable),
             BadgeType.OLD_TARGET_SDK to getString(R.string.badge_old_target_sdk),
@@ -107,12 +112,95 @@ class AppsFragment : Fragment() {
         binding.buttonScan.setOnClickListener {
             maybeRunScan()
         }
+        binding.buttonIntegrityCheck.setOnClickListener {
+            maybeRunIntegrityCheck()
+        }
+        binding.buttonIntegrityRemediate.setOnClickListener {
+            lifecycleScope.launch {
+                viewModel.showIntegrityRemediation(requireActivity())
+                    .onSuccess { viewModel.runIntegrityCheck() }
+                    .onFailure { error ->
+                        Toast.makeText(
+                            requireContext(),
+                            getString(
+                                R.string.integrity_remediation_failed,
+                                error.message ?: getString(R.string.integrity_title_error)
+                            ),
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+            }
+        }
 
         viewModel.uiState.observe(viewLifecycleOwner) { state ->
             render(state)
         }
+        viewModel.integrityState.observe(viewLifecycleOwner, ::renderIntegrity)
 
         return binding.root
+    }
+
+    private fun renderIntegrity(state: IntegrityUiState) {
+        binding.integrityTitle.text = getString(
+            when (state.status) {
+                IntegrityCheckStatus.NOT_RUN -> R.string.integrity_title_not_run
+                IntegrityCheckStatus.CONFIGURATION_REQUIRED -> R.string.integrity_title_configuration
+                IntegrityCheckStatus.RUNNING -> R.string.integrity_title_running
+                IntegrityCheckStatus.TRUSTED -> R.string.integrity_title_trusted
+                IntegrityCheckStatus.REVIEW -> R.string.integrity_title_review
+                IntegrityCheckStatus.ERROR -> R.string.integrity_title_error
+            }
+        )
+        val verdictLines = buildList {
+            state.playProtectVerdict?.let {
+                add(getString(R.string.integrity_verdict_line, "Play Protect", readableVerdict(it)))
+            }
+            state.appIntegrity?.let {
+                add(getString(R.string.integrity_verdict_line, "App", readableVerdict(it)))
+            }
+            if (state.deviceIntegrity.isNotEmpty()) {
+                add(getString(
+                    R.string.integrity_verdict_line,
+                    "Device",
+                    state.deviceIntegrity.joinToString { readableVerdict(it) }
+                ))
+            }
+            if (state.appAccessRisk.isNotEmpty()) {
+                add(getString(
+                    R.string.integrity_verdict_line,
+                    "App access",
+                    state.appAccessRisk.joinToString { readableVerdict(it) }
+                ))
+            }
+            state.licensingVerdict?.let {
+                add(getString(R.string.integrity_verdict_line, "License", readableVerdict(it)))
+            }
+        }
+        binding.integrityBody.text = buildString {
+            append(state.message)
+            if (verdictLines.isNotEmpty()) {
+                append("\n\n")
+                append(verdictLines.joinToString("\n"))
+            }
+        }
+        binding.integrityProgress.visibility = if (state.isRunning) View.VISIBLE else View.GONE
+        binding.buttonIntegrityCheck.isEnabled = !state.isRunning &&
+            state.status != IntegrityCheckStatus.CONFIGURATION_REQUIRED
+        binding.buttonIntegrityCheck.text = getString(
+            if (state.status == IntegrityCheckStatus.NOT_RUN) {
+                R.string.integrity_run_check
+            } else {
+                R.string.integrity_check_again
+            }
+        )
+        binding.buttonIntegrityRemediate.visibility =
+            if (state.canRemediate && !state.isRunning) View.VISIBLE else View.GONE
+    }
+
+    private fun readableVerdict(value: String): String {
+        return value.lowercase()
+            .replace('_', ' ')
+            .replaceFirstChar { it.uppercase() }
     }
 
     private fun render(state: AppsUiState) {
@@ -141,7 +229,17 @@ class AppsFragment : Fragment() {
                 summary.total
             )
             val formatted = DateFormat.getDateTimeInstance().format(Date(summary.lastScanAt ?: 0))
-            binding.scanSummaryTime.text = getString(R.string.scan_summary_time, formatted)
+            val duration = summary.durationMillis?.let { getString(R.string.scan_duration_ms, it) }.orEmpty()
+            val mode = getString(
+                if (summary.inventoryReloaded) R.string.scan_mode_full else R.string.scan_mode_runtime
+            )
+            binding.scanSummaryTime.text = getString(
+                R.string.scan_summary_time_with_metrics,
+                formatted,
+                summary.evaluatedCount,
+                duration,
+                mode
+            )
         } else {
             binding.scanSummaryTitle.text = getString(R.string.scan_summary_not_scanned)
             binding.scanSummaryBody.text = getString(R.string.scan_summary_prompt)
@@ -467,6 +565,13 @@ class AppsFragment : Fragment() {
         val elevatedIntent = when {
             BadgeType.ACCESSIBILITY_ENABLED in badgeTypes -> Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
             BadgeType.NOTIFICATION_ACCESS in badgeTypes -> Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+            BadgeType.OVERLAY_ENABLED in badgeTypes -> Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:${entry.packageInfo.packageName}")
+            )
+            BadgeType.USAGE_ACCESS_ENABLED in badgeTypes -> Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+            BadgeType.BATTERY_OPTIMIZATION_EXEMPT in badgeTypes ->
+                Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
             BadgeType.DEVICE_ADMIN in badgeTypes -> Intent(Settings.ACTION_SECURITY_SETTINGS)
             else -> null
         }
@@ -599,6 +704,13 @@ class AppsFragment : Fragment() {
         updateBadgeChipText(binding.chipBadgeAccessibility, BadgeType.ACCESSIBILITY_ENABLED, counts)
         updateBadgeChipText(binding.chipBadgeDeviceAdmin, BadgeType.DEVICE_ADMIN, counts)
         updateBadgeChipText(binding.chipBadgeNotificationAccess, BadgeType.NOTIFICATION_ACCESS, counts)
+        updateBadgeChipText(binding.chipBadgeOverlayEnabled, BadgeType.OVERLAY_ENABLED, counts)
+        updateBadgeChipText(binding.chipBadgeUsageAccess, BadgeType.USAGE_ACCESS_ENABLED, counts)
+        updateBadgeChipText(
+            binding.chipBadgeBatteryExempt,
+            BadgeType.BATTERY_OPTIMIZATION_EXEMPT,
+            counts
+        )
         updateBadgeChipText(binding.chipBadgeLocalInstall, BadgeType.LOCAL_INSTALL, counts)
         updateBadgeChipText(binding.chipBadgeDebuggable, BadgeType.DEBUGGABLE, counts)
         updateBadgeChipText(binding.chipBadgeOldTargetSdk, BadgeType.OLD_TARGET_SDK, counts)
@@ -657,6 +769,9 @@ class AppsFragment : Fragment() {
                 R.id.chip_badge_accessibility -> result.add(BadgeType.ACCESSIBILITY_ENABLED)
                 R.id.chip_badge_device_admin -> result.add(BadgeType.DEVICE_ADMIN)
                 R.id.chip_badge_notification_access -> result.add(BadgeType.NOTIFICATION_ACCESS)
+                R.id.chip_badge_overlay_enabled -> result.add(BadgeType.OVERLAY_ENABLED)
+                R.id.chip_badge_usage_access -> result.add(BadgeType.USAGE_ACCESS_ENABLED)
+                R.id.chip_badge_battery_exempt -> result.add(BadgeType.BATTERY_OPTIMIZATION_EXEMPT)
                 R.id.chip_badge_local_install -> result.add(BadgeType.LOCAL_INSTALL)
                 R.id.chip_badge_debuggable -> result.add(BadgeType.DEBUGGABLE)
                 R.id.chip_badge_old_target_sdk -> result.add(BadgeType.OLD_TARGET_SDK)
@@ -684,6 +799,23 @@ class AppsFragment : Fragment() {
             .show()
     }
 
+    private fun maybeRunIntegrityCheck() {
+        val prefs = requireContext().getSharedPreferences(PREFS_NAME, 0)
+        if (prefs.getBoolean(KEY_INTEGRITY_CONSENT, false)) {
+            viewModel.runIntegrityCheck()
+            return
+        }
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.integrity_consent_title)
+            .setMessage(R.string.integrity_consent_message)
+            .setPositiveButton(R.string.integrity_consent_accept) { _, _ ->
+                prefs.edit().putBoolean(KEY_INTEGRITY_CONSENT, true).apply()
+                viewModel.runIntegrityCheck()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         permissionRefreshJob?.cancel()
@@ -704,6 +836,7 @@ class AppsFragment : Fragment() {
     private companion object {
         private const val PREFS_NAME = "deceptive_scan_prefs"
         private const val KEY_CONSENT = "scan_consent"
+        private const val KEY_INTEGRITY_CONSENT = "integrity_consent"
         private const val KEY_SHOW_SYSTEM_APPS = "show_system_apps"
         private const val ACTION_MANAGE_PERMISSION_APPS = "android.intent.action.MANAGE_PERMISSION_APPS"
         private const val ACTION_MANAGE_PERMISSIONS = "android.intent.action.MANAGE_PERMISSIONS"

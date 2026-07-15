@@ -1,12 +1,15 @@
 package com.resistine.android.ui.apps
 
 import android.Manifest
+import android.app.AppOpsManager
 import android.app.admin.DevicePolicyManager
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageInstaller
 import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
 import androidx.core.app.NotificationManagerCompat
 
@@ -149,6 +152,39 @@ internal object ScanUtils {
 
     fun declaresServicePermission(info: PackageInfo, permission: String): Boolean {
         return info.services?.any { service -> service.permission == permission } == true
+    }
+
+    fun hasEffectiveAppOp(context: Context, info: PackageInfo, operation: String): Boolean {
+        val appInfo = info.applicationInfo ?: return false
+        val manager = context.getSystemService(AppOpsManager::class.java) ?: return false
+        return runCatching {
+            val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                manager.unsafeCheckOpNoThrow(operation, appInfo.uid, info.packageName)
+            } else {
+                @Suppress("DEPRECATION")
+                manager.checkOpNoThrow(operation, appInfo.uid, info.packageName)
+            }
+            mode == AppOpsManager.MODE_ALLOWED
+        }.getOrDefault(false)
+    }
+
+    fun hasOverlayAccess(context: Context, info: PackageInfo): Boolean {
+        if (hasEffectiveAppOp(context, info, AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW)) return true
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return false
+        return runCatching {
+            val packageContext = context.createPackageContext(
+                info.packageName,
+                Context.CONTEXT_IGNORE_SECURITY
+            )
+            Settings.canDrawOverlays(packageContext)
+        }.getOrDefault(false)
+    }
+
+    fun isBatteryOptimizationExempt(context: Context, packageName: String): Boolean {
+        return runCatching {
+            context.getSystemService(PowerManager::class.java)
+                ?.isIgnoringBatteryOptimizations(packageName) == true
+        }.getOrDefault(false)
     }
 
     fun permissionDisplayName(permission: String): String {

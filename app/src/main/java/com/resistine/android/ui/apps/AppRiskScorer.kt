@@ -9,6 +9,8 @@ internal data class AppRiskInput(
     val accessibilityEnabled: Boolean,
     val deviceAdminActive: Boolean,
     val notificationAccessEnabled: Boolean,
+    val overlayEnabled: Boolean,
+    val usageAccessEnabled: Boolean,
     val declaresInstallerCapability: Boolean,
     val declaresOverlayCapability: Boolean
 )
@@ -38,14 +40,18 @@ internal object AppRiskScorer {
         if (input.accessibilityEnabled) score += 35
         if (input.deviceAdminActive) score += 25
         if (input.notificationAccessEnabled) score += 15
+        if (input.overlayEnabled) score += 20
+        if (input.usageAccessEnabled) score += 8
         if (input.declaresInstallerCapability) score += 8
-        if (input.declaresOverlayCapability) score += 8
+        if (input.declaresOverlayCapability && !input.overlayEnabled) score += 8
 
         if (uncertainSource && input.accessibilityEnabled) score += 20
         if (uncertainSource && input.deviceAdminActive) score += 20
         if (uncertainSource && input.isDebuggable) score += 12
         if (uncertainSource && input.declaresInstallerCapability && input.declaresOverlayCapability) score += 25
         if (uncertainSource && input.notificationAccessEnabled) score += 10
+        if (uncertainSource && input.overlayEnabled) score += 15
+        if (uncertainSource && input.usageAccessEnabled) score += 7
 
         val value = score.coerceIn(0, 100)
         val verdict = when {

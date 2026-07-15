@@ -58,6 +58,33 @@ class AppRiskScorerTest {
         assertEquals(RiskVerdict.NO_CONCERN, score.verdict)
     }
 
+    @Test
+    fun `effective overlay access is weighted more than a declaration`() {
+        val declared = AppRiskScorer.score(
+            baseInput().copy(declaresOverlayCapability = true)
+        )
+        val enabled = AppRiskScorer.score(
+            baseInput().copy(declaresOverlayCapability = true, overlayEnabled = true)
+        )
+
+        assertEquals(8, declared.value)
+        assertEquals(20, enabled.value)
+        assertEquals(RiskVerdict.REVIEW, enabled.verdict)
+    }
+
+    @Test
+    fun `unknown app with enabled overlay is escalated for review`() {
+        val score = AppRiskScorer.score(
+            baseInput().copy(
+                provenance = InstallProvenance.UNKNOWN,
+                overlayEnabled = true
+            )
+        )
+
+        assertEquals(40, score.value)
+        assertEquals(RiskVerdict.REVIEW, score.verdict)
+    }
+
     private fun baseInput() = AppRiskInput(
         provenance = InstallProvenance.PLAY_STORE,
         targetSdk = 35,
@@ -67,6 +94,8 @@ class AppRiskScorerTest {
         accessibilityEnabled = false,
         deviceAdminActive = false,
         notificationAccessEnabled = false,
+        overlayEnabled = false,
+        usageAccessEnabled = false,
         declaresInstallerCapability = false,
         declaresOverlayCapability = false
     )

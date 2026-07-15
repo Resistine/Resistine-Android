@@ -53,6 +53,7 @@ internal class AppInventoryRepository(
                 put("score", result.score)
                 put("verdict", result.verdict.name)
                 put("provenance", result.provenance.name)
+                result.installerPackage?.let { put("installerPackage", it) }
                 put("identityConfidence", result.identityConfidence.name)
                 put("scannedAtMillis", result.scannedAtMillis)
                 put("permissions", JSONArray(result.highRiskPermissions))
@@ -110,6 +111,8 @@ internal class AppInventoryRepository(
                                 badges = badges,
                                 highRiskPermissions = permissions,
                                 provenance = provenance,
+                                installerPackage = json.optString("installerPackage")
+                                    .takeIf { it.isNotBlank() },
                                 identityConfidence = identity,
                                 scannedAtMillis = json.optLong("scannedAtMillis", 0L)
                             )
@@ -153,7 +156,7 @@ internal class AppInventoryRepository(
     }
 
     companion object {
-        const val RULES_VERSION = 2
+        const val RULES_VERSION = 3
         private const val RESULTS_FILE = "app_posture_results.json"
     }
 }

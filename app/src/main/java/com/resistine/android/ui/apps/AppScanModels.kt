@@ -20,6 +20,9 @@ enum class BadgeType {
     NOTIFICATION_ACCESS,
     INSTALLER_CAPABILITY,
     OVERLAY_CAPABILITY,
+    OVERLAY_ENABLED,
+    USAGE_ACCESS_ENABLED,
+    BATTERY_OPTIMIZATION_EXEMPT,
     VPN_CAPABILITY
 }
 
@@ -49,6 +52,7 @@ data class AppScanResult(
     val badges: List<Badge>,
     val highRiskPermissions: List<String> = emptyList(),
     val provenance: InstallProvenance = InstallProvenance.UNKNOWN,
+    val installerPackage: String? = null,
     val identityConfidence: AppIdentityConfidence = AppIdentityConfidence.UNVERIFIED,
     val scannedAtMillis: Long = 0L
 )
@@ -65,5 +69,8 @@ data class ScanSummary(
     val review: Int,
     val urgentReview: Int,
     val lastScanAt: Long?,
-    val isScanned: Boolean
+    val isScanned: Boolean,
+    val durationMillis: Long? = null,
+    val evaluatedCount: Int = 0,
+    val inventoryReloaded: Boolean = false
 )
