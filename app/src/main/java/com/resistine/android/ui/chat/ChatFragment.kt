@@ -4,9 +4,11 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.resistine.android.R
 import com.resistine.android.databinding.FragmentChatBinding
 
 class ChatFragment : Fragment() {
@@ -27,45 +29,57 @@ class ChatFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        adapter = ChatAdapter(emptyList())
+        adapter = ChatAdapter()
         binding.recyclerViewChat.layoutManager = LinearLayoutManager(requireContext()).apply {
-            stackFromEnd = true
+            stackFromEnd = false
         }
         binding.recyclerViewChat.adapter = adapter
 
         binding.buttonSend.setOnClickListener {
-            val text = binding.editTextMessage.text.toString()
-            if (text.isNotBlank()) {
-                viewModel.sendMessage(text)
-                binding.editTextMessage.text.clear()
+            sendCurrentMessage()
+        }
+        binding.promptVpn.setOnClickListener { sendPrompt(getString(R.string.chat_prompt_vpn)) }
+        binding.promptWifi.setOnClickListener { sendPrompt(getString(R.string.chat_prompt_wifi)) }
+        binding.promptPriority.setOnClickListener { sendPrompt(getString(R.string.chat_prompt_priority)) }
+        binding.editTextMessage.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_SEND) {
+                sendCurrentMessage()
+                true
+            } else {
+                false
             }
         }
 
-        // Sledování zpráv
-        viewModel.messages.observe(viewLifecycleOwner) { list ->
-            adapter.updateMessages(list, viewModel.isTyping.value ?: false)
-            if (list.isNotEmpty() || viewModel.isTyping.value == true) {
-                val scrollPos = if (viewModel.isTyping.value == true) list.size else list.size - 1
-                if (scrollPos >= 0) {
-                    binding.recyclerViewChat.smoothScrollToPosition(scrollPos)
+        viewModel.uiState.observe(viewLifecycleOwner) { state ->
+            adapter.submitState(state)
+            binding.buttonSend.isEnabled = !state.isTyping
+            binding.quickPrompts.visibility =
+                if (state.messages.size <= 1 && !state.isTyping) View.VISIBLE else View.GONE
+            binding.messageInputLayout.hint = getString(
+                if (state.isTyping) R.string.chat_thinking else R.string.chat_message_hint
+            )
+            if (state.messages.isNotEmpty() || state.isTyping) {
+                binding.recyclerViewChat.post {
+                    val lastPosition = adapter.itemCount - 1
+                    if (lastPosition >= 0) {
+                        binding.recyclerViewChat.smoothScrollToPosition(lastPosition)
+                    }
                 }
             }
         }
-        
-        // Sledování indikátoru psaní
-        viewModel.isTyping.observe(viewLifecycleOwner) { isTyping ->
-            // Aktualizovat adaptér, aby přidal/odebral bublinu
-            adapter.updateMessages(viewModel.messages.value ?: emptyList(), isTyping)
-            
-            if (isTyping) {
-                binding.buttonSend.isEnabled = false
-                binding.editTextMessage.hint = "AI is thinking..."
-                binding.recyclerViewChat.smoothScrollToPosition(adapter.itemCount - 1)
-            } else {
-                binding.buttonSend.isEnabled = true
-                binding.editTextMessage.hint = "Type your message here"
+    }
+
+    private fun sendCurrentMessage() {
+            val text = binding.editTextMessage.text.toString()
+            if (text.isNotBlank()) {
+                viewModel.sendMessage(text)
+                binding.editTextMessage.text?.clear()
             }
-        }
+    }
+
+    private fun sendPrompt(prompt: String) {
+        binding.editTextMessage.setText(prompt)
+        sendCurrentMessage()
     }
 
     override fun onDestroyView() {

@@ -2,40 +2,45 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:gravity="start"
     android:orientation="horizontal"
-    android:padding="8dp"
-    android:gravity="start">
+    android:paddingTop="@dimen/rs_space_4"
+    android:paddingBottom="@dimen/rs_space_4">
 
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:background="@drawable/background_home"
-        android:padding="12dp"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:paddingStart="@dimen/rs_space_16"
+        android:paddingTop="@dimen/rs_space_10"
+        android:paddingEnd="@dimen/rs_space_16"
+        android:paddingBottom="@dimen/rs_space_10">
 
         <TextView
             android:id="@+id/dot1"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="•"
-            android:textSize="20sp"
-            android:textColor="?attr/colorSecondary" />
+            android:textColor="@color/rs_primary"
+            android:textSize="20sp" />
 
         <TextView
             android:id="@+id/dot2"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/rs_space_4"
+            android:layout_marginEnd="@dimen/rs_space_4"
             android:text="•"
-            android:textSize="20sp"
-            android:layout_marginHorizontal="2dp"
-            android:textColor="?attr/colorSecondary" />
+            android:textColor="@color/rs_primary"
+            android:textSize="20sp" />
 
         <TextView
             android:id="@+id/dot3"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="•"
-            android:textSize="20sp"
-            android:textColor="?attr/colorSecondary" />
+            android:textColor="@color/rs_primary"
+            android:textSize="20sp" />
     </LinearLayout>
 </LinearLayout>

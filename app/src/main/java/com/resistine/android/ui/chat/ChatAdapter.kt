@@ -7,57 +7,30 @@ import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.TextView
+import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.resistine.android.R
 import com.resistine.android.databinding.ItemMessageBinding
 import com.resistine.android.databinding.ItemTypingBinding
 
-class ChatAdapter(private var messages: List<ChatMessage>) :
-    RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+internal sealed interface ChatRow {
+    data class Message(val value: ChatMessage) : ChatRow
+    data object Typing : ChatRow
+}
 
-    private var isTyping: Boolean = false
+internal class ChatAdapter : ListAdapter<ChatRow, RecyclerView.ViewHolder>(DiffCallback()) {
 
-    companion object {
-        private const val VIEW_TYPE_MESSAGE = 1
-        private const val VIEW_TYPE_TYPING = 2
+    fun submitState(state: ChatUiState) {
+        val rows = state.messages.map(ChatRow::Message).toMutableList<ChatRow>()
+        if (state.isTyping) rows += ChatRow.Typing
+        submitList(rows)
     }
 
-    class MessageViewHolder(val binding: ItemMessageBinding) : RecyclerView.ViewHolder(binding.root)
-    
-    class TypingViewHolder(val binding: ItemTypingBinding) : RecyclerView.ViewHolder(binding.root) {
-        fun startAnimation() {
-            animateDot(binding.dot1, 0)
-            animateDot(binding.dot2, 200)
-            animateDot(binding.dot3, 400)
-        }
-
-        private fun animateDot(view: View, delay: Long) {
-            val animator = ObjectAnimator.ofPropertyValuesHolder(
-                view,
-                PropertyValuesHolder.ofFloat(View.SCALE_X, 0.7f, 1.3f, 0.7f),
-                PropertyValuesHolder.ofFloat(View.SCALE_Y, 0.7f, 1.3f, 0.7f),
-                PropertyValuesHolder.ofFloat(View.ALPHA, 0.5f, 1f, 0.5f)
-            )
-            animator.duration = 1000
-            animator.repeatCount = ObjectAnimator.INFINITE
-            animator.startDelay = delay
-            animator.start()
-        }
-    }
-
-    fun updateMessages(newMessages: List<ChatMessage>, isTyping: Boolean) {
-        this.messages = newMessages
-        this.isTyping = isTyping
-        notifyDataSetChanged()
-    }
-
-    override fun getItemViewType(position: Int): Int {
-        return if (isTyping && position == messages.size) {
-            VIEW_TYPE_TYPING
-        } else {
-            VIEW_TYPE_MESSAGE
-        }
+    override fun getItemViewType(position: Int): Int = when (getItem(position)) {
+        is ChatRow.Message -> VIEW_TYPE_MESSAGE
+        ChatRow.Typing -> VIEW_TYPE_TYPING
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
@@ -70,43 +43,73 @@ class ChatAdapter(private var messages: List<ChatMessage>) :
     }
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-        if (holder is TypingViewHolder) {
-            holder.startAnimation()
-            return
+        when (val row = getItem(position)) {
+            is ChatRow.Message -> (holder as MessageViewHolder).bind(row.value)
+            ChatRow.Typing -> (holder as TypingViewHolder).startAnimation()
         }
-
-        val messageViewHolder = holder as MessageViewHolder
-        val message = messages[position]
-        messageViewHolder.binding.textViewMessage.text = message.text
-
-        val layoutParams = messageViewHolder.binding.textViewMessage.layoutParams as ViewGroup.MarginLayoutParams
-
-        if (message.isUser) {
-            messageViewHolder.binding.textViewMessage.setBackgroundResource(R.drawable.background_home2)
-            messageViewHolder.binding.textViewMessage.setTextColor(Color.WHITE)
-            layoutParams.marginStart = 100
-            layoutParams.marginEnd = 0
-            messageViewHolder.binding.root.gravity = Gravity.END
-        } else {
-            messageViewHolder.binding.textViewMessage.setBackgroundResource(R.drawable.background_home)
-            val context = holder.itemView.context
-            val isDarkMode = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
-            
-            if (isDarkMode) {
-                messageViewHolder.binding.textViewMessage.setTextColor(Color.WHITE)
-            } else {
-                messageViewHolder.binding.textViewMessage.setTextColor(Color.BLACK)
-            }
-            
-            layoutParams.marginStart = 0
-            layoutParams.marginEnd = 100
-            messageViewHolder.binding.root.gravity = Gravity.START
-        }
-
-        messageViewHolder.binding.textViewMessage.layoutParams = layoutParams
     }
 
-    override fun getItemCount(): Int {
-        return if (isTyping) messages.size + 1 else messages.size
+    override fun onViewRecycled(holder: RecyclerView.ViewHolder) {
+        if (holder is TypingViewHolder) holder.stopAnimation()
+        super.onViewRecycled(holder)
+    }
+
+    private class MessageViewHolder(
+        private val binding: ItemMessageBinding
+    ) : RecyclerView.ViewHolder(binding.root) {
+        fun bind(message: ChatMessage) {
+            val context = binding.root.context
+            binding.textViewMessage.text = message.text
+            binding.root.gravity = if (message.isUser) Gravity.END else Gravity.START
+            binding.textViewMessage.setBackgroundResource(
+                if (message.isUser) R.drawable.background_home2 else R.drawable.background_home
+            )
+            binding.textViewMessage.setTextColor(
+                ContextCompat.getColor(
+                    context,
+                    if (message.isUser) R.color.white else R.color.rs_text_primary
+                )
+            )
+        }
+    }
+
+    private class TypingViewHolder(
+        private val binding: ItemTypingBinding
+    ) : RecyclerView.ViewHolder(binding.root) {
+        private val animators = listOf(
+            createAnimator(binding.dot1, 0),
+            createAnimator(binding.dot2, 160),
+            createAnimator(binding.dot3, 320)
+        )
+
+        fun startAnimation() = animators.forEach { if (!it.isStarted) it.start() }
+        fun stopAnimation() = animators.forEach(ObjectAnimator::cancel)
+
+        private fun createAnimator(view: View, delay: Long): ObjectAnimator =
+            ObjectAnimator.ofPropertyValuesHolder(
+                view,
+                PropertyValuesHolder.ofFloat(View.SCALE_X, 0.75f, 1.25f, 0.75f),
+                PropertyValuesHolder.ofFloat(View.SCALE_Y, 0.75f, 1.25f, 0.75f),
+                PropertyValuesHolder.ofFloat(View.ALPHA, 0.45f, 1f, 0.45f)
+            ).apply {
+                duration = 900
+                repeatCount = ObjectAnimator.INFINITE
+                startDelay = delay
+            }
+    }
+
+    private class DiffCallback : DiffUtil.ItemCallback<ChatRow>() {
+        override fun areItemsTheSame(oldItem: ChatRow, newItem: ChatRow): Boolean = when {
+            oldItem is ChatRow.Message && newItem is ChatRow.Message -> oldItem.value.id == newItem.value.id
+            oldItem === ChatRow.Typing && newItem === ChatRow.Typing -> true
+            else -> false
+        }
+
+        override fun areContentsTheSame(oldItem: ChatRow, newItem: ChatRow): Boolean = oldItem == newItem
+    }
+
+    private companion object {
+        const val VIEW_TYPE_MESSAGE = 1
+        const val VIEW_TYPE_TYPING = 2
     }
 }

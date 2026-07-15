@@ -29,6 +29,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
      */
     val isTyping: LiveData<Boolean> = _isTyping
 
+    val uiState: LiveData<ChatUiState> = MediatorLiveData<ChatUiState>().apply {
+        fun publish() {
+            value = ChatUiState(
+                messages = messages.value.orEmpty(),
+                isTyping = isTyping.value == true
+            )
+        }
+        addSource(messages) { publish() }
+        addSource(isTyping) { publish() }
+    }
+
     init {
         checkAndAddGreeting()
     }

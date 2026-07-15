@@ -2,15 +2,22 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:gravity="start"
     android:orientation="horizontal"
-    android:padding="8dp">
+    android:paddingTop="@dimen/rs_space_4"
+    android:paddingBottom="@dimen/rs_space_4">
 
     <TextView
         android:id="@+id/textViewMessage"
+        style="@style/TextAppearance.Resistine.Body"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/rs_space_4"
+        android:layout_marginEnd="@dimen/rs_space_4"
         android:background="@drawable/background_home"
-        android:textColor="?attr/colorOnBackground"
-        android:padding="10dp"
-        android:layout_margin="4dp"/>
+        android:maxWidth="320dp"
+        android:paddingStart="@dimen/rs_space_16"
+        android:paddingTop="@dimen/rs_space_12"
+        android:paddingEnd="@dimen/rs_space_16"
+        android:paddingBottom="@dimen/rs_space_12" />
 </LinearLayout>
