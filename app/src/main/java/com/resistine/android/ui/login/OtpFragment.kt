@@ -1,174 +1,152 @@
 package com.resistine.android.ui.login
 
-import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.text.Editable
 import android.text.TextWatcher
+import android.view.KeyEvent
+import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
-import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
-import androidx.lifecycle.MutableLiveData
 import androidx.navigation.fragment.findNavController
 import com.resistine.android.R
+import com.resistine.android.databinding.FragmentOtpBinding
 import com.resistine.android.security.CryptoManager
 
-class OtpFragment : Fragment(R.layout.fragment_otp) {
-
+class OtpFragment : Fragment() {
+    private var _binding: FragmentOtpBinding? = null
+    private val binding get() = _binding!!
     private val viewModel: LoginViewModel by activityViewModels()
     private var timer: CountDownTimer? = null
     private lateinit var otpFields: List<EditText>
     private var isResendTimerRunning = false
-    private var originalButtonBackgrounds: MutableMap<Button, Drawable> = mutableMapOf()
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        _binding = FragmentOtpBinding.inflate(inflater, container, false)
+        return binding.root
+    }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-
-        otpFields = listOf(
-            view.findViewById(R.id.otp1),
-            view.findViewById(R.id.otp2),
-            view.findViewById(R.id.otp3),
-            view.findViewById(R.id.otp4),
-            view.findViewById(R.id.otp5),
-            view.findViewById(R.id.otp6)
-        )
-
-        val verifyButton = view.findViewById<Button>(R.id.verifyOtpButton)
-        val resendButton = view.findViewById<Button>(R.id.resendButton)
-        val changeEmailButton = view.findViewById<Button>(R.id.changeEmailButton)
-        val loadingIndicator = view.findViewById<ProgressBar>(R.id.loadingIndicator)
-
-        originalButtonBackgrounds[verifyButton] = verifyButton.background
-        originalButtonBackgrounds[resendButton] = resendButton.background
-        originalButtonBackgrounds[changeEmailButton] = changeEmailButton.background
-
+        otpFields = listOf(binding.otp1, binding.otp2, binding.otp3, binding.otp4, binding.otp5, binding.otp6)
         setupOtpFields()
 
-        verifyButton.setOnClickListener {
+        binding.verifyOtpButton.setOnClickListener {
             val otp = otpFields.joinToString("") { it.text.toString() }
             if (otp.length == 6) {
                 viewModel.verifyOtp(otp)
             } else {
-                Toast.makeText(context, getString(R.string.please_enter_a_6_digit_code), Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), R.string.please_enter_a_6_digit_code, Toast.LENGTH_SHORT).show()
             }
         }
 
-        changeEmailButton.setOnClickListener {
-            viewModel.email = MutableLiveData<String>(null)
+        binding.changeEmailButton.setOnClickListener {
+            viewModel.clearEmail()
             findNavController().navigate(R.id.action_otp_to_email)
         }
 
-        resendButton.setOnClickListener {
-            viewModel.email.value?.let { viewModel.sendOtp(it) }
-            startResendCountdown(resendButton)
+        binding.resendButton.setOnClickListener {
+            viewModel.email.value?.let(viewModel::sendOtp)
+            startResendCountdown(binding.resendButton)
         }
 
-        viewModel.loginSuccess.observe(viewLifecycleOwner) { success ->
-            if (success) {
-                viewModel.email.value?.let { email ->
-                    CryptoManager.saveEmail(requireContext(), email)
+        viewModel.uiState.observe(viewLifecycleOwner) { state ->
+            binding.loadingIndicator.visibility = if (state.isLoading) View.VISIBLE else View.GONE
+            val enabled = !state.isLoading
+            binding.verifyOtpButton.isEnabled = enabled
+            if (!isResendTimerRunning) binding.resendButton.isEnabled = enabled
+            binding.changeEmailButton.isEnabled = enabled
+            otpFields.forEach { it.isEnabled = enabled }
+
+            if (state.isLoginSuccessful && viewModel.consumeLoginSuccess()) {
+                state.email?.let { CryptoManager.saveEmail(requireContext(), it) }
+                val navController = findNavController()
+                if (navController.currentDestination?.id == R.id.nav_otp) {
+                    navController.navigate(R.id.action_otpFragment_to_nav_home)
                 }
-                findNavController().navigate(R.id.action_otpFragment_to_nav_home)
+            }
+            if (state.errorMessage != null) {
+                viewModel.consumeError()?.let { message ->
+                    Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+                }
             }
         }
 
-        viewModel.errorMessage.observe(viewLifecycleOwner) { error ->
-            if (error != null) {
-                Toast.makeText(context, error, Toast.LENGTH_LONG).show()
-                viewModel.errorMessage.postValue(null)
-            }
-        }
-
-        viewModel.loading.observe(viewLifecycleOwner) { isLoading ->
-            loadingIndicator.visibility = if (isLoading) View.VISIBLE else View.GONE
-            val isEnabled = !isLoading
-            setButtonState(verifyButton, isEnabled)
-            if (!isResendTimerRunning) {
-                setButtonState(resendButton, isEnabled)
-            }
-            setButtonState(changeEmailButton, isEnabled)
-            otpFields.forEach { it.isEnabled = isEnabled }
-        }
-
-        startResendCountdown(resendButton)
+        startResendCountdown(binding.resendButton)
     }
 
     private fun setupOtpFields() {
         otpFields.forEachIndexed { index, editText ->
-            // Handle typing
             editText.addTextChangedListener(object : TextWatcher {
-                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+                override fun afterTextChanged(s: Editable?) = Unit
 
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                    if (s?.length == 1 && index < otpFields.size - 1) {
+                    if (s?.length == 1 && index < otpFields.lastIndex) {
                         otpFields[index + 1].requestFocus()
                     }
                 }
-
-                override fun afterTextChanged(s: Editable?) {}
             })
 
-            // Handle deleting
             editText.setOnKeyListener { _, keyCode, event ->
-                if (keyCode == android.view.KeyEvent.KEYCODE_DEL && event.action == android.view.KeyEvent.ACTION_DOWN) {
-                    if (editText.text.isEmpty() && index > 0) {
-                        otpFields[index - 1].requestFocus()
-                        otpFields[index - 1].setText("")
-                        return@setOnKeyListener true
+                if (keyCode == KeyEvent.KEYCODE_DEL &&
+                    event.action == KeyEvent.ACTION_DOWN &&
+                    editText.text.isEmpty() &&
+                    index > 0
+                ) {
+                    otpFields[index - 1].apply {
+                        requestFocus()
+                        setText("")
                     }
+                    true
+                } else {
+                    false
                 }
-                false
             }
 
-            // Handle pasting
             if (editText is OtpEditText) {
                 editText.setOnPasteListener { pastedText ->
-                    otpFields.forEachIndexed { i, field ->
-                        val textToSet = if (i < pastedText.length) pastedText[i].toString() else ""
-                        field.setText(textToSet)
+                    otpFields.forEachIndexed { fieldIndex, field ->
+                        field.setText(pastedText.getOrNull(fieldIndex)?.toString().orEmpty())
                     }
-                    val lastFilledIndex = (pastedText.length - 1).coerceIn(0, otpFields.size - 1)
-                    otpFields[lastFilledIndex].requestFocus()
-                    otpFields[lastFilledIndex].setSelection(otpFields[lastFilledIndex].text.length)
+                    val lastFilled = (pastedText.length - 1).coerceIn(0, otpFields.lastIndex)
+                    otpFields[lastFilled].apply {
+                        requestFocus()
+                        setSelection(text.length)
+                    }
                 }
             }
         }
     }
 
-
     private fun startResendCountdown(button: Button) {
         timer?.cancel()
-        setButtonState(button, false)
+        button.isEnabled = false
         isResendTimerRunning = true
-        timer = object : CountDownTimer(30000, 1000) {
+        timer = object : CountDownTimer(30_000, 1_000) {
             override fun onTick(ms: Long) {
-                button.text = getString(R.string.resend_with_timer, ms / 1000)
+                button.text = getString(R.string.resend_with_timer, ms / 1_000)
             }
 
             override fun onFinish() {
                 button.text = getString(R.string.resend)
                 isResendTimerRunning = false
-                val isLoading = viewModel.loading.value ?: false
-                setButtonState(button, !isLoading)
+                button.isEnabled = viewModel.uiState.value?.isLoading != true
             }
         }.start()
     }
 
-    private fun setButtonState(button: Button, isEnabled: Boolean) {
-        button.isEnabled = isEnabled
-        if (isEnabled) {
-            button.background = originalButtonBackgrounds[button]
-        } else {
-            button.setBackgroundResource(R.drawable.button_background_disabled)
-        }
-    }
-
     override fun onDestroyView() {
-        super.onDestroyView()
         timer?.cancel()
+        _binding = null
+        super.onDestroyView()
     }
 }

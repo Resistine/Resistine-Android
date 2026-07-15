@@ -4,6 +4,8 @@ import android.app.Application
 import android.content.Context
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.MutableLiveData
 import com.resistine.android.R
 import com.resistine.android.security.CryptoManager
@@ -12,13 +14,32 @@ import com.wireguard.crypto.KeyPair
 
 class LoginViewModel(application: Application) : AndroidViewModel(application) {
 
-    var email = MutableLiveData<String>()
+    val email = MutableLiveData<String?>()
     val otpSent = MutableLiveData<Boolean>()
     val loginSuccess = MutableLiveData<Boolean>()
     val loading = MutableLiveData<Boolean>()
     val errorMessage = MutableLiveData<String?>()
     val wireguardConfig = MutableLiveData<String?>()
     val isRegistrationSkipped = MutableLiveData<Boolean>()
+
+    val uiState: LiveData<LoginUiState> = MediatorLiveData<LoginUiState>().apply {
+        fun publish() {
+            value = LoginUiState(
+                email = email.value,
+                isLoading = loading.value == true,
+                isOtpSent = otpSent.value == true,
+                isLoginSuccessful = loginSuccess.value == true,
+                errorMessage = errorMessage.value,
+                isRegistrationSkipped = isRegistrationSkipped.value == true
+            )
+        }
+        addSource(email) { publish() }
+        addSource(loading) { publish() }
+        addSource(otpSent) { publish() }
+        addSource(loginSuccess) { publish() }
+        addSource(errorMessage) { publish() }
+        addSource(isRegistrationSkipped) { publish() }
+    }
 
     companion object {
         private const val VPN_NAME = "testVPNapi"
@@ -84,6 +105,7 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
                     )
                     Config.parse(formattedConfig.byteInputStream(Charsets.UTF_8))
                     CryptoManager.saveEncryptedConfig(getApplication(), formattedConfig)
+                    CryptoManager.saveRegistrationDefaultConfig(getApplication(), formattedConfig)
                     wireguardConfig.postValue(formattedConfig)
                     persistWelcomeFlowState(
                         completed = true,
@@ -100,6 +122,26 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+
+    fun consumeOtpSent(): Boolean {
+        if (otpSent.value != true) return false
+        otpSent.value = false
+        return true
+    }
+
+    fun consumeLoginSuccess(): Boolean {
+        if (loginSuccess.value != true) return false
+        loginSuccess.value = false
+        return true
+    }
+
+    fun consumeError(): String? {
+        val currentError = errorMessage.value ?: return null
+        errorMessage.value = null
+        return currentError
+    }
+
+    fun clearEmail() = email.postValue(null)
 
     private fun persistWelcomeFlowState(
         completed: Boolean,

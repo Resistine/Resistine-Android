@@ -2,56 +2,68 @@ package com.resistine.android.ui.login
 
 import android.os.Bundle
 import android.util.Patterns
+import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
+import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
-import com.resistine.android.R
-import android.widget.*
 import androidx.navigation.fragment.findNavController
+import com.resistine.android.R
+import com.resistine.android.databinding.FragmentEmailBinding
 
-
-class EmailFragment : Fragment(R.layout.fragment_email) {
-
+class EmailFragment : Fragment() {
+    private var _binding: FragmentEmailBinding? = null
+    private val binding get() = _binding!!
     private val viewModel: LoginViewModel by activityViewModels()
 
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        _binding = FragmentEmailBinding.inflate(inflater, container, false)
+        return binding.root
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        val emailInput = view.findViewById<EditText>(R.id.emailInput)
-        val sendButton = view.findViewById<Button>(R.id.sendOtpButton)
-        val skipButton = view.findViewById<Button>(R.id.skipButton)
-        val progress = view.findViewById<ProgressBar>(R.id.progressBar)
-
-        viewModel.loading.observe(viewLifecycleOwner) { isLoading ->
-            progress.visibility = if (isLoading) View.VISIBLE else View.GONE
-            sendButton.isEnabled = !isLoading
-            skipButton.isEnabled = !isLoading
-            emailInput.isEnabled = !isLoading
-        }
-        viewModel.otpSent.observe(viewLifecycleOwner) {
-            if (it == true) {
-                findNavController().navigate(R.id.action_email_to_otp)
-                viewModel.otpSent.postValue(false) // Reset the value
-            }
-        }
-        viewModel.errorMessage.observe(viewLifecycleOwner) { error ->
-            if (error != null) {
-                Toast.makeText(context, error, Toast.LENGTH_LONG).show()
-                viewModel.errorMessage.postValue(null)
-            }
-        }
-
-        sendButton.setOnClickListener {
-            val email = emailInput.text.toString().trim()
+        binding.sendOtpButton.setOnClickListener {
+            val email = binding.emailInput.text?.toString()?.trim().orEmpty()
             if (Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
                 viewModel.email.value = email
                 viewModel.sendOtp(email)
             } else {
-                Toast.makeText(context, getString(R.string.please_enter_valid_email), Toast.LENGTH_SHORT).show()
+                binding.emailInputLayout.error = getString(R.string.please_enter_valid_email)
             }
         }
 
-        skipButton.setOnClickListener {
+        binding.skipButton.setOnClickListener {
             viewModel.skipRegistration()
             findNavController().navigate(R.id.action_email_to_home)
         }
+
+        viewModel.uiState.observe(viewLifecycleOwner) { state ->
+            binding.progressBar.visibility = if (state.isLoading) View.VISIBLE else View.GONE
+            binding.sendOtpButton.isEnabled = !state.isLoading
+            binding.skipButton.isEnabled = !state.isLoading
+            binding.emailInput.isEnabled = !state.isLoading
+
+            if (state.isOtpSent && viewModel.consumeOtpSent()) {
+                val navController = findNavController()
+                if (navController.currentDestination?.id == R.id.nav_email) {
+                    navController.navigate(R.id.action_email_to_otp)
+                }
+            }
+            if (state.errorMessage != null) {
+                viewModel.consumeError()?.let { message ->
+                    Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    override fun onDestroyView() {
+        _binding = null
+        super.onDestroyView()
     }
 }
