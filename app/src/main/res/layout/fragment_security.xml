@@ -1,154 +1,167 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?android:attr/windowBackground"
+    android:background="@color/rs_surface"
+    android:clipToPadding="false"
     android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:paddingStart="@dimen/rs_screen_padding"
+        android:paddingTop="@dimen/rs_space_16"
+        android:paddingEnd="@dimen/rs_screen_padding"
+        android:paddingBottom="@dimen/rs_space_32">
 
         <TextView
+            style="@style/TextAppearance.Resistine.Headline"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Device Security &amp; Status"
-            android:textSize="24sp"
-            android:textStyle="bold"
-            android:layout_marginBottom="16dp"
-            android:textColor="?attr/colorSecondary" />
+            android:text="@string/security_screen_title" />
 
-        <!-- Wazuh Agent Card -->
-        <com.google.android.material.card.MaterialCardView
+        <TextView
+            style="@style/TextAppearance.Resistine.Body"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="2dp"
-            android:layout_marginBottom="12dp"
-            app:cardBackgroundColor="?attr/backgroundColor">
+            android:layout_marginTop="@dimen/rs_space_8"
+            android:text="@string/security_screen_subtitle" />
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Resistine.Card.Tinted"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/rs_space_20">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="@dimen/rs_space_20">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Endpoint Monitoring"
-                    android:textStyle="bold"
-                    android:textSize="16sp"
-                    android:layout_marginBottom="8dp"/>
+                <ImageView
+                    android:id="@+id/imageViewWazuhStatus"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/background_home"
+                    android:contentDescription="@string/security_endpoint_monitoring"
+                    android:padding="@dimen/rs_space_10"
+                    android:src="@drawable/shield_with_star"
+                    app:tint="@color/rs_primary" />
 
                 <LinearLayout
-                    android:layout_width="match_parent"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
+                    android:layout_marginStart="@dimen/rs_space_16"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
 
-                    <ImageView
-                        android:id="@+id/imageViewWazuhStatus"
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@drawable/shield_with_star"
-                        app:tint="@color/error_red" />
+                    <TextView
+                        style="@style/TextAppearance.Resistine.Title"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/security_endpoint_monitoring" />
 
                     <TextView
                         android:id="@+id/textViewWazuhStatus"
-                        android:layout_width="wrap_content"
+                        style="@style/TextAppearance.Resistine.Body"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="12dp"
-                        android:text="Agent: Disconnected"
-                        android:textSize="14sp" />
+                        android:layout_marginTop="@dimen/rs_space_4"
+                        android:text="@string/security_agent_waiting" />
                 </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Network Card -->
-        <com.google.android.material.card.MaterialCardView
+        <TextView
+            style="@style/TextAppearance.Resistine.Section"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="2dp"
-            android:layout_marginBottom="12dp"
-            app:cardBackgroundColor="?attr/backgroundColor">
+            android:layout_marginTop="@dimen/rs_space_24"
+            android:text="@string/security_network_identity" />
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Resistine.Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/rs_space_12">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Network Identity"
-                    android:textStyle="bold"
-                    android:textSize="16sp"
-                    android:layout_marginBottom="8dp"/>
+                android:padding="@dimen/rs_space_20">
 
                 <TextView
                     android:id="@+id/textViewIpAddress"
+                    style="@style/TextAppearance.Resistine.Title"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Public IP: Loading..."
-                    android:layout_marginBottom="4dp"/>
+                    android:text="@string/security_ip_loading" />
 
                 <TextView
                     android:id="@+id/textViewLocation"
+                    style="@style/TextAppearance.Resistine.Body"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Location: Loading..."/>
+                    android:layout_marginTop="@dimen/rs_space_8"
+                    android:text="@string/security_location_loading" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Device Info Card -->
-        <com.google.android.material.card.MaterialCardView
+        <TextView
+            style="@style/TextAppearance.Resistine.Section"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="2dp"
-            app:cardBackgroundColor="?attr/backgroundColor">
+            android:layout_marginTop="@dimen/rs_space_24"
+            android:text="@string/security_device_details" />
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Resistine.Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/rs_space_12">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Hardware &amp; System"
-                    android:textStyle="bold"
-                    android:textSize="16sp"
-                    android:layout_marginBottom="8dp"/>
+                android:padding="@dimen/rs_space_20">
 
                 <TextView
                     android:id="@+id/textViewDeviceModel"
+                    style="@style/TextAppearance.Resistine.Title"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Device: Loading..."
-                    android:layout_marginBottom="4dp"/>
+                    android:text="@string/security_device_loading" />
 
                 <TextView
                     android:id="@+id/textViewAndroidVersion"
+                    style="@style/TextAppearance.Resistine.Body"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Android Version: Loading..."
-                    android:layout_marginBottom="4dp"/>
+                    android:layout_marginTop="@dimen/rs_space_8"
+                    android:text="@string/security_android_loading" />
 
                 <TextView
                     android:id="@+id/textViewBatteryLevel"
+                    style="@style/TextAppearance.Resistine.Body"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Battery: Loading..."/>
+                    android:layout_marginTop="@dimen/rs_space_4"
+                    android:text="@string/security_battery_loading" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/buttonOpenVpn"
+            style="@style/Widget.Resistine.Button.Primary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/rs_space_20"
+            android:text="@string/security_open_vpn" />
     </LinearLayout>
-</ScrollView>
+</androidx.core.widget.NestedScrollView>

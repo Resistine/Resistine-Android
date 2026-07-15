@@ -1,66 +1,145 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/rs_background"
+    android:clipToPadding="false"
+    android:fillViewport="true"
     tools:context=".ui.home.HomeFragment">
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:gravity="center_horizontal"
-        android:padding="16dp"
-        tools:context=".ui.home.HomeFragment">
+        android:paddingStart="@dimen/rs_screen_padding"
+        android:paddingEnd="@dimen/rs_screen_padding"
+        android:paddingBottom="@dimen/rs_space_24">
 
-        <ImageView
-            android:id="@+id/imageViewHome"
-            android:layout_width="150dp"
-            android:layout_height="150dp"
-            android:src="@drawable/round1024"
-            android:contentDescription="Logo"
-            android:layout_marginBottom="16dp"/>
-        <LinearLayout
+        <TextView
+            style="@style/TextAppearance.Resistine.Body"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:gravity="center_horizontal"
-            android:padding="20dp"
-            android:background="@drawable/background_home">
-            <TextView
-                android:textColor="?attr/colorOnSecondary"
+            android:text="@string/home_greeting" />
+
+        <TextView
+            style="@style/TextAppearance.Resistine.Display"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/rs_space_4"
+            android:text="@string/home_headline" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/protectionHeroCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/rs_space_24"
+            app:cardBackgroundColor="@android:color/transparent"
+            app:cardCornerRadius="@dimen/rs_radius_large"
+            app:cardElevation="0dp">
+
+            <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_horizontal"
-                android:textSize="24dp"
-                android:text="You are protected!"
-                />
-            <TextView
-                android:textColor="?attr/colorOnSecondary"
+                android:layout_height="188dp"
+                android:background="@drawable/bg_resistine_hero"
+                android:padding="@dimen/rs_space_24">
+
+                <TextView
+                    android:id="@+id/textProtectionLabel"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/home_overall_protection"
+                    android:textColor="@color/white"
+                    android:textSize="16sp"
+                    app:layout_constraintEnd_toStartOf="@id/imageViewHome"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <TextView
+                    android:id="@+id/textProtectionState"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/rs_space_8"
+                    android:text="@string/home_protected"
+                    android:textColor="@color/white"
+                    android:textSize="30sp"
+                    android:textStyle="bold"
+                    app:layout_constraintEnd_toStartOf="@id/imageViewHome"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/textProtectionLabel" />
+
+                <TextView
+                    android:id="@+id/textProtectionSummary"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/rs_space_8"
+                    android:text="@string/home_protection_summary"
+                    android:textColor="#DCEBFF"
+                    android:textSize="14sp"
+                    app:layout_constraintEnd_toStartOf="@id/imageViewHome"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/textProtectionState" />
+
+                <ImageView
+                    android:id="@+id/imageViewHome"
+                    android:layout_width="92dp"
+                    android:layout_height="92dp"
+                    android:background="@drawable/background_home"
+                    android:contentDescription="@string/app_icon"
+                    android:padding="14dp"
+                    android:src="@drawable/resistine_shield"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    />
+            </androidx.constraintlayout.widget.ConstraintLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Resistine.Card.Tinted"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/rs_space_12">
+
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_horizontal"
-                android:textSize="18dp"
-                android:text="Resistine will alert you of any threats"/>/>
-        </LinearLayout>
-        <!-- res/layout/fragment_dashboard.xml -->
+                android:layout_height="88dp"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingHorizontal="@dimen/rs_space_12">
+
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+                    <TextView style="@style/TextAppearance.Resistine.Body" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/home_threats" />
+                    <TextView android:id="@+id/textThreatCount" style="@style/TextAppearance.Resistine.Title" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0" />
+                </LinearLayout>
+                <View android:layout_width="1dp" android:layout_height="48dp" android:background="@color/rs_outline" />
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+                    <TextView style="@style/TextAppearance.Resistine.Body" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/home_score" />
+                    <TextView android:id="@+id/textSecurityScore" style="@style/TextAppearance.Resistine.Title" android:layout_width="wrap_content" android:layout_height="wrap_content" tools:text="86" />
+                </LinearLayout>
+                <View android:layout_width="1dp" android:layout_height="48dp" android:background="@color/rs_outline" />
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+                    <TextView style="@style/TextAppearance.Resistine.Body" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/home_last_scan" />
+                    <TextView android:id="@+id/textLastScan" style="@style/TextAppearance.Resistine.Section" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/home_today" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <TextView
+            style="@style/TextAppearance.Resistine.Title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/rs_space_24"
+            android:text="@string/home_protection_tools" />
+
         <androidx.recyclerview.widget.RecyclerView
-            xmlns:android="http://schemas.android.com/apk/res/android"
-            xmlns:app="http://schemas.android.com/apk/res-auto"
-            xmlns:tools="http://schemas.android.com/tools"
             android:id="@+id/recyclerView_dashboard"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/rs_space_12"
+            android:nestedScrollingEnabled="false"
+            android:overScrollMode="never"
             tools:listitem="@layout/item_fragment_home" />
-
-
-
-
-
-
     </LinearLayout>
-
-
-</androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.core.widget.NestedScrollView>

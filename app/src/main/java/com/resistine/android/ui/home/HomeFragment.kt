@@ -1,37 +1,58 @@
 package com.resistine.android.ui.home
 
 import android.os.Bundle
+import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.ViewModelProvider
+import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.resistine.android.R
+import com.resistine.android.databinding.FragmentHomeBinding
 
-class HomeFragment : Fragment(R.layout.fragment_home) {
+class HomeFragment : Fragment() {
 
-    private lateinit var recyclerView: RecyclerView
-    private lateinit var adapter: HomeCardAdapter
-    private lateinit var viewModel: HomeViewModel
+    private var _binding: FragmentHomeBinding? = null
+    private val binding get() = _binding!!
+    private val viewModel: HomeViewModel by viewModels()
+    private val adapter = HomeCardAdapter { item ->
+        findNavController().navigate(item.destinationFragmentId)
+    }
+
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, state: Bundle?): View {
+        _binding = FragmentHomeBinding.inflate(inflater, container, false)
+        return binding.root
+    }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
+        binding.recyclerViewDashboard.layoutManager = LinearLayoutManager(requireContext())
+        binding.recyclerViewDashboard.adapter = adapter
+        viewModel.uiState.observe(viewLifecycleOwner, ::render)
+    }
 
-        viewModel = ViewModelProvider(this)[HomeViewModel::class.java]
-        recyclerView = view.findViewById(R.id.recyclerView_dashboard)
-        recyclerView.layoutManager = LinearLayoutManager(requireContext())
-
-        viewModel.cards.observe(viewLifecycleOwner) { items ->
-            adapter = HomeCardAdapter(items) { item ->
-                findNavController().navigate(item.destinationFragmentId)
-            }
-            recyclerView.adapter = adapter
-        }
+    private fun render(state: HomeUiState) {
+        binding.textProtectionState.text = getString(
+            if (state.isProtected) R.string.home_protected else R.string.home_action_needed
+        )
+        binding.textProtectionSummary.text = getString(
+            if (state.isProtected) R.string.home_protection_summary else R.string.home_protection_attention
+        )
+        binding.textSecurityScore.text = state.securityScore.toString()
+        binding.textThreatCount.text = state.threatCount.toString()
+        binding.textLastScan.text = state.lastScanLabel
+        binding.imageViewHome.clearColorFilter()
+        adapter.submitList(state.cards)
     }
 
     override fun onResume() {
         super.onResume()
-        viewModel.updateCards()
+        viewModel.refresh()
+    }
+
+    override fun onDestroyView() {
+        binding.recyclerViewDashboard.adapter = null
+        _binding = null
+        super.onDestroyView()
     }
 }

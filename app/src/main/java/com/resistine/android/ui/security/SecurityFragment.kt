@@ -7,11 +7,10 @@ import android.view.ViewGroup
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.navigation.fragment.findNavController
 import com.resistine.android.R
 import com.resistine.android.databinding.FragmentSecurityBinding
-import com.resistine.android.network.WazuhConnectionMonitor
 import com.resistine.android.network.WazuhConnectionState
-import com.resistine.android.network.WazuhConnectionStatus
 import com.resistine.android.ui.vpn.VpnViewModel
 
 /**
@@ -44,29 +43,18 @@ class SecurityFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Observe network and device data from VpnViewModel
-        vpnViewModel.ipAddress.observe(viewLifecycleOwner) {
-            binding.textViewIpAddress.text = it
+        vpnViewModel.uiState.observe(viewLifecycleOwner) { state ->
+            binding.textViewWazuhStatus.text = state.wazuhStatus
+            binding.textViewIpAddress.text = state.ipAddress
+            binding.textViewLocation.text = state.location
+            binding.textViewDeviceModel.text = state.deviceModel
+            binding.textViewAndroidVersion.text = state.androidVersion
+            binding.textViewBatteryLevel.text = state.batteryLevel
+            updateWazuhStatus(state.wazuhState)
         }
 
-        vpnViewModel.locationString.observe(viewLifecycleOwner) {
-            binding.textViewLocation.text = it
-        }
-
-        vpnViewModel.deviceModel.observe(viewLifecycleOwner) {
-            binding.textViewDeviceModel.text = it
-        }
-
-        vpnViewModel.androidVersion.observe(viewLifecycleOwner) {
-            binding.textViewAndroidVersion.text = it
-        }
-
-        vpnViewModel.batteryLevel.observe(viewLifecycleOwner) {
-            binding.textViewBatteryLevel.text = it
-        }
-
-        WazuhConnectionMonitor.status.observe(viewLifecycleOwner) { status ->
-            updateWazuhStatus(status)
+        binding.buttonOpenVpn.setOnClickListener {
+            findNavController().navigate(R.id.nav_vpn)
         }
         
         // Refresh Wi-Fi alerts to ensure we have fresh data
@@ -76,12 +64,11 @@ class SecurityFragment : Fragment() {
     /**
      * Updates the UI representation of the Wazuh Agent status.
      * 
-     * @param status Actual uploader socket state reported by WazuhService.
+     * @param state Actual uploader socket state reported by WazuhService.
      */
-    private fun updateWazuhStatus(status: WazuhConnectionStatus) {
-        binding.textViewWazuhStatus.text = "Agent: ${status.detail}"
+    private fun updateWazuhStatus(state: WazuhConnectionState) {
         binding.imageViewWazuhStatus.setImageResource(R.drawable.shield_with_star)
-        val color = when (status.state) {
+        val color = when (state) {
             WazuhConnectionState.CONNECTED -> R.color.success_green
             WazuhConnectionState.LOCAL_ONLY,
             WazuhConnectionState.ENROLLING,

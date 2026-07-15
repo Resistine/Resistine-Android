@@ -1,78 +1,77 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.google.android.material.card.MaterialCardView
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/card_fragment_info"
+    style="@style/Widget.Resistine.Card"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginTop="10dp"
-    app:cardCornerRadius="12dp"
-    app:cardElevation="4dp"
-    app:cardBackgroundColor="?attr/backgroundColor"
+    android:layout_marginBottom="@dimen/rs_space_10"
     android:clickable="true"
     android:focusable="true"
     android:foreground="?attr/selectableItemBackground">
 
-        <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content">
-                        <ImageView
-                            android:id="@+id/imageView_fragment_icon"
-                            app:tint="?attr/colorOnSecondary"
-                            android:layout_width="48dp"
-                            android:layout_height="48dp"
-                            android:layout_gravity="left"
-                            android:layout_marginBottom="8dp"/>
+        android:layout_height="76dp"
+        android:paddingHorizontal="@dimen/rs_space_16">
 
-                        <TextView
-                            android:id="@+id/textView_fragment_title"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:gravity="left"
-                            android:layout_marginLeft="20dp"
-                            android:textAppearance="?attr/textAppearanceHeadline6"
-                            tools:text="Security status"
-                            android:textColor="?attr/colorOnSecondary"
-                            android:layout_marginBottom="4dp"/>
-                </LinearLayout>
-                <TextView
-                    android:id="@+id/textView_fragment_summary"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="left"
-                    android:textAppearance="?attr/textAppearanceBody2"
-                    android:textColor="?attr/colorOnSecondary"
-                    tools:text="Status"/>
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_gravity="center_horizontal">
-                        <TextView
-                            android:id="@+id/textView_fragment_status"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:gravity="start"
-                            tools:text="Protected"
-                            android:textStyle="bold"
-                            android:textSize="20dp"
-                            android:textColor="@color/success_green" />
+        <ImageView
+            android:id="@+id/imageView_fragment_icon"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:contentDescription="@null"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="@color/rs_primary_bright"
+            tools:src="@drawable/ic_menu_wifi" />
 
-                        <ImageView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_gravity="right"
-                            android:src="@drawable/arrow_right"
-                            app:tint="?attr/colorOnSecondary"/>
-                </LinearLayout>
+        <TextView
+            android:id="@+id/textView_fragment_title"
+            style="@style/TextAppearance.Resistine.Section"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/rs_space_16"
+            app:layout_constraintBottom_toTopOf="@id/textView_fragment_summary"
+            app:layout_constraintEnd_toStartOf="@id/textView_fragment_status"
+            app:layout_constraintStart_toEndOf="@id/imageView_fragment_icon"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_chainStyle="packed"
+            tools:text="Wi-Fi Security" />
 
+        <TextView
+            android:id="@+id/textView_fragment_summary"
+            style="@style/TextAppearance.Resistine.Body"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/rs_space_16"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/textView_fragment_status"
+            app:layout_constraintStart_toEndOf="@id/imageView_fragment_icon"
+            app:layout_constraintTop_toBottomOf="@id/textView_fragment_title"
+            tools:text="Network protection" />
 
-        </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+        <TextView
+            android:id="@+id/textView_fragment_status"
+            style="@style/TextAppearance.Resistine.Label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="@dimen/rs_space_8"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/imageView_fragment_arrow"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="Secure" />
+
+        <ImageView
+            android:id="@+id/imageView_fragment_arrow"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:contentDescription="@null"
+            android:src="@drawable/arrow_right"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="@color/rs_primary_bright" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</com.google.android.material.card.MaterialCardView>
