@@ -101,23 +101,21 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/rs_space_16"
-                    android:orientation="horizontal">
+                    android:orientation="vertical">
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/buttonSaveConfiguration"
                         style="@style/Widget.Resistine.Button.Primary"
-                        android:layout_width="0dp"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
                         android:text="@string/settings_save_config" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/buttonRestoreConfiguration"
                         style="@style/Widget.Resistine.Button.Outlined"
-                        android:layout_width="0dp"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="@dimen/rs_space_8"
-                        android:layout_weight="1"
+                        android:layout_marginTop="@dimen/rs_space_8"
                         android:text="@string/settings_restore_action"
                         app:icon="@drawable/ic_restore_24" />
                 </LinearLayout>

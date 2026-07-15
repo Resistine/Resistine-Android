@@ -73,14 +73,10 @@
     </style>
 
     <style name="Widget.Resistine.BottomNavigation" parent="Widget.Material3.BottomNavigationView">
-        <item name="itemActiveIndicatorStyle">@style/Widget.Resistine.NavigationIndicator</item>
+        <item name="itemActiveIndicatorStyle">@null</item>
         <item name="itemIconTint">@color/rs_bottom_nav_color</item>
         <item name="itemTextColor">@color/rs_bottom_nav_color</item>
         <item name="backgroundTint">@null</item>
         <item name="elevation">10dp</item>
-    </style>
-
-    <style name="Widget.Resistine.NavigationIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
-        <item name="android:color">@color/rs_surface_blue</item>
     </style>
 </resources>
