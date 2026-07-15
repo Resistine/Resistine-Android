@@ -17,6 +17,7 @@ object CryptoManager {
     private const val KEY_ALIAS = "VpnAesKey"
     private const val AES_MODE = "AES/GCM/NoPadding"
     private const val VPN_CONFIG_FILENAME = "vpn_config.enc"
+    private const val REGISTRATION_CONFIG_FILENAME = "vpn_registration_default.enc"
     private const val EMAIL_FILENAME = "user_email.enc"
 
     private fun getSecretKey(): SecretKey {
@@ -71,6 +72,20 @@ object CryptoManager {
         file.writeText(encrypted)
     }
 
+    fun saveRegistrationDefaultConfig(context: Context, configText: String) {
+        val encrypted = encryptData(configText)
+        File(context.filesDir, REGISTRATION_CONFIG_FILENAME).writeText(encrypted)
+    }
+
+    fun loadDecryptedConfig(context: Context): String? =
+        loadEncryptedFile(context, VPN_CONFIG_FILENAME)
+
+    fun loadRegistrationDefaultConfig(context: Context): String? =
+        loadEncryptedFile(context, REGISTRATION_CONFIG_FILENAME)
+
+    fun hasRegistrationDefaultConfig(context: Context): Boolean =
+        File(context.filesDir, REGISTRATION_CONFIG_FILENAME).exists()
+
     fun isConfigStored(context: Context): Boolean {
         val file = File(context.filesDir, VPN_CONFIG_FILENAME)
         return file.exists()
@@ -79,6 +94,12 @@ object CryptoManager {
     fun loadEncryptedConfig(context: Context): String? {
         val file = File(context.filesDir, VPN_CONFIG_FILENAME)
         return if (file.exists()) file.readText() else null
+    }
+
+    private fun loadEncryptedFile(context: Context, fileName: String): String? {
+        val file = File(context.filesDir, fileName)
+        if (!file.exists()) return null
+        return runCatching { decryptData(file.readText()) }.getOrNull()
     }
 
     fun saveEmail(context: Context, email: String) {
@@ -107,6 +128,10 @@ object CryptoManager {
         val emailFile = File(context.filesDir, EMAIL_FILENAME)
         if (emailFile.exists()) {
             emailFile.delete()
+        }
+        val registrationConfigFile = File(context.filesDir, REGISTRATION_CONFIG_FILENAME)
+        if (registrationConfigFile.exists()) {
+            registrationConfigFile.delete()
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.resistine.android.network
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Log
 import com.resistine.android.R
@@ -8,16 +9,24 @@ import kotlinx.coroutines.withContext
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.InetSocketAddress
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
+import javax.net.ssl.SSLSocketFactory
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
 
 /**
  * Manager responsible for automatic agent registration via the Wazuh 'authd' service.
  * 
- * It communicates over a secure TLS socket to request a unique Agent ID and Key
- * using the device and user metadata.
+ * It communicates over an encrypted TLS socket to request a unique Agent ID and Key.
+ * The manager certificate is intentionally not authenticated to match the default
+ * Wazuh desktop enrollment behavior.
  */
-class WazuhAuthdManager {
+class WazuhAuthdManager(
+    private val socketFactory: SSLSocketFactory = unauthenticatedTlsSocketFactory
+) {
 
     /**
      * Connects to the Wazuh authd service and performs registration.
@@ -43,10 +52,8 @@ class WazuhAuthdManager {
             var socket: SSLSocket? = null
             try {
                 Log.d("WazuhAuth", "Connecting to socket at $serverIp:$authPort...")
-                socket = SSLContext.getDefault().socketFactory.createSocket() as SSLSocket
-                socket.sslParameters = socket.sslParameters.apply {
-                    endpointIdentificationAlgorithm = "HTTPS"
-                }
+                Log.w(TAG, "Wazuh manager certificate verification is disabled")
+                socket = socketFactory.createSocket() as SSLSocket
                 socket.soTimeout = READ_TIMEOUT_MS
                 socket.connect(InetSocketAddress(serverIp, authPort), CONNECT_TIMEOUT_MS)
                 
@@ -99,6 +106,16 @@ class WazuhAuthdManager {
         private const val READ_TIMEOUT_MS = 15_000
         private const val TAG = "WazuhAuth"
 
+        private val unauthenticatedTlsSocketFactory: SSLSocketFactory by lazy {
+            SSLContext.getInstance("TLS").apply {
+                init(
+                    null,
+                    arrayOf<TrustManager>(EncryptionOnlyTrustManager),
+                    SecureRandom()
+                )
+            }.socketFactory
+        }
+
         internal fun buildEnrollmentPayload(
             agentName: String,
             agentGroup: String,
@@ -133,5 +150,14 @@ class WazuhAuthdManager {
             return parts[0] to parts[3]
         }
 
+    }
+
+    @SuppressLint("CustomX509TrustManager", "TrustAllX509TrustManager")
+    private object EncryptionOnlyTrustManager : X509TrustManager {
+        override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) = Unit
+
+        override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) = Unit
+
+        override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
     }
 }

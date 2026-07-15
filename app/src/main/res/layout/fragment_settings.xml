@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/rs_background"
+    android:clipToPadding="false"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="@dimen/rs_screen_padding"
+        android:paddingTop="@dimen/rs_space_16"
+        android:paddingEnd="@dimen/rs_screen_padding"
+        android:paddingBottom="@dimen/rs_space_32">
+
+        <TextView
+            style="@style/TextAppearance.Resistine.Headline"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_title" />
+
+        <TextView
+            style="@style/TextAppearance.Resistine.Body"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/rs_space_4"
+            android:text="@string/settings_subtitle" />
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Resistine.Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/rs_space_20">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="@dimen/rs_space_20">
+
+                <TextView
+                    style="@style/TextAppearance.Resistine.Title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settings_vpn_config_title" />
+
+                <TextView
+                    android:id="@+id/textConfigurationStatus"
+                    style="@style/TextAppearance.Resistine.Label"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/rs_space_6"
+                    android:text="@string/settings_config_missing"
+                    android:textColor="@color/rs_primary" />
+
+                <TextView
+                    style="@style/TextAppearance.Resistine.Body"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/rs_space_8"
+                    android:text="@string/settings_config_warning" />
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchShowConfiguration"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/rs_space_12"
+                    android:text="@string/settings_show_sensitive_config" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Resistine.TextInputLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/rs_space_8"
+                    android:hint="@string/settings_config_editor_hint">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/editConfiguration"
+                        android:layout_width="match_parent"
+                        android:layout_height="240dp"
+                        android:fontFamily="monospace"
+                        android:gravity="top|start"
+                        android:inputType="textMultiLine|textNoSuggestions"
+                        android:padding="@dimen/rs_space_12"
+                        android:scrollbars="vertical"
+                        android:textSize="13sp" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.progressindicator.LinearProgressIndicator
+                    android:id="@+id/configurationProgress"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/rs_space_8"
+                    android:indeterminate="true"
+                    android:visibility="gone" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/rs_space_16"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/buttonSaveConfiguration"
+                        style="@style/Widget.Resistine.Button.Primary"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/settings_save_config" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/buttonRestoreConfiguration"
+                        style="@style/Widget.Resistine.Button.Outlined"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="@dimen/rs_space_8"
+                        android:layout_weight="1"
+                        android:text="@string/settings_restore_action"
+                        app:icon="@drawable/ic_restore_24" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Resistine.Card.Tinted"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/rs_space_16">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="@dimen/rs_space_20">
+
+                <TextView
+                    style="@style/TextAppearance.Resistine.Title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/flow_wazuh_delivery_title" />
+
+                <TextView
+                    style="@style/TextAppearance.Resistine.Body"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/rs_space_4"
+                    android:text="@string/flow_wazuh_delivery_subtitle" />
+
+                <TextView
+                    android:id="@+id/textSettingsLocked"
+                    style="@style/TextAppearance.Resistine.Label"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/rs_space_8"
+                    android:text="@string/settings_disconnect_to_edit"
+                    android:textColor="@color/rs_status_warning"
+                    android:visibility="gone" />
+
+                <RadioGroup
+                    android:id="@+id/radioGroupFlowWazuhDelivery"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/rs_space_12"
+                    android:orientation="vertical">
+
+                    <com.google.android.material.radiobutton.MaterialRadioButton
+                        android:id="@+id/radioFlowWazuhLocal"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/flow_wazuh_local_only" />
+
+                    <com.google.android.material.radiobutton.MaterialRadioButton
+                        android:id="@+id/radioFlowWazuhRemote"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/flow_wazuh_remote_manager" />
+                </RadioGroup>
+
+                <TextView
+                    android:id="@+id/textViewFlowWazuhStatus"
+                    style="@style/TextAppearance.Resistine.Body"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/rs_space_8"
+                    android:text="@string/flow_wazuh_local_status" />
+
+                <LinearLayout
+                    android:id="@+id/layoutRemoteWazuhEndpoint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/rs_space_16"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.Resistine.TextInputLayout"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="@string/flow_wazuh_manager_host">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/editTextWazuhManagerHost"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="textUri"
+                            android:maxLines="1" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/rs_space_8"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            style="@style/Widget.Resistine.TextInputLayout"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="@dimen/rs_space_4"
+                            android:layout_weight="1"
+                            android:hint="@string/flow_wazuh_auth_port">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/editTextWazuhAuthPort"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="number"
+                                android:maxLength="5" />
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            style="@style/Widget.Resistine.TextInputLayout"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="@dimen/rs_space_4"
+                            android:layout_weight="1"
+                            android:hint="@string/flow_wazuh_log_port">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/editTextWazuhLogPort"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="number"
+                                android:maxLength="5" />
+                        </com.google.android.material.textfield.TextInputLayout>
+                    </LinearLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/buttonSaveWazuhEndpoint"
+                        style="@style/Widget.Resistine.Button.Outlined"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/rs_space_12"
+                        android:text="@string/flow_wazuh_save_endpoint" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

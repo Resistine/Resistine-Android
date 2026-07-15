@@ -177,19 +177,22 @@ class WazuhService : Service() {
                     updateNotification(getString(R.string.wazuh_agent_active))
                 }
 
-                val uploadedIds = mutableListOf<Long>()
-                for (logEntry in logDao.getPendingLogs()) {
-                    if (!currentLogger.sendSingleLog(
+                val uploaded = WazuhPendingLogUploader.upload(
+                    entries = logDao.getPendingLogs(),
+                    acknowledgementBatchSize = UPLOAD_ACKNOWLEDGEMENT_BATCH_SIZE,
+                    send = { logEntry ->
+                        currentLogger.sendSingleLog(
                             credentials.agentId,
                             credentials.agentKey,
                             logEntry.message
                         )
-                    ) {
-                        throw IllegalStateException("Manager connection failed while uploading logs")
-                    }
-                    uploadedIds += logEntry.id
+                    },
+                    acknowledge = logDao::deleteLogsByIds,
+                    throttle = { delay(LOG_UPLOAD_INTERVAL_MS) }
+                )
+                if (!uploaded) {
+                    throw IllegalStateException("Manager connection failed while uploading logs")
                 }
-                if (uploadedIds.isNotEmpty()) logDao.deleteLogsByIds(uploadedIds)
 
                 if (System.currentTimeMillis() - lastKeepaliveTime >= KEEPALIVE_INTERVAL_MS) {
                     val sent = currentLogger.sendKeepalive(
@@ -325,5 +328,7 @@ class WazuhService : Service() {
         private const val MANAGER_SYNC_DELAY_MS = 2_000L
         private const val QUEUE_POLL_INTERVAL_MS = 2_000L
         private const val KEEPALIVE_INTERVAL_MS = 30_000L
+        private const val LOG_UPLOAD_INTERVAL_MS = 20L
+        private const val UPLOAD_ACKNOWLEDGEMENT_BATCH_SIZE = 10
     }
 }
