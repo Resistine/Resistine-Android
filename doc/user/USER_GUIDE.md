@@ -51,7 +51,7 @@ The app currently includes these main areas.
 | VPN | Connects or disconnects a WireGuard-based VPN tunnel. |
 | VPN configuration | Lets users view and edit the VPN configuration when needed. |
 | Wi-Fi Security | Reviews the current Wi-Fi network, nearby networks, trust status, and risk indicators. |
-| Apps | Scans installed apps locally for suspicious names, outdated app signals, risky permissions, and other warning badges. |
+| Apps | Reviews installed apps locally for observable permission, provenance, platform-age, and elevated-access signals. |
 | Log Viewer | Shows app-generated security and system events when exposed by the build. |
 | Wazuh Agent | Registers and sends selected app/device/security logs to a configured Wazuh manager. |
 | Resistine AI | Provides an in-app assistant/chat surface where enabled by the build configuration. |
@@ -190,8 +190,6 @@ The app validates the configuration before saving it. If the configuration is in
 
 The Wi-Fi Security screen reviews the current Wi-Fi network and nearby networks for risk indicators.
 
-![Wi-Fi security screen](assets/screenshots/wifi-security.png)
-
 ### Review current Wi-Fi safety
 
 1. Open **Wi-Fi Security**.
@@ -202,7 +200,7 @@ The Wi-Fi Security screen reviews the current Wi-Fi network and nearby networks 
 
 ### Safety score
 
-The safety score summarizes multiple checks into a simple score out of 100. A lower score means the app detected more risk indicators.
+The safety score summarizes supported checks into a simple score out of 100. A lower score means the app detected stronger risk indicators. Missing permissions, cached scan data, or unavailable Android data reduce confidence but do not reduce the score. When encryption cannot be verified, the screen shows that the score is unavailable instead of presenting a misleading score.
 
 The score can consider:
 
@@ -210,8 +208,9 @@ The score can consider:
 - Internet validation.
 - Whether the network is trusted.
 - Whether the network appears to have changed identity.
-- Whether Android exposes enough data to verify the network.
 - Whether legacy or weak Wi-Fi features are present.
+
+Connection confidence, scan freshness, and missing Android data are shown separately from the risk score.
 
 ### Risk levels
 
@@ -263,9 +262,7 @@ Do not approve unexpected changes on public or unfamiliar networks.
 
 ## App Security Scan
 
-The Apps screen scans installed apps locally for risk indicators. The scan is designed to help users review installed apps and identify items that deserve attention.
-
-![Apps scan screen](assets/screenshots/apps-scan.png)
+The Apps screen scans installed apps locally for observable posture signals. The scan is designed to help users review installed apps and identify items that deserve attention without claiming that a signal proves an app is malicious.
 
 ### Run an app scan
 
@@ -279,17 +276,18 @@ The scan analyzes installed apps locally. The consent text states that no app sc
 
 ### Risk labels and badges
 
-The Apps screen can show warning badges such as:
+The Apps screen can show evidence-based badges such as:
 
-- High-risk permissions.
-- Sideloaded app.
+- Granted sensitive permissions.
+- Local or unknown install source.
 - Debuggable app.
 - Old target SDK.
-- Signature mismatch.
-- Look-alike name.
-- Outdated signals.
+- Active accessibility-service access.
+- Active device-administrator access.
+- Active notification access.
+- Declared installer, overlay, or VPN capabilities.
 
-These badges are indicators, not final proof of malicious behavior. Review the app source, purpose, and permissions before deciding whether to remove it.
+These badges describe facts Android currently exposes; they are not proof of malicious behavior. The app escalates combinations of stronger signals for review and provides direct access to relevant Android settings where elevated access can be checked or revoked.
 
 ### Review high-risk permissions
 
@@ -492,11 +490,11 @@ The app loads a WireGuard-style configuration, validates edited configuration te
 
 ### Wi-Fi security model
 
-Wi-Fi Security combines Android network information, scan results, encryption details, internet validation state, and trusted-network baselines to produce a user-facing score and recommendation.
+Wi-Fi Security combines Android network information, fresh or clearly labelled cached scan results, encryption details, internet validation state, and explicitly approved trusted-network baselines to produce a user-facing score and recommendation. Missing information is reported as limited confidence and does not count as danger.
 
 ### App scan model
 
-The app scan checks installed apps locally and highlights risk indicators such as sensitive permissions, sideloading, debug status, outdated target SDK signals, and suspicious naming patterns.
+The app scan checks installed apps locally and highlights observable posture signals such as granted sensitive permissions, install provenance, debug status, target SDK age, active elevated-access roles, and declared high-impact capabilities. It does not use app-name resemblance, an incomplete signature registry, or APK hashing as a malware verdict.
 
 ### Wazuh event model
 
