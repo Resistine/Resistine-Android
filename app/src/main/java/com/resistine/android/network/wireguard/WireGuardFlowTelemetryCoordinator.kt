@@ -96,6 +96,12 @@ class WireGuardFlowTelemetryCoordinator(
                 pipeline.flushExpired(System.currentTimeMillis())
             }
         }
+        prepareWazuhDeliveryForHandshake()
+    }
+
+    @Synchronized
+    fun onTunnelConfirmed() {
+        if (activePipeline.get() == null) return
         runCatching { configureWazuhDelivery() }.onFailure { error ->
             reportWazuhConfigurationError(error.message ?: "Could not configure Wazuh delivery")
         }
@@ -198,6 +204,19 @@ class WireGuardFlowTelemetryCoordinator(
                 } else {
                     appContext.startService(intent)
                 }
+            }
+        }
+    }
+
+    private fun prepareWazuhDeliveryForHandshake() {
+        when (FlowWazuhDeliveryStore.fromContext(appContext).load()) {
+            FlowWazuhDeliveryMode.LOCAL_QUEUE_ONLY -> configureWazuhDelivery()
+            FlowWazuhDeliveryMode.REMOTE_MANAGER -> {
+                appContext.stopService(Intent(appContext, WazuhService::class.java))
+                WazuhConnectionMonitor.update(
+                    WazuhConnectionState.WAITING_FOR_VPN,
+                    "Waiting for confirmed WireGuard handshake"
+                )
             }
         }
     }

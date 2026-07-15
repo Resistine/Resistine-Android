@@ -22,6 +22,9 @@ data class VpnRuntimeStatus(
     val mode: VpnRuntimeMode,
     val isRunning: Boolean,
     val label: String,
-    val detail: String
-)
+    val detail: String,
+    val isConnecting: Boolean = false
+) {
+    val hasLocalTunnel: Boolean get() = isRunning || isConnecting
+}
 

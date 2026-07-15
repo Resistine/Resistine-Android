@@ -1,6 +1,7 @@
 package com.resistine.android.ui.vpn.runtime
 
 import android.content.Context
+import android.os.SystemClock
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.resistine.android.network.wireguard.WireGuardFlowTelemetryCoordinator
@@ -22,7 +23,8 @@ import kotlinx.coroutines.withContext
 class WireGuardVpnRuntime(
     context: Context,
     private val onStatusMessage: (String) -> Unit,
-    private val onTunnelUp: () -> Unit,
+    private val onTunnelStarted: () -> Unit,
+    private val onConnectionConfirmed: () -> Unit,
     private val onTunnelDown: () -> Unit
 ) : VpnRuntime {
     override val mode: VpnRuntimeMode = VpnRuntimeMode.WIREGUARD_TELEMETRY
@@ -50,7 +52,9 @@ class WireGuardVpnRuntime(
         override fun onStateChange(state: State) {
             onStatusMessage("WireGuard state: $state")
             if (state == State.UP) {
-                onTunnelUp()
+                // Generate outbound traffic so the peer has a reason to handshake.
+                // Starting the local tunnel is not treated as a successful connection.
+                onTunnelStarted()
             } else {
                 onTunnelDown()
                 runtimeScope.launch {
@@ -72,16 +76,39 @@ class WireGuardVpnRuntime(
             onStatusMessage("Error: Configuration not found")
             return@withLock
         }
+        update(
+            isRunning = false,
+            detail = "Starting secure tunnel…",
+            isConnecting = true
+        )
         telemetryCoordinator.start()
         try {
+            val attemptStartedAt = System.currentTimeMillis()
             startWithRetry(config)
-            val detail = "Connected with flow telemetry"
-            update(true, detail)
+            update(
+                isRunning = false,
+                detail = "Waiting for WireGuard peer handshake…",
+                isConnecting = true
+            )
+            onStatusMessage("Waiting for WireGuard peer handshake")
+            if (!awaitConfirmedHandshake(attemptStartedAt)) {
+                setWireGuardState(State.DOWN, null)
+                finalizeTelemetryStop()
+                val detail = "Connection failed: WireGuard server did not respond"
+                update(isRunning = false, detail = detail)
+                onStatusMessage(detail)
+                return@withLock
+            }
+
+            telemetryCoordinator.onTunnelConfirmed()
+            val detail = "Connected; WireGuard handshake confirmed"
+            update(isRunning = true, detail = detail)
             onStatusMessage(detail)
+            onConnectionConfirmed()
         } catch (error: Exception) {
             telemetryCoordinator.stop()
             val reason = error.extractWireGuardReason() ?: error.message ?: "Unknown error"
-            update(false, reason)
+            update(isRunning = false, detail = reason)
             onStatusMessage("Error connecting WireGuard: $reason")
         }
     }
@@ -126,6 +153,23 @@ class WireGuardVpnRuntime(
         }
     }
 
+    private suspend fun awaitConfirmedHandshake(attemptStartedAtMillis: Long): Boolean {
+        val deadline = SystemClock.elapsedRealtime() + HANDSHAKE_TIMEOUT_MS
+        while (SystemClock.elapsedRealtime() < deadline) {
+            val statistics = runCatching { backend?.getStatistics(tunnel) }.getOrNull()
+            val confirmed = statistics?.peers()?.any { peer ->
+                val latestHandshake = statistics.peer(peer)?.latestHandshakeEpochMillis() ?: 0L
+                WireGuardHandshakePolicy.isConfirmed(
+                    latestHandshakeEpochMillis = latestHandshake,
+                    attemptStartedEpochMillis = attemptStartedAtMillis
+                )
+            } == true
+            if (confirmed) return true
+            delay(HANDSHAKE_POLL_INTERVAL_MS)
+        }
+        return false
+    }
+
     private suspend fun setWireGuardState(state: State, config: Config?) = withContext(Dispatchers.IO) {
         checkNotNull(backend) { backendSelection.unavailableReason ?: "Telemetry backend unavailable" }
             .setState(tunnel, state, config)
@@ -158,13 +202,14 @@ class WireGuardVpnRuntime(
         return BackendSelection(backend = null, unavailableReason = reason)
     }
 
-    private fun update(isRunning: Boolean, detail: String) {
+    private fun update(isRunning: Boolean, detail: String, isConnecting: Boolean = false) {
         _status.postValue(
             VpnRuntimeStatus(
                 mode = mode,
                 isRunning = isRunning,
                 label = RUNTIME_LABEL,
-                detail = detail
+                detail = detail,
+                isConnecting = isConnecting
             )
         )
     }
@@ -183,5 +228,7 @@ class WireGuardVpnRuntime(
     private companion object {
         private const val RUNTIME_LABEL = "WireGuard with flow telemetry"
         internal const val PINNED_WIREGUARD_GO_VERSION = "f333402"
+        private const val HANDSHAKE_TIMEOUT_MS = 20_000L
+        private const val HANDSHAKE_POLL_INTERVAL_MS = 500L
     }
 }

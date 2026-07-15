@@ -91,13 +91,21 @@ class VpnFragment : Fragment() {
             state.runtimeStatus.detail
         )
         buttonVpnToggle.text = getString(
-            if (state.isConnected) R.string.vpn_disconnect_action else R.string.vpn_connect_action
+            when {
+                state.runtimeStatus.isConnecting -> R.string.vpn_connecting_action
+                state.isConnected -> R.string.vpn_disconnect_action
+                else -> R.string.vpn_connect_action
+            }
         )
         buttonVpnToggle.contentDescription = buttonVpnToggle.text
-        buttonVpnToggle.isEnabled = !registrationSkipped
+        buttonVpnToggle.isEnabled = !registrationSkipped && !state.runtimeStatus.isConnecting
 
         textViewConnectionBadge.text = getString(
-            if (state.isConnected) R.string.vpn_badge_on else R.string.vpn_badge_off
+            when {
+                state.runtimeStatus.isConnecting -> R.string.vpn_badge_connecting
+                state.isConnected -> R.string.vpn_badge_on
+                else -> R.string.vpn_badge_off
+            }
         )
         textViewConnectionBadge.setTextColor(
             resources.getColor(R.color.white, requireContext().theme)

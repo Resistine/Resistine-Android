@@ -18,5 +18,5 @@ data class VpnUiState(
     val androidVersion: String,
     val batteryLevel: String
 ) {
-    val settingsEnabled: Boolean get() = !runtimeStatus.isRunning
+    val settingsEnabled: Boolean get() = !runtimeStatus.hasLocalTunnel
 }
