@@ -15,17 +15,17 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.VpnService
+import android.net.wifi.ScanResult
 import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
 import android.os.BatteryManager
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
+import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.Observer
 import androidx.lifecycle.viewModelScope
@@ -50,6 +50,9 @@ import com.resistine.android.ui.wifi.WifiPmfState
 import com.resistine.android.ui.wifi.WifiRiskDimension
 import com.resistine.android.ui.wifi.WifiSafetyScorer
 import com.resistine.android.ui.wifi.WifiScanNetworkSnapshot
+import com.resistine.android.ui.wifi.WifiScanFreshness
+import com.resistine.android.ui.wifi.WifiScanRepository
+import com.resistine.android.ui.wifi.WifiScanSnapshot
 import com.resistine.android.ui.wifi.WifiScoreDimensionResult
 import com.resistine.android.ui.wifi.WifiSecurityClassifier
 import com.resistine.android.ui.wifi.WifiSecurityMode
@@ -62,6 +65,8 @@ import com.resistine.android.ui.wifi.WifiTrustPolicy
 import com.resistine.android.ui.wifi.WifiTrustedBaselineManager
 import com.resistine.android.ui.wifi.WifiTrustedFingerprintObservation
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import com.resistine.android.ui.vpn.runtime.VpnRuntime
@@ -143,6 +148,24 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     /** LiveData holding the location information (City, Country) inferred from the IP. */
     val locationString: LiveData<String> = _locationString
 
+    /** Single render model consumed by VPN and Device Security presentation layers. */
+    val uiState: LiveData<VpnUiState> = MediatorLiveData<VpnUiState>().apply {
+        fun publish() {
+            value = buildVpnUiState()
+        }
+        addSource(vpnStatus) { publish() }
+        addSource(isVpnConnectedLiveData) { publish() }
+        addSource(vpnRuntimeStatus) { publish() }
+        addSource(flowWazuhDeliveryMode) { publish() }
+        addSource(pendingFlowLogCount) { publish() }
+        addSource(ipAddress) { publish() }
+        addSource(locationString) { publish() }
+        addSource(deviceModel) { publish() }
+        addSource(androidVersion) { publish() }
+        addSource(batteryLevel) { publish() }
+        addSource(WazuhConnectionMonitor.status) { publish() }
+    }
+
     private val _wifiSecurityAlert = MutableLiveData<WifiSecurityAlert>()
     /** LiveData containing the current high-level Wi-Fi security alert status. */
     val wifiSecurityAlert: LiveData<WifiSecurityAlert> = _wifiSecurityAlert
@@ -163,6 +186,9 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     /** LiveData list of specific security check items (Encryption, PMF, Evil Twin, etc.). */
     val wifiAdvancedChecks: LiveData<List<WifiAdvancedCheckItem>> = _wifiAdvancedChecks
 
+    private val _isWifiRefreshing = MutableLiveData(false)
+    val isWifiRefreshing: LiveData<Boolean> = _isWifiRefreshing
+
     private val _wifiRiskTransitionAlert = MutableLiveData<WifiRiskTransitionAlert?>()
     /** LiveData triggered when the Wi-Fi risk level changes significantly. */
     val wifiRiskTransitionAlert: LiveData<WifiRiskTransitionAlert?> = _wifiRiskTransitionAlert
@@ -179,15 +205,9 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     /** LiveData for passing string resource IDs of feedback messages (e.g., auto-disconnected). */
     val autoVpnActionMessageRes: LiveData<Int?> = _autoVpnActionMessageRes
 
-    private val _backgroundScanState = MutableLiveData(WifiBackgroundScanState())
-    /** LiveData describing the interval and active status of background Wi-Fi monitoring. */
-    val backgroundScanState: LiveData<WifiBackgroundScanState> = _backgroundScanState
-
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var isWifiMonitoringStarted = false
-    private val mainHandler = Handler(Looper.getMainLooper())
-    private var backgroundScanRunnable: Runnable? = null
-    private var lastBackgroundScanRunMillis: Long? = null
+    private val wifiScanRepository = WifiScanRepository(application)
     private var lastRiskLevel: WifiNetworkRiskLevel? = null
     private var lastAutoVpnRiskBand: Boolean? = null
     private val trustPrefs: SharedPreferences =
@@ -195,21 +215,50 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     private var currentWifiSsid: String? = null
     private var currentWifiBssid: String? = null
     private var currentWifiSecurityProfile: WifiSecurityProfile? = null
+    private val wifiRefreshLock = Any()
+    private var wifiRefreshJob: Job? = null
+    private var wifiRefreshPending = false
+    private var wifiFullRefreshPending = false
 
     init {
         observeCurrentRuntime()
         loadPhoneInfo()
-        fetchLocationData()
+        _ipAddress.value = "Address: Verifying..."
+        _locationString.value = "Location: Verifying..."
         _autoVpnPolicy.value = loadAutoVpnPolicy()
         _autoProtectUnknownWifi.value = loadAutoProtectUnknownWifi()
         createRiskNotificationChannelIfNeeded()
-        updateBackgroundScanState()
         observePendingFlowLogCount()
-        if (loadBackgroundScanEnabled()) {
-            startWifiMonitoring()
-        } else {
-            refreshWifiSecurityAlert()
-        }
+        fetchLocationData()
+        refreshWifiSecurityAlert()
+    }
+
+    private fun buildVpnUiState(): VpnUiState {
+        val runtime = vpnRuntimeStatus.value ?: VpnRuntimeStatus(
+            mode = VpnRuntimeMode.WIREGUARD_TELEMETRY,
+            isRunning = false,
+            label = "WireGuard with flow telemetry",
+            detail = "Disconnected"
+        )
+        return VpnUiState(
+            isConnected = isVpnConnectedLiveData.value == true,
+            statusMessage = if (runtime.isRunning) {
+                vpnStatus.value ?: runtime.detail
+            } else {
+                "VPN disconnected"
+            },
+            runtimeStatus = runtime,
+            deliveryMode = flowWazuhDeliveryMode.value ?: FlowWazuhDeliveryMode.LOCAL_QUEUE_ONLY,
+            queuedRecords = pendingFlowLogCount.value ?: 0,
+            wazuhStatus = WazuhConnectionMonitor.status.value?.detail ?: "Waiting for VPN",
+            wazuhState = WazuhConnectionMonitor.status.value?.state
+                ?: WazuhConnectionState.WAITING_FOR_VPN,
+            ipAddress = ipAddress.value ?: "IP address: Loading…",
+            location = locationString.value ?: "Location: Loading…",
+            deviceModel = deviceModel.value ?: "Device: Loading…",
+            androidVersion = androidVersion.value ?: "Android version: Loading…",
+            batteryLevel = batteryLevel.value ?: "Battery level: Loading…"
+        )
     }
 
     /**
@@ -358,8 +407,10 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             onStatusMessage = { message -> _vpnStatus.postValue(message) },
             onTunnelUp = { fetchLocationData() },
             onTunnelDown = {
-                _ipAddress.postValue("Address: Disconnected")
-                _locationString.postValue("Location: N/A")
+                viewModelScope.launch {
+                    delay(350L)
+                    fetchLocationData()
+                }
             }
         )
     }
@@ -424,21 +475,6 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         _wifiSafetyAssessment.value?.let { applyAutoVpnPolicy(it) }
     }
 
-    /**
-     * Enables or disables periodic background Wi-Fi scanning.
-     *
-     * @param enabled True to enable background monitoring.
-     */
-    fun setBackgroundScanEnabled(enabled: Boolean) {
-        saveBackgroundScanEnabled(enabled)
-        if (enabled) {
-            startBackgroundScanSchedulerIfNeeded()
-        } else {
-            stopBackgroundScanScheduler()
-        }
-        updateBackgroundScanState()
-    }
-
     /** Clears the current risk transition alert. */
     fun clearRiskTransitionAlert() {
         _wifiRiskTransitionAlert.postValue(null)
@@ -455,10 +491,59 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
      * @param lightweight If true, avoids triggering a fresh system Wi-Fi scan to save battery.
      */
     fun refreshWifiSecurityAlert(lightweight: Boolean = false) {
-        var alert = buildWifiSecurityAlert()
+        synchronized(wifiRefreshLock) {
+            wifiRefreshPending = true
+            if (!lightweight) wifiFullRefreshPending = true
+            if (wifiRefreshJob?.isActive == true) return
+            wifiRefreshJob = viewModelScope.launch(Dispatchers.Default) {
+                _isWifiRefreshing.postValue(true)
+                try {
+                    while (true) {
+                        val nextLightweight = synchronized(wifiRefreshLock) {
+                            wifiRefreshPending = false
+                            val fullRefresh = wifiFullRefreshPending
+                            wifiFullRefreshPending = false
+                            !fullRefresh
+                        }
+                        performWifiSecurityRefresh(nextLightweight)
+                        val shouldRepeat = synchronized(wifiRefreshLock) { wifiRefreshPending }
+                        if (!shouldRepeat) break
+                    }
+                } finally {
+                    _isWifiRefreshing.postValue(false)
+                    val restart = synchronized(wifiRefreshLock) {
+                        wifiRefreshJob = null
+                        wifiRefreshPending
+                    }
+                    if (restart) refreshWifiSecurityAlert(lightweight = true)
+                }
+            }
+        }
+    }
+
+    private suspend fun performWifiSecurityRefresh(lightweight: Boolean) {
+        val cachedSnapshot = wifiScanRepository.snapshot(requestFreshScan = false)
+        publishWifiSecuritySnapshot(
+            scanSnapshot = cachedSnapshot,
+            allowRiskTransition = lightweight
+        )
+        if (!lightweight) {
+            val freshSnapshot = wifiScanRepository.snapshot(requestFreshScan = true)
+            publishWifiSecuritySnapshot(
+                scanSnapshot = freshSnapshot,
+                allowRiskTransition = true
+            )
+        }
+    }
+
+    private fun publishWifiSecuritySnapshot(
+        scanSnapshot: WifiScanSnapshot,
+        allowRiskTransition: Boolean
+    ) {
+        var alert = buildWifiSecurityAlert(scanSnapshot)
         var nearbyState = buildNearbyWifiNetworksState(
             currentAlert = alert,
-            requestFreshScan = !lightweight
+            scanSnapshot = scanSnapshot
         )
         var checks = buildAdvancedChecks(alert, nearbyState)
         var assessment = buildSafetyAssessment(alert, checks)
@@ -468,7 +553,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         if (baselineUpdate.reassessRequired) {
             nearbyState = buildNearbyWifiNetworksState(
                 currentAlert = alert,
-                requestFreshScan = false
+                scanSnapshot = scanSnapshot
             )
             checks = buildAdvancedChecks(alert, nearbyState)
             assessment = buildSafetyAssessment(alert, checks)
@@ -478,13 +563,11 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         _trustedWifiNetworks.postValue(loadTrustedProfiles().sortedBy { it.ssid.lowercase() })
         _wifiAdvancedChecks.postValue(checks)
         _wifiSafetyAssessment.postValue(assessment)
-        emitRiskTransitionIfNeeded(previousRiskLevel, assessment)
+        if (allowRiskTransition) {
+            emitRiskTransitionIfNeeded(previousRiskLevel, assessment)
+        }
         applyAutoVpnPolicy(assessment)
         lastRiskLevel = assessment.level
-        if (lightweight) {
-            lastBackgroundScanRunMillis = currentTimeMillis()
-            updateBackgroundScanState()
-        }
     }
 
     /**
@@ -605,16 +688,15 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             override fun onLost(network: Network) = refreshWifiSecurityAlert()
 
             override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
-                refreshWifiSecurityAlert()
+                refreshWifiSecurityAlert(lightweight = true)
             }
 
-            override fun onUnavailable() = refreshWifiSecurityAlert()
+            override fun onUnavailable() = refreshWifiSecurityAlert(lightweight = true)
         }
         try {
             connectivityManager.registerDefaultNetworkCallback(callback)
             networkCallback = callback
             isWifiMonitoringStarted = true
-            startBackgroundScanSchedulerIfNeeded()
         } catch (_: Exception) {
             networkCallback = null
             isWifiMonitoringStarted = false
@@ -639,8 +721,6 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         }
         networkCallback = null
         isWifiMonitoringStarted = false
-        stopBackgroundScanScheduler()
-        updateBackgroundScanState()
     }
 
     private fun connectVpn(context: Context) {
@@ -680,7 +760,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             override fun onFailure(call: Call, e: IOException) {
                 _locationString.postValue("Connectivity check failed: ${e.message}")
                 _ipAddress.postValue("Address: Offline or No Data")
-                _vpnStatus.postValue("VPN connected (No internet)")
+                if (isVpnConnected) _vpnStatus.postValue("VPN connected (No internet)")
             }
 
             override fun onResponse(call: Call, response: Response) {
@@ -688,7 +768,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                     if (!response.isSuccessful) {
                         _locationString.postValue("Verification failed")
                         _ipAddress.postValue("Address: Server error")
-                        _vpnStatus.postValue("VPN connected (Verification error)")
+                        if (isVpnConnected) _vpnStatus.postValue("VPN connected (Verification error)")
                         return
                     }
 
@@ -701,12 +781,14 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                         
                         val text = if (country.isNotEmpty()) "$country, $region" else "Unknown location"
                         
-                        _ipAddress.postValue("Public IP Address: $ip")
+                        _ipAddress.postValue(
+                            if (isVpnConnected) "VPN address: $ip" else "Your address: $ip"
+                        )
                         _locationString.postValue("Location: $text")
-                        _vpnStatus.postValue("VPN connected & verified")
+                        if (isVpnConnected) _vpnStatus.postValue("VPN connected & verified")
                     } catch (e: Exception) {
                         _locationString.postValue("Parse error")
-                        _vpnStatus.postValue("VPN connected (Metadata error)")
+                        if (isVpnConnected) _vpnStatus.postValue("VPN connected (Metadata error)")
                     }
                 }
             }
@@ -714,7 +796,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     @SuppressLint("MissingPermission")
-    private fun buildWifiSecurityAlert(): WifiSecurityAlert {
+    private fun buildWifiSecurityAlert(scanSnapshot: WifiScanSnapshot): WifiSecurityAlert {
         val context = getApplication<Application>()
         val checkedAtMillis = currentTimeMillis()
         val connectivity = context.getSystemService(ConnectivityManager::class.java)
@@ -786,10 +868,10 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         currentWifiSsid = ssid
         currentWifiBssid = bssid
 
-        val scanSnapshots = if (isWifi && canInspectWifiDetails) {
-            val wifiManager = context.applicationContext.getSystemService(WifiManager::class.java)
-            runCatching { wifiManager?.scanResults.orEmpty() }
-                .getOrElse { emptyList() }
+        val scanResultsUsableForIdentity = scanSnapshot.freshness == WifiScanFreshness.FRESH ||
+            scanSnapshot.freshness == WifiScanFreshness.CACHED
+        val scanSnapshots = if (isWifi && canInspectWifiDetails && scanResultsUsableForIdentity) {
+            scanSnapshot.results
                 .map { result ->
                     WifiScanNetworkSnapshot(
                         ssid = normalizeSsid(result.SSID),
@@ -930,19 +1012,22 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             matchDetail = currentMatch.detail.takeIf { it.isNotBlank() },
             trustStatus = trustAssessment.status,
             trustObservationCount = trustAssessment.observationCount,
-            trustObservationThreshold = trustAssessment.threshold,
             hasPendingTrustApproval = (trustAssessment.shouldFlagFingerprintChange() ||
                 trustAssessment.status == WifiTrustBaselineStatus.PENDING_NEW_FINGERPRINT) &&
                 observation?.bssid != null &&
                 effectiveSecurityProfile != null,
-            trustDetail = trustDetail
+            trustDetail = trustDetail,
+            scanFreshness = scanSnapshot.freshness,
+            scanAgeMillis = scanSnapshot.ageMillis,
+            freshScanRequested = scanSnapshot.freshScanRequested,
+            freshScanAccepted = scanSnapshot.freshScanAccepted
         )
     }
 
     @SuppressLint("MissingPermission")
     private fun buildNearbyWifiNetworksState(
         currentAlert: WifiSecurityAlert,
-        requestFreshScan: Boolean
+        scanSnapshot: WifiScanSnapshot
     ): WifiNearbyNetworksState {
         val context = getApplication<Application>()
         val trustedBySsid = loadTrustedProfiles()
@@ -973,16 +1058,11 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        val wifiManager = context.applicationContext.getSystemService(WifiManager::class.java)
-            ?: return WifiNearbyNetworksState(messageResId = R.string.wifi_nearby_unavailable)
-
-        if (requestFreshScan) {
-            // Best-effort scan refresh. If the platform rejects it, keep using cached results.
-            runCatching { wifiManager.startScan() }
-        }
-        val scanResults = runCatching { wifiManager.scanResults }.getOrElse { emptyList() }
+        val scanResults = scanSnapshot.results
+        val allowCurrentMatch = scanSnapshot.freshness == WifiScanFreshness.FRESH ||
+            scanSnapshot.freshness == WifiScanFreshness.CACHED
         val currentBssid = currentAlert.bssid?.lowercase()
-        val deduped = LinkedHashMap<String, android.net.wifi.ScanResult>()
+        val deduped = LinkedHashMap<String, ScanResult>()
         scanResults.forEach { result ->
             val normalizedSsid = normalizeSsid(result.SSID)
             val normalizedBssid = normalizeBssid(result.BSSID)
@@ -1004,8 +1084,9 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             val trustedProfile = trustedBySsid[ssid]
             val isTrustEligible = isTrustEligibleSsid(context, ssid)
             val isCurrent = when {
-                currentBssid != null && bssid != null -> currentBssid.equals(bssid, ignoreCase = true)
-                currentAlert.matchConfidence == WifiMatchConfidence.SSID_ONLY_SINGLE &&
+                allowCurrentMatch && currentBssid != null && bssid != null ->
+                    currentBssid.equals(bssid, ignoreCase = true)
+                allowCurrentMatch && currentAlert.matchConfidence == WifiMatchConfidence.SSID_ONLY_SINGLE &&
                     currentAlert.ssid != null -> currentAlert.ssid.equals(ssid, ignoreCase = true)
                 else -> false
             }
@@ -1019,8 +1100,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             val trustAssessment = when {
                 isCurrent && currentAlert.isTrustedNetwork -> WifiTrustAssessment(
                     status = currentAlert.trustStatus,
-                    observationCount = currentAlert.trustObservationCount,
-                    threshold = currentAlert.trustObservationThreshold
+                    observationCount = currentAlert.trustObservationCount
                 )
 
                 trustedProfile != null -> WifiTrustedBaselineManager.assess(
@@ -1068,6 +1148,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 isCurrent = isCurrent,
                 hasInternetAccess = if (isCurrent) currentAlert.hasInternetAccess else null,
                 frequencyMhz = result.frequency,
+                signalDbm = result.level,
                 capabilities = result.capabilities,
                 matchConfidence = matchConfidence,
                 trustStatus = trustAssessment.status,
@@ -1100,7 +1181,12 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 .thenBy { it.ssid.lowercase() }
         )
 
-        return WifiNearbyNetworksState(networks = sorted)
+        val messageResId = when (scanSnapshot.freshness) {
+            WifiScanFreshness.STALE -> R.string.wifi_nearby_results_stale
+            WifiScanFreshness.CACHED -> R.string.wifi_nearby_results_cached
+            else -> null
+        }
+        return WifiNearbyNetworksState(networks = sorted, messageResId = messageResId)
     }
 
     private fun classifyNearbyNetworkRisk(
@@ -1223,8 +1309,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             hasInternetAccess = hasInternetAccess,
             matchConfidence = matchConfidence,
             trustStatus = trustAssessment.status,
-            trustObservationCount = trustAssessment.observationCount,
-            trustObservationThreshold = trustAssessment.threshold
+            trustObservationCount = trustAssessment.observationCount
         )
         val checks = WifiSafetyScorer.buildCoreChecks(
             alert = previewAlert,
@@ -1279,7 +1364,6 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         val isWifiConnected = alert.isOnWifi
         val hasLocationAccess = hasLocationPermission(context)
         val locationServicesEnabled = isLocationServicesEnabled(context)
-        val trustedProfile = alert.ssid?.let { getTrustedProfile(it) }
         val vpnActive = isVpnActive(context.getSystemService(ConnectivityManager::class.java))
 
         val checks = mutableListOf<WifiAdvancedCheckItem>()
@@ -1294,34 +1378,9 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             locationServicesEnabled = locationServicesEnabled,
             signals = signals
         )
-        checks += buildWpaModeCheck(
-            isWifiConnected = isWifiConnected,
-            signals = signals
-        )
-        checks += buildTransitionModeCheck(
-            isWifiConnected = isWifiConnected,
-            signals = signals
-        )
-        checks += buildOpenVsOweCheck(
-            isWifiConnected = isWifiConnected,
-            signals = signals
-        )
-        checks += buildEvilTwinCheck(
-            alert = alert,
-            nearbyState = nearbyState,
-            trustedProfile = trustedProfile
-        )
-        checks += buildChannelBandCheck(
-            isWifiConnected = isWifiConnected,
-            trustedProfile = trustedProfile,
-            currentFrequencyMhz = currentNetwork?.frequencyMhz
-        )
-        checks += buildDhcpAnomalyCheck(
-            isWifiConnected = isWifiConnected,
-            trustedProfile = trustedProfile
-        )
-
-        val provisionalPenalty = checks.sumOf { it.penalty }
+        val provisionalPenalty = checks
+            .filter { it.dimension != WifiRiskDimension.VISIBILITY }
+            .sumOf { it.penalty }
         checks += buildVpnPostureCheck(
             isWifiConnected = isWifiConnected,
             provisionalPenalty = provisionalPenalty,
@@ -1346,7 +1405,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 key = "connection_confidence",
                 titleRes = R.string.wifi_check_connection_confidence_title,
                 detail = "Not on Wi-Fi.",
-                dimension = WifiRiskDimension.NETWORK
+                dimension = WifiRiskDimension.VISIBILITY
             )
         }
 
@@ -1355,7 +1414,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 key = "connection_confidence",
                 titleRes = R.string.wifi_check_connection_confidence_title,
                 detail = "Current access point was verified by BSSID.",
-                dimension = WifiRiskDimension.NETWORK
+                dimension = WifiRiskDimension.VISIBILITY
             )
 
             WifiMatchConfidence.SSID_ONLY_SINGLE -> warningCheck(
@@ -1363,7 +1422,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 titleRes = R.string.wifi_check_connection_confidence_title,
                 detail = "Current access point was matched by SSID only. Exact BSSID confirmation was unavailable.",
                 penalty = 6,
-                dimension = WifiRiskDimension.NETWORK
+                dimension = WifiRiskDimension.VISIBILITY
             )
 
             WifiMatchConfidence.AMBIGUOUS_SSID -> warningCheck(
@@ -1371,7 +1430,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 titleRes = R.string.wifi_check_connection_confidence_title,
                 detail = "Multiple same-name access points are nearby, so the current AP could not be matched confidently.",
                 penalty = 10,
-                dimension = WifiRiskDimension.NETWORK
+                dimension = WifiRiskDimension.VISIBILITY
             )
 
             WifiMatchConfidence.WIFI_INFO_ONLY -> warningCheck(
@@ -1379,7 +1438,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 titleRes = R.string.wifi_check_connection_confidence_title,
                 detail = "Android exposed the Wi-Fi profile, but the current access point could not be verified against scan results.",
                 penalty = 7,
-                dimension = WifiRiskDimension.NETWORK
+                dimension = WifiRiskDimension.VISIBILITY
             )
 
             WifiMatchConfidence.UNAVAILABLE -> warningCheck(
@@ -1387,7 +1446,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 titleRes = R.string.wifi_check_connection_confidence_title,
                 detail = "Current access point details were unavailable.",
                 penalty = 8,
-                dimension = WifiRiskDimension.NETWORK
+                dimension = WifiRiskDimension.VISIBILITY
             )
         }
     }
@@ -1460,61 +1519,6 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 _autoVpnActionMessageRes.postValue(R.string.wifi_auto_vpn_auto_connected)
             }
         }
-    }
-
-    private fun startBackgroundScanSchedulerIfNeeded() {
-        if (!(loadBackgroundScanEnabled() && isWifiMonitoringStarted)) {
-            stopBackgroundScanScheduler()
-            return
-        }
-        if (backgroundScanRunnable == null) {
-            backgroundScanRunnable = Runnable {
-                if (!loadBackgroundScanEnabled() || !isWifiMonitoringStarted) {
-                    stopBackgroundScanScheduler()
-                    return@Runnable
-                }
-                refreshWifiSecurityAlert(lightweight = true)
-                scheduleNextBackgroundScan()
-            }
-        }
-        scheduleNextBackgroundScan()
-        updateBackgroundScanState()
-    }
-
-    private fun stopBackgroundScanScheduler() {
-        backgroundScanRunnable?.let { runnable ->
-            mainHandler.removeCallbacks(runnable)
-        }
-        backgroundScanRunnable = null
-    }
-
-    private fun scheduleNextBackgroundScan() {
-        val runnable = backgroundScanRunnable ?: return
-        mainHandler.removeCallbacks(runnable)
-        mainHandler.postDelayed(runnable, backgroundScanIntervalMs())
-        updateBackgroundScanState()
-    }
-
-    private fun backgroundScanIntervalMs(): Long {
-        val battery = getBatteryLevel(getApplication())
-        return when {
-            battery in 0..20 -> 15L * 60_000L
-            battery in 21..50 -> 8L * 60_000L
-            else -> 4L * 60_000L
-        }
-    }
-
-    private fun updateBackgroundScanState() {
-        val enabled = loadBackgroundScanEnabled()
-        val intervalMs = backgroundScanIntervalMs()
-        _backgroundScanState.postValue(
-            WifiBackgroundScanState(
-                enabled = enabled,
-                intervalMinutes = (intervalMs / 60_000L).toInt(),
-                batteryAware = true,
-                lastRunMillis = lastBackgroundScanRunMillis
-            )
-        )
     }
 
     private fun postRiskNotification(alert: WifiRiskTransitionAlert) {
@@ -1628,7 +1632,6 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             message = getApplication<Application>().getString(reasonMessageResId(adjustedReason)),
             trustStatus = trustAssessment.status,
             trustObservationCount = trustAssessment.observationCount,
-            trustObservationThreshold = trustAssessment.threshold,
             hasPendingTrustApproval = (trustAssessment.shouldFlagFingerprintChange() ||
                 trustAssessment.status == WifiTrustBaselineStatus.PENDING_NEW_FINGERPRINT) &&
                 observation.bssid != null &&
@@ -1693,7 +1696,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 key = "pmf",
                 titleRes = R.string.wifi_check_pmf_title,
                 detail = "PMF is optional. Required PMF is safer on untrusted Wi-Fi.",
-                penalty = 7,
+                penalty = 2,
                 dimension = WifiRiskDimension.ENCRYPTION
             )
 
@@ -1701,7 +1704,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 key = "pmf",
                 titleRes = R.string.wifi_check_pmf_title,
                 detail = "PMF was not advertised by this secure network.",
-                penalty = 9,
+                penalty = 3,
                 dimension = WifiRiskDimension.ENCRYPTION
             )
 
@@ -2356,8 +2359,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             isTrusted = trustedProfile != null,
             trustAssessment = WifiTrustAssessment(
                 status = trustStatus,
-                observationCount = currentAlert.trustObservationCount,
-                threshold = currentAlert.trustObservationThreshold
+                observationCount = currentAlert.trustObservationCount
             ),
             matchConfidence = currentAlert.matchConfidence,
             hasInternetAccess = currentAlert.hasInternetAccess
@@ -2484,10 +2486,10 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 "The current network is weaker than the trusted baseline you previously approved."
 
             WifiTrustBaselineStatus.PENDING_NEW_FINGERPRINT ->
-                "New fingerprint seen cleanly ${trustAssessment.observationCount}/${trustAssessment.threshold} times. Approve it now or keep observing."
+                "New fingerprint observed ${trustAssessment.observationCount} times. It remains untrusted until you approve it explicitly."
 
             WifiTrustBaselineStatus.FINGERPRINT_CHANGED ->
-                "This trusted SSID changed fingerprint. Three clean repeat sightings are required before it is learned automatically."
+                "This trusted SSID changed fingerprint. Verify the access point and approve it explicitly only if the change is expected."
 
             WifiTrustBaselineStatus.STABLE_PROFILE_ONLY ->
                 "Trusted baseline matches the current security profile, but BSSID verification was unavailable."
@@ -2865,14 +2867,6 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         trustPrefs.edit().putBoolean(AUTO_PROTECT_UNKNOWN_WIFI_KEY, enabled).apply()
     }
 
-    private fun loadBackgroundScanEnabled(): Boolean {
-        return trustPrefs.getBoolean(BACKGROUND_SCAN_ENABLED_KEY, false)
-    }
-
-    private fun saveBackgroundScanEnabled(enabled: Boolean) {
-        trustPrefs.edit().putBoolean(BACKGROUND_SCAN_ENABLED_KEY, enabled).apply()
-    }
-
     private fun loadTrustedProfilesJson(): JSONObject {
         val raw = trustPrefs.getString(TRUSTED_PROFILES_KEY, "{}").orEmpty()
         return runCatching { JSONObject(raw) }.getOrElse { JSONObject() }
@@ -2904,7 +2898,6 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         private const val TRUSTED_PROFILES_KEY = "trusted_profiles_json"
         private const val AUTO_VPN_POLICY_KEY = "auto_vpn_policy"
         private const val AUTO_PROTECT_UNKNOWN_WIFI_KEY = "auto_protect_unknown_wifi"
-        private const val BACKGROUND_SCAN_ENABLED_KEY = "background_scan_enabled"
         private const val WIFI_RISK_CHANNEL_ID = "wifi_risk_alerts"
         private const val WIFI_RISK_NOTIFICATION_ID = 12002
     }
@@ -2992,6 +2985,7 @@ data class WifiNearbyNetwork(
     val isCurrent: Boolean,
     val hasInternetAccess: Boolean?,
     val frequencyMhz: Int? = null,
+    val signalDbm: Int? = null,
     val capabilities: String? = null,
     val matchConfidence: WifiMatchConfidence = WifiMatchConfidence.UNAVAILABLE,
     val trustStatus: WifiTrustBaselineStatus = WifiTrustBaselineStatus.NOT_TRUSTED,
@@ -3032,9 +3026,12 @@ data class WifiSecurityAlert(
     val matchDetail: String? = null,
     val trustStatus: WifiTrustBaselineStatus = WifiTrustBaselineStatus.NOT_TRUSTED,
     val trustObservationCount: Int = 0,
-    val trustObservationThreshold: Int = 0,
     val hasPendingTrustApproval: Boolean = false,
-    val trustDetail: String? = null
+    val trustDetail: String? = null,
+    val scanFreshness: WifiScanFreshness = WifiScanFreshness.UNAVAILABLE,
+    val scanAgeMillis: Long? = null,
+    val freshScanRequested: Boolean = false,
+    val freshScanAccepted: Boolean = false
 )
 
 /** Stored profile for a network the user has explicitly trusted. */
@@ -3074,6 +3071,7 @@ data class WifiSafetyAssessment(
     val summary: String = "",
     val recommendationResId: Int = R.string.wifi_security_recommendation_secure,
     val isLimitedData: Boolean = false,
+    val isScoreAvailable: Boolean = true,
     val isOnWifi: Boolean = false,
     val uncertainties: Set<WifiAssessmentUncertainty> = emptySet(),
     val dimensions: List<WifiScoreDimensionResult> = emptyList()
@@ -3103,12 +3101,4 @@ data class WifiRiskTransitionAlert(
     val score: Int,
     val summary: String,
     val worsened: Boolean
-)
-
-/** State information for background scanning activities. */
-data class WifiBackgroundScanState(
-    val enabled: Boolean = false,
-    val intervalMinutes: Int = 0,
-    val batteryAware: Boolean = true,
-    val lastRunMillis: Long? = null
 )

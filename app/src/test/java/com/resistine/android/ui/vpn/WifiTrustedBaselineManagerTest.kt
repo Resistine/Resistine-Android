@@ -37,7 +37,7 @@ class WifiTrustedBaselineManagerTest {
     }
 
     @Test
-    fun `promotes new fingerprint after three clean observations`() {
+    fun `never promotes a new fingerprint without explicit approval`() {
         val baseline = trustedProfile()
         val observation = WifiTrustedFingerprintObservation(
             bssid = "aa:bb:cc:dd:ee:10",
@@ -70,8 +70,18 @@ class WifiTrustedBaselineManagerTest {
 
         assertEquals(1, first.pendingSeenCount)
         assertEquals(2, second.pendingSeenCount)
-        assertTrue(third.knownBssids.contains("aa:bb:cc:dd:ee:10"))
-        assertEquals(0, third.pendingSeenCount)
+        assertFalse(third.knownBssids.contains("aa:bb:cc:dd:ee:10"))
+        assertEquals(3, third.pendingSeenCount)
+
+        val approved = WifiTrustedBaselineManager.updateProfile(
+            profile = third,
+            observation = observation,
+            allowLearning = true,
+            approveNow = true,
+            nowMillis = 4L
+        )
+        assertTrue(approved.knownBssids.contains("aa:bb:cc:dd:ee:10"))
+        assertEquals(0, approved.pendingSeenCount)
     }
 
     @Test
@@ -194,7 +204,6 @@ class WifiTrustedBaselineManagerTest {
 
         assertEquals(WifiTrustBaselineStatus.PENDING_NEW_FINGERPRINT, assessment.status)
         assertEquals(2, assessment.observationCount)
-        assertEquals(WifiTrustedBaselineManager.AUTO_PROMOTION_THRESHOLD, assessment.threshold)
     }
 
     @Test

@@ -58,7 +58,7 @@ enum class WifiRiskDimension(val titleResId: Int, val cap: Int) {
     VALIDATION(R.string.wifi_dimension_validation, 22),
     LEGACY(R.string.wifi_dimension_legacy, 18),
     NETWORK(R.string.wifi_dimension_network, 18),
-    VISIBILITY(R.string.wifi_dimension_visibility, 48)
+    VISIBILITY(R.string.wifi_dimension_visibility, 0)
 }
 
 data class WifiSecurityProfile(
@@ -169,8 +169,7 @@ data class WifiTrustedFingerprintObservation(
 
 data class WifiTrustAssessment(
     val status: WifiTrustBaselineStatus,
-    val observationCount: Int = 0,
-    val threshold: Int = 0
+    val observationCount: Int = 0
 ) {
     fun shouldFlagFingerprintChange(): Boolean {
         return status == WifiTrustBaselineStatus.FINGERPRINT_CHANGED
@@ -337,8 +336,6 @@ object WifiTrustPolicy {
 
 object WifiTrustedBaselineManager {
 
-    const val AUTO_PROMOTION_THRESHOLD = 3
-
     fun isProfileDowngrade(
         baseline: WifiSecurityProfile,
         current: WifiSecurityProfile?
@@ -393,8 +390,7 @@ object WifiTrustedBaselineManager {
         if (observation != null && matchesPendingFingerprint(profile, observation)) {
             return WifiTrustAssessment(
                 status = WifiTrustBaselineStatus.PENDING_NEW_FINGERPRINT,
-                observationCount = profile.pendingSeenCount,
-                threshold = AUTO_PROMOTION_THRESHOLD
+                observationCount = profile.pendingSeenCount
             )
         }
 
@@ -466,11 +462,11 @@ object WifiTrustedBaselineManager {
         val observationBssid = observation.bssid ?: return profile
         val observationProfile = observation.securityProfile ?: return profile
         val pendingCount = if (matchesPendingFingerprint(profile, observation)) {
-            profile.pendingSeenCount + 1
+            (profile.pendingSeenCount + 1).coerceAtMost(MAX_PENDING_OBSERVATIONS)
         } else {
             1
         }
-        val promote = approveNow || pendingCount >= AUTO_PROMOTION_THRESHOLD
+        val promote = approveNow
         return if (promote) {
             profile.copy(
                 bssid = observationBssid,
@@ -497,6 +493,8 @@ object WifiTrustedBaselineManager {
             )
         }
     }
+
+    private const val MAX_PENDING_OBSERVATIONS = 999
 }
 
 object WifiAutoProtectionDecider {

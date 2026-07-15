@@ -7,8 +7,7 @@
     android:layout_marginBottom="14dp"
     android:background="@drawable/bg_wifi_network_card"
     android:orientation="vertical"
-    android:padding="12dp"
-    android:elevation="1dp">
+    android:padding="@dimen/rs_space_16">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -25,13 +24,22 @@
 
         <TextView
             android:id="@+id/textViewAvailableNetworkTitle"
+            style="@style/TextAppearance.Resistine.Section"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
             android:layout_weight="1"
-            android:text="@string/wifi_security_title_info"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+            android:text="@string/wifi_security_title_info" />
+
+        <TextView
+            android:id="@+id/textViewAvailableNetworkSignal"
+            style="@style/TextAppearance.Resistine.Label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="@dimen/rs_space_8"
+            android:textColor="@color/rs_text_secondary"
+            android:textSize="12sp"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/textViewAvailableNetworkCurrentBadge"
@@ -51,11 +59,11 @@
 
     <TextView
         android:id="@+id/textViewAvailableNetworkBody"
+        style="@style/TextAppearance.Resistine.Body"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
-        android:text="@string/wifi_security_unavailable"
-        android:textSize="13sp" />
+        android:text="@string/wifi_security_unavailable" />
 
     <HorizontalScrollView
         android:id="@+id/scrollViewAvailableNetworkChips"
@@ -136,8 +144,9 @@
 
     </LinearLayout>
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/buttonToggleAvailableNetworkTrust"
+        style="@style/Widget.Resistine.Button.Outlined"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"

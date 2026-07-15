@@ -1,249 +1,149 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/rs_background"
+    android:clipToPadding="false"
     android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:paddingStart="@dimen/rs_screen_padding"
+        android:paddingTop="@dimen/rs_space_16"
+        android:paddingEnd="@dimen/rs_screen_padding"
+        android:paddingBottom="@dimen/rs_space_32">
 
         <TextView
             android:id="@+id/textViewVpnHeader"
+            style="@style/TextAppearance.Resistine.Headline"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/menu_vpn"
-            android:textSize="22sp"
-            android:textStyle="bold" />
+            android:text="@string/vpn_protection_title" />
 
         <TextView
             android:id="@+id/textViewVpnSubheader"
+            style="@style/TextAppearance.Resistine.Body"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="@string/vpn_screen_subheader"
-            android:textSize="13sp" />
+            android:layout_marginTop="@dimen/rs_space_4"
+            android:text="@string/vpn_screen_subheader" />
 
-        <TextView
-            android:id="@+id/textViewVpnStatus"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:layout_marginBottom="16dp"
-            android:text="@string/vpn_status_disconnected"
-            android:textSize="16sp" />
-
-        <com.google.android.material.switchmaterial.SwitchMaterial
-            android:id="@+id/switchVpnToggle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/connect_vpn"
-            android:textSize="18sp"
-            android:paddingVertical="8dp" />
-
-        <LinearLayout
+        <com.google.android.material.card.MaterialCardView
             android:id="@+id/layoutRuntimeSelector"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:background="@drawable/bg_wifi_network_card"
-            android:orientation="vertical"
-            android:padding="16dp">
+            android:layout_marginTop="@dimen/rs_space_20"
+            app:cardBackgroundColor="@android:color/transparent"
+            app:cardCornerRadius="@dimen/rs_radius_large"
+            app:cardElevation="0dp">
 
-            <TextView
-                android:id="@+id/textViewRuntimeStatus"
+            <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/vpn_runtime_status_default"
-                android:textSize="13sp" />
+                android:background="@drawable/bg_resistine_hero"
+                android:padding="@dimen/rs_space_24">
 
-            <LinearLayout
-                android:id="@+id/layoutFlowWazuhSettings"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:orientation="vertical"
-                android:visibility="visible">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/flow_wazuh_delivery_title"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                <ImageView
+                    android:id="@+id/imageVpnBrand"
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
+                    android:alpha="0.28"
+                    android:contentDescription="@null"
+                    android:src="@drawable/resistine_shield"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
 
                 <TextView
-                    android:layout_width="match_parent"
+                    android:id="@+id/textViewConnectionBadge"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="@string/flow_wazuh_delivery_subtitle"
-                    android:textSize="13sp" />
-
-                <RadioGroup
-                    android:id="@+id/radioGroupFlowWazuhDelivery"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:orientation="vertical">
-
-                    <RadioButton
-                        android:id="@+id/radioFlowWazuhLocal"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/flow_wazuh_local_only" />
-
-                    <RadioButton
-                        android:id="@+id/radioFlowWazuhRemote"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/flow_wazuh_remote_manager" />
-                </RadioGroup>
+                    android:background="@drawable/bg_vpn_toggle"
+                    android:paddingStart="12dp"
+                    android:paddingTop="6dp"
+                    android:paddingEnd="12dp"
+                    android:paddingBottom="6dp"
+                    android:text="@string/vpn_badge_off"
+                    android:textColor="@color/white"
+                    android:textStyle="bold"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
 
                 <TextView
-                    android:id="@+id/textViewFlowWazuhStatus"
-                    android:layout_width="match_parent"
+                    android:id="@+id/textViewVpnStatus"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="@string/flow_wazuh_local_status"
-                    android:textSize="13sp" />
+                    android:layout_marginTop="@dimen/rs_space_16"
+                    android:text="@string/vpn_status_disconnected"
+                    android:textColor="@color/white"
+                    android:textSize="32sp"
+                    android:textStyle="bold"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/textViewConnectionBadge" />
 
-                <LinearLayout
-                    android:id="@+id/layoutRemoteWazuhEndpoint"
-                    android:layout_width="match_parent"
+                <TextView
+                    android:id="@+id/textViewRuntimeStatus"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:orientation="vertical"
-                    android:visibility="gone">
+                    android:layout_marginTop="@dimen/rs_space_8"
+                    android:text="@string/vpn_runtime_status_default"
+                    android:textColor="#E7F1FF"
+                    android:textSize="14sp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/textViewVpnStatus" />
 
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:hint="@string/flow_wazuh_manager_host">
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/buttonVpnToggle"
+                    style="@style/Widget.Resistine.Button.Primary"
+                    android:layout_width="0dp"
+                    android:layout_height="56dp"
+                    android:layout_marginTop="@dimen/rs_space_20"
+                    android:text="@string/vpn_connect_action"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/textViewRuntimeStatus" />
+            </androidx.constraintlayout.widget.ConstraintLayout>
+        </com.google.android.material.card.MaterialCardView>
 
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/editTextWazuhManagerHost"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="textUri"
-                            android:maxLines="1" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:orientation="horizontal">
-
-                        <com.google.android.material.textfield.TextInputLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginEnd="4dp"
-                            android:layout_weight="1"
-                            android:hint="@string/flow_wazuh_auth_port">
-
-                            <com.google.android.material.textfield.TextInputEditText
-                                android:id="@+id/editTextWazuhAuthPort"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:inputType="number"
-                                android:maxLength="5"
-                                android:maxLines="1" />
-                        </com.google.android.material.textfield.TextInputLayout>
-
-                        <com.google.android.material.textfield.TextInputLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="4dp"
-                            android:layout_weight="1"
-                            android:hint="@string/flow_wazuh_log_port">
-
-                            <com.google.android.material.textfield.TextInputEditText
-                                android:id="@+id/editTextWazuhLogPort"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:inputType="number"
-                                android:maxLength="5"
-                                android:maxLines="1" />
-                        </com.google.android.material.textfield.TextInputLayout>
-                    </LinearLayout>
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/buttonSaveWazuhEndpoint"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="end"
-                        android:layout_marginTop="8dp"
-                        android:text="@string/flow_wazuh_save_endpoint" />
-                </LinearLayout>
-            </LinearLayout>
-        </LinearLayout>
-        
-        <LinearLayout
+        <TextView
+            style="@style/TextAppearance.Resistine.Title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:background="@drawable/bg_wifi_network_card"
-            android:orientation="vertical"
-            android:padding="16dp">
+            android:layout_marginTop="@dimen/rs_space_24"
+            android:text="@string/vpn_connection_details" />
 
-            <TextView
-                android:id="@+id/SystemInformation"
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Resistine.Card.Tinted"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/rs_space_12">
+
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                android:gravity="center_horizontal"
-                android:text="@string/system_information"
-                android:textSize="18sp"
-                android:textStyle="bold" />
+                android:orientation="vertical"
+                android:padding="@dimen/rs_space_20">
 
-            <TextView
-                android:id="@+id/textViewIpAddress"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:text="@string/ip_address_loading"
-                android:textSize="14sp" />
+                <TextView android:id="@+id/textViewIpAddress" style="@style/TextAppearance.Resistine.Section" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/ip_address_loading" />
+                <TextView android:id="@+id/textViewLocation" style="@style/TextAppearance.Resistine.Body" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="@dimen/rs_space_6" android:text="@string/location_loading" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="@dimen/rs_space_16" android:layout_marginBottom="@dimen/rs_space_16" android:background="@color/rs_outline" />
+                <TextView android:id="@+id/textViewDeviceModel" style="@style/TextAppearance.Resistine.Body" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/device_model_loading" />
+                <TextView android:id="@+id/textViewAndroidVersion" style="@style/TextAppearance.Resistine.Body" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="@dimen/rs_space_4" android:text="@string/android_version_loading" />
+                <TextView android:id="@+id/textViewBatteryLevel" style="@style/TextAppearance.Resistine.Body" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="@dimen/rs_space_4" android:text="@string/battery_level_loading" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
-            <TextView
-                android:id="@+id/textViewLocation"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:text="@string/location_loading"
-                android:textSize="14sp" />
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginVertical="8dp"
-                android:background="?android:attr/listDivider" />
-
-            <TextView
-                android:id="@+id/textViewDeviceModel"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:text="@string/device_model_loading"
-                android:textSize="14sp" />
-
-            <TextView
-                android:id="@+id/textViewAndroidVersion"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:text="@string/android_version_loading"
-                android:textSize="14sp" />
-
-            <TextView
-                android:id="@+id/textViewBatteryLevel"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/battery_level_loading"
-                android:textSize="14sp" />
-        </LinearLayout>
-
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/buttonOpenSettings"
+            style="@style/Widget.Resistine.Button.Outlined"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/rs_space_16"
+            android:text="@string/vpn_manage_settings"
+            app:icon="@drawable/ic_settings_24" />
     </LinearLayout>
-</ScrollView>
+</androidx.core.widget.NestedScrollView>

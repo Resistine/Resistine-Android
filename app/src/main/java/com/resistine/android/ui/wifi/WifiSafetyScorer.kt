@@ -45,7 +45,9 @@ object WifiSafetyScorer {
                 summary = topCheck?.detail ?: safeDimensionSummary(dimension)
             )
         }
-        val totalPenalty = dimensionResults.sumOf { it.penalty }
+        val totalPenalty = dimensionResults
+            .filter { it.dimension != WifiRiskDimension.VISIBILITY }
+            .sumOf { it.penalty }
         val score = (100 - totalPenalty).coerceIn(0, 100)
         val level = when {
             score >= 80 -> WifiNetworkRiskLevel.SAFE
@@ -86,6 +88,8 @@ object WifiSafetyScorer {
         }
         val limitedConfidence = uncertainties.isNotEmpty()
         val isLimitedData = limitedReason || limitedConfidence
+        val isScoreAvailable = WifiAssessmentUncertainty.ENCRYPTION_UNVERIFIED !in uncertainties &&
+            alert.isOnWifi
         val recommendationResId = when {
             level != WifiNetworkRiskLevel.SAFE -> R.string.wifi_security_recommendation_warning
             isLimitedData -> R.string.wifi_security_recommendation_info
@@ -97,6 +101,7 @@ object WifiSafetyScorer {
             summary = topDimension?.summary ?: alert.matchDetail ?: alert.message,
             recommendationResId = recommendationResId,
             isLimitedData = isLimitedData,
+            isScoreAvailable = isScoreAvailable,
             isOnWifi = alert.isOnWifi,
             uncertainties = uncertainties,
             dimensions = dimensionResults
@@ -139,7 +144,7 @@ object WifiSafetyScorer {
                 dimension = WifiRiskDimension.ENCRYPTION,
                 titleRes = R.string.wifi_check_encryption_title,
                 detail = "Location permission is required to inspect Wi-Fi encryption details on this Android version.",
-                penalty = 12
+                penalty = 0
             )
 
             alert.reason == WifiAlertReason.LOCATION_SERVICES_DISABLED -> warningCheck(
@@ -147,7 +152,7 @@ object WifiSafetyScorer {
                 dimension = WifiRiskDimension.ENCRYPTION,
                 titleRes = R.string.wifi_check_encryption_title,
                 detail = "Location services are off, so Wi-Fi encryption details could not be verified.",
-                penalty = 12
+                penalty = 0
             )
 
             alert.reason == WifiAlertReason.LEGACY_NO_SECURITY_TYPE -> warningCheck(
@@ -155,7 +160,7 @@ object WifiSafetyScorer {
                 dimension = WifiRiskDimension.ENCRYPTION,
                 titleRes = R.string.wifi_check_encryption_title,
                 detail = "This Android version cannot confirm the current Wi-Fi encryption type.",
-                penalty = 10
+                penalty = 0
             )
 
             profile == null || profile.mode == WifiSecurityMode.UNKNOWN || alert.reason == WifiAlertReason.UNKNOWN_SECURITY ->
@@ -164,7 +169,7 @@ object WifiSafetyScorer {
                     dimension = WifiRiskDimension.ENCRYPTION,
                     titleRes = R.string.wifi_check_encryption_title,
                     detail = "Wi-Fi encryption could not be verified for the current connection.",
-                    penalty = 22
+                    penalty = 0
                 )
 
             profile.mode == WifiSecurityMode.TRANSITION -> warningCheck(
@@ -172,7 +177,7 @@ object WifiSafetyScorer {
                 dimension = WifiRiskDimension.ENCRYPTION,
                 titleRes = R.string.wifi_check_encryption_title,
                 detail = "WPA2/WPA3 transition mode is in use. It is better than WPA2-only, but still allows downgrade paths.",
-                penalty = 14
+                penalty = 5
             )
 
             profile.mode == WifiSecurityMode.WPA2_PSK -> warningCheck(
@@ -180,7 +185,7 @@ object WifiSafetyScorer {
                 dimension = WifiRiskDimension.ENCRYPTION,
                 titleRes = R.string.wifi_check_encryption_title,
                 detail = "Protected Wi-Fi is in use, but WPA2 Personal is older than WPA3.",
-                penalty = 8
+                penalty = 0
             )
 
             profile.mode == WifiSecurityMode.WPA2_ENTERPRISE -> warningCheck(
@@ -188,7 +193,7 @@ object WifiSafetyScorer {
                 dimension = WifiRiskDimension.ENCRYPTION,
                 titleRes = R.string.wifi_check_encryption_title,
                 detail = "Protected enterprise Wi-Fi is in use, but it does not appear to be WPA3 Enterprise.",
-                penalty = 5
+                penalty = 0
             )
 
             profile.mode == WifiSecurityMode.OWE -> safeCheck(
@@ -347,7 +352,7 @@ object WifiSafetyScorer {
                 dimension = WifiRiskDimension.TRUST,
                 titleRes = R.string.wifi_check_trusted_fingerprint_title,
                 detail = if (alert.trustObservationCount > 0) {
-                    "Trusted network fingerprint changed. Clean observations: ${alert.trustObservationCount}/${alert.trustObservationThreshold}."
+                    "Trusted network fingerprint changed and has been observed ${alert.trustObservationCount} times. Explicit approval is required."
                 } else {
                     "Trusted network identity changed for this SSID. Verify the access point."
                 },

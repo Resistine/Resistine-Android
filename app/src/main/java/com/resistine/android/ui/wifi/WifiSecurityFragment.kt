@@ -7,6 +7,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.provider.Settings
+import android.transition.AutoTransition
+import android.transition.TransitionManager
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -26,6 +28,9 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.LocationSettingsRequest
 import com.google.android.gms.location.Priority
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.card.MaterialCardView
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.resistine.android.BuildConfig
 import com.resistine.android.R
 import com.resistine.android.databinding.FragmentWifiSecurityBinding
@@ -34,7 +39,6 @@ import com.resistine.android.ui.vpn.TrustedWifiProfile
 import com.resistine.android.ui.vpn.VpnViewModel
 import com.resistine.android.ui.vpn.WifiAdvancedCheckItem
 import com.resistine.android.ui.vpn.WifiAlertReason
-import com.resistine.android.ui.vpn.WifiBackgroundScanState
 import com.resistine.android.ui.vpn.WifiNearbyNetwork
 import com.resistine.android.ui.vpn.WifiNearbyNetworksState
 import com.resistine.android.ui.vpn.WifiNetworkRiskLevel
@@ -42,6 +46,7 @@ import com.resistine.android.ui.vpn.WifiRiskTransitionAlert
 import com.resistine.android.ui.vpn.WifiSafetyAssessment
 import com.resistine.android.ui.vpn.WifiSecurityAlert
 import com.resistine.android.ui.vpn.WifiSecurityType
+import com.resistine.android.ui.wifi.WifiScanFreshness
 import java.text.DateFormat
 import java.util.Date
 
@@ -51,10 +56,11 @@ class WifiSecurityFragment : Fragment() {
     private val binding get() = _binding!!
     private val vpnViewModel: VpnViewModel by activityViewModels()
 
-    private var isAdvancedChecksExpanded = false
     private var isNearbyNetworksExpanded = false
     private var isTrustedNetworksExpanded = false
-    private var isCurrentWifiDetailsExpanded = true
+    private var isCurrentWifiDetailsExpanded = false
+    private var latestNearbyNetworksState = WifiNearbyNetworksState()
+    private var latestTrustedNetworks: List<TrustedWifiProfile> = emptyList()
     private var latestWifiAlert: WifiSecurityAlert? = null
     private var latestSafetyAssessment: WifiSafetyAssessment? = null
     private var latestAdvancedChecks: List<WifiAdvancedCheckItem> = emptyList()
@@ -98,21 +104,12 @@ class WifiSecurityFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        binding.buttonRefreshWifiSecurity.setOnClickListener {
+        binding.buttonRefreshWifiQuick.setOnClickListener {
             vpnViewModel.refreshWifiSecurityAlert()
         }
 
         binding.buttonGrantWifiPermission.setOnClickListener {
-            if (latestWifiAlert?.reason == WifiAlertReason.LOCATION_SERVICES_DISABLED && hasLocationPermission()) {
-                requestLocationServicesResolution(userInitiated = true)
-            } else {
-                locationPermissionLauncher.launch(
-                    arrayOf(
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION
-                    )
-                )
-            }
+            requestNearbyWifiAccess()
         }
 
         binding.buttonToggleTrustedWifi.setOnClickListener {
@@ -147,25 +144,19 @@ class WifiSecurityFragment : Fragment() {
         binding.buttonAutoVpnDisconnectNow.setOnClickListener {
             vpnViewModel.disconnectVpnIfConnected()
         }
-        binding.switchBackgroundScan.setOnCheckedChangeListener { _, isChecked ->
-            if (isBindingPolicyControls) return@setOnCheckedChangeListener
-            vpnViewModel.setBackgroundScanEnabled(isChecked)
-        }
-
-        binding.layoutAdvancedChecksHeader.setOnClickListener {
-            isAdvancedChecksExpanded = !isAdvancedChecksExpanded
-            updateAdvancedChecksSectionVisibility()
-        }
         binding.layoutAvailableNetworksHeader.setOnClickListener {
             isNearbyNetworksExpanded = !isNearbyNetworksExpanded
             updateNearbyNetworksSectionVisibility()
+            if (isNearbyNetworksExpanded) renderNearbyNetworks(latestNearbyNetworksState)
         }
         binding.layoutTrustedNetworksHeader.setOnClickListener {
             isTrustedNetworksExpanded = !isTrustedNetworksExpanded
             updateTrustedNetworksSectionVisibility()
+            if (isTrustedNetworksExpanded) {
+                renderTrustedNetworks(latestTrustedNetworks, latestWifiAlert)
+            }
         }
 
-        updateAdvancedChecksSectionVisibility()
         updateNearbyNetworksSectionVisibility()
         updateTrustedNetworksSectionVisibility()
         updateCurrentWifiDetailsVisibility()
@@ -199,10 +190,6 @@ class WifiSecurityFragment : Fragment() {
             binding.buttonAutoVpnDisconnectNow.visibility = if (connected) View.VISIBLE else View.GONE
         }
 
-        vpnViewModel.backgroundScanState.observe(viewLifecycleOwner) { state ->
-            renderBackgroundScanState(state)
-        }
-
         vpnViewModel.wifiSecurityAlert.observe(viewLifecycleOwner) { alert ->
             latestWifiAlert = alert
             binding.textViewWifiNetworkIdentity.text = getString(
@@ -234,6 +221,7 @@ class WifiSecurityFragment : Fragment() {
                 R.string.wifi_match_confidence_line,
                 getString(matchConfidenceLabelRes(alert.matchConfidence))
             )
+            binding.textViewWifiScanFreshness.text = scanFreshnessText(alert)
             binding.textViewWifiSecurityReason.text = getString(
                 if (alert.isTrustedNetwork && shouldHighlightTrustStatus(alert.trustStatus)) {
                     R.string.wifi_trust_baseline_status_line
@@ -307,27 +295,29 @@ class WifiSecurityFragment : Fragment() {
 
         vpnViewModel.wifiAdvancedChecks.observe(viewLifecycleOwner) { checks ->
             latestAdvancedChecks = checks
-            binding.textViewAdvancedChecksTitle.text = getString(
-                R.string.wifi_advanced_checks_title_with_count,
-                checks.size
-            )
-            renderAdvancedChecks(checks)
         }
 
         vpnViewModel.nearbyWifiNetworksState.observe(viewLifecycleOwner) { state ->
+            latestNearbyNetworksState = state
             binding.textViewAvailableNetworksTitle.text = getString(
                 R.string.wifi_available_networks_title,
                 state.networks.size
             )
-            renderNearbyNetworks(state)
+            if (isNearbyNetworksExpanded) renderNearbyNetworks(state)
         }
 
         vpnViewModel.trustedWifiNetworks.observe(viewLifecycleOwner) { trusted ->
+            latestTrustedNetworks = trusted
             binding.textViewTrustedNetworksTitle.text = getString(
                 R.string.wifi_trusted_networks_title,
                 trusted.size
             )
-            renderTrustedNetworks(trusted, latestWifiAlert)
+            if (isTrustedNetworksExpanded) renderTrustedNetworks(trusted, latestWifiAlert)
+        }
+
+        vpnViewModel.isWifiRefreshing.observe(viewLifecycleOwner) { refreshing ->
+            binding.wifiRefreshProgress.visibility = if (refreshing) View.VISIBLE else View.GONE
+            binding.buttonRefreshWifiQuick.isEnabled = !refreshing
         }
 
         vpnViewModel.refreshWifiSecurityAlert()
@@ -339,10 +329,7 @@ class WifiSecurityFragment : Fragment() {
     }
 
     override fun onStop() {
-        val keepBackgroundMonitoring = vpnViewModel.backgroundScanState.value?.enabled == true
-        if (!keepBackgroundMonitoring) {
-            vpnViewModel.stopWifiMonitoring()
-        }
+        vpnViewModel.stopWifiMonitoring()
         super.onStop()
     }
 
@@ -371,10 +358,11 @@ class WifiSecurityFragment : Fragment() {
         binding.imageViewWifiStatusIcon.setImageResource(iconRes)
         binding.imageViewWifiStatusIcon.contentDescription = getString(iconDescRes)
         binding.textViewWifiSafetyTitle.text = getString(titleRes)
-        binding.textViewWifiSafetyScore.text = getString(
-            R.string.wifi_safety_score_format,
-            assessment.score
-        )
+        binding.textViewWifiSafetyScore.text = if (assessment.isScoreAvailable) {
+            getString(R.string.wifi_safety_score_format, assessment.score)
+        } else {
+            getString(R.string.wifi_safety_score_unavailable)
+        }
         binding.textViewWifiSafetyBody.text = assessment.summary
         binding.textViewWifiRecommendation.text = getString(assessment.recommendationResId)
         renderScoreBreakdown(assessment.dimensions)
@@ -411,24 +399,6 @@ class WifiSecurityFragment : Fragment() {
             "$baseStatus\n$unknownStatus"
         }
         isBindingPolicyControls = false
-    }
-
-    private fun renderBackgroundScanState(state: WifiBackgroundScanState) {
-        isBindingPolicyControls = true
-        binding.switchBackgroundScan.isChecked = state.enabled
-        isBindingPolicyControls = false
-        if (!state.enabled) {
-            binding.textViewBackgroundScanStatus.text =
-                getString(R.string.wifi_background_scan_status_default)
-            return
-        }
-        val lastRun = state.lastRunMillis?.let { formatCheckedAt(it) }
-            ?: getString(R.string.wifi_background_scan_never)
-        binding.textViewBackgroundScanStatus.text = getString(
-            R.string.wifi_background_scan_status_format,
-            state.intervalMinutes,
-            lastRun
-        )
     }
 
     private fun handleRiskTransitionAlert(alert: WifiRiskTransitionAlert?) {
@@ -532,10 +502,12 @@ class WifiSecurityFragment : Fragment() {
         if (alert.isOnWifi && alert.matchConfidence != WifiMatchConfidence.VERIFIED_BSSID) {
             chips += matchConfidenceChip(alert.matchConfidence)
         }
+        chips += scanFreshnessChip(alert)
         if (latestSafetyAssessment?.isLimitedData == true) {
             chips += limitedVerificationChip()
         }
-        renderChipRow(binding.layoutCurrentWifiSummaryChips, chips)
+        // Keep the overview readable; the complete evidence remains available in details.
+        renderChipRow(binding.layoutCurrentWifiSummaryChips, chips.take(3))
         binding.scrollViewCurrentWifiSummaryChips.visibility =
             if (chips.isEmpty()) View.GONE else View.VISIBLE
     }
@@ -544,7 +516,13 @@ class WifiSecurityFragment : Fragment() {
         val assessment = latestSafetyAssessment ?: return
         val checks = latestAdvancedChecks
         val detail = StringBuilder().apply {
-            append(getString(R.string.wifi_safety_score_format, assessment.score))
+            append(
+                if (assessment.isScoreAvailable) {
+                    getString(R.string.wifi_safety_score_format, assessment.score)
+                } else {
+                    getString(R.string.wifi_safety_score_unavailable)
+                }
+            )
             append('\n')
             append(getString(R.string.wifi_score_breakdown_total_format, assessment.dimensions.sumOf { it.penalty }))
             val activeDimensions = assessment.dimensions.filter { it.penalty > 0 }
@@ -607,43 +585,6 @@ class WifiSecurityFragment : Fragment() {
             .setMessage(detail)
             .setPositiveButton(android.R.string.ok, null)
             .show()
-    }
-
-    private fun renderAdvancedChecks(checks: List<WifiAdvancedCheckItem>) {
-        val container = binding.layoutAdvancedChecksContainer
-        container.removeAllViews()
-        if (checks.isEmpty()) {
-            addSectionMessage(container, getString(R.string.wifi_advanced_checks_none))
-            return
-        }
-
-        checks.forEach { check ->
-            val row = LinearLayout(requireContext()).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(0, 6, 0, 6)
-            }
-            val statusRes = when (check.level) {
-                WifiNetworkRiskLevel.SAFE -> R.string.wifi_check_status_safe
-                WifiNetworkRiskLevel.WARNING -> R.string.wifi_check_status_warning
-                WifiNetworkRiskLevel.DANGER -> R.string.wifi_check_status_danger
-            }
-            val title = TextView(requireContext()).apply {
-                text = "${getString(check.dimension.titleResId)} - " + getString(
-                    R.string.wifi_advanced_check_title_format,
-                    getString(statusRes),
-                    getString(check.titleResId)
-                )
-                textSize = 13f
-                setTypeface(typeface, android.graphics.Typeface.BOLD)
-            }
-            val detail = TextView(requireContext()).apply {
-                text = check.detail
-                textSize = 12f
-            }
-            row.addView(title)
-            row.addView(detail)
-            container.addView(row)
-        }
     }
 
     private fun renderScoreBreakdown(dimensions: List<WifiScoreDimensionResult>) {
@@ -737,8 +678,18 @@ class WifiSecurityFragment : Fragment() {
         val currentAlert = latestWifiAlert
         container.removeAllViews()
         when {
-            state.messageResId != null -> addSectionMessage(container, getString(state.messageResId))
-            state.networks.isEmpty() -> addSectionMessage(container, getString(R.string.wifi_nearby_none))
+            state.messageResId != null -> addNearbyEmptyState(
+                container = container,
+                title = getString(R.string.wifi_nearby_access_needed_title),
+                message = getString(state.messageResId),
+                showAction = true
+            )
+            state.networks.isEmpty() -> addNearbyEmptyState(
+                container = container,
+                title = getString(R.string.wifi_nearby_empty_title),
+                message = getString(R.string.wifi_nearby_none),
+                showAction = false
+            )
             else -> {
                 state.networks.forEach { network ->
                     val row = layoutInflater.inflate(
@@ -748,6 +699,7 @@ class WifiSecurityFragment : Fragment() {
                     )
                     val icon = row.findViewById<ImageView>(R.id.imageViewAvailableNetworkIcon)
                     val title = row.findViewById<TextView>(R.id.textViewAvailableNetworkTitle)
+                    val signal = row.findViewById<TextView>(R.id.textViewAvailableNetworkSignal)
                     val currentBadge = row.findViewById<TextView>(R.id.textViewAvailableNetworkCurrentBadge)
                     val body = row.findViewById<TextView>(R.id.textViewAvailableNetworkBody)
                     val identity = row.findViewById<TextView>(R.id.textViewAvailableNetworkIdentity)
@@ -766,6 +718,14 @@ class WifiSecurityFragment : Fragment() {
                     icon.setImageResource(iconRes)
                     icon.contentDescription = getString(iconDescRes)
                     title.text = network.ssid
+                    signal.text = network.signalDbm?.let { dbm ->
+                        getString(
+                            R.string.wifi_signal_format,
+                            getString(signalQualityLabelRes(dbm)),
+                            dbm
+                        )
+                    }.orEmpty()
+                    signal.visibility = if (network.signalDbm == null) View.GONE else View.VISIBLE
                     currentBadge.visibility = if (network.isCurrent) View.VISIBLE else View.GONE
                     if (network.isCurrent) {
                         styleCurrentBadge(currentBadge, network.riskLevel)
@@ -992,19 +952,8 @@ class WifiSecurityFragment : Fragment() {
         }
     }
 
-    private fun updateAdvancedChecksSectionVisibility() {
-        binding.layoutAdvancedChecksContainer.visibility =
-            if (isAdvancedChecksExpanded) View.VISIBLE else View.GONE
-        binding.textViewAdvancedChecksToggle.text = getString(
-            if (isAdvancedChecksExpanded) {
-                R.string.wifi_networks_hide
-            } else {
-                R.string.wifi_networks_show
-            }
-        )
-    }
-
     private fun updateCurrentWifiDetailsVisibility() {
+        beginSectionTransition()
         binding.layoutCurrentWifiDetailsContainer.visibility =
             if (isCurrentWifiDetailsExpanded) View.VISIBLE else View.GONE
         binding.textViewCurrentWifiToggle.text = getString(
@@ -1017,6 +966,7 @@ class WifiSecurityFragment : Fragment() {
     }
 
     private fun updateNearbyNetworksSectionVisibility() {
+        beginSectionTransition()
         binding.layoutAvailableNetworksContainer.visibility =
             if (isNearbyNetworksExpanded) View.VISIBLE else View.GONE
         binding.textViewAvailableNetworksToggle.text = getString(
@@ -1029,6 +979,7 @@ class WifiSecurityFragment : Fragment() {
     }
 
     private fun updateTrustedNetworksSectionVisibility() {
+        beginSectionTransition()
         binding.layoutTrustedNetworksContainer.visibility =
             if (isTrustedNetworksExpanded) View.VISIBLE else View.GONE
         binding.textViewTrustedNetworksToggle.text = getString(
@@ -1037,6 +988,13 @@ class WifiSecurityFragment : Fragment() {
             } else {
                 R.string.wifi_networks_show
             }
+        )
+    }
+
+    private fun beginSectionTransition() {
+        TransitionManager.beginDelayedTransition(
+            binding.root as ViewGroup,
+            AutoTransition().apply { duration = 180L }
         )
     }
 
@@ -1231,8 +1189,7 @@ class WifiSecurityFragment : Fragment() {
         if (profile.pendingBssid != null && profile.pendingSeenCount > 0) {
             return getString(
                 R.string.wifi_trust_detail_pending_format,
-                profile.pendingSeenCount,
-                WifiTrustedBaselineManager.AUTO_PROMOTION_THRESHOLD
+                profile.pendingSeenCount
             )
         }
         return getString(R.string.wifi_trust_detail_stable)
@@ -1540,6 +1497,27 @@ class WifiSecurityFragment : Fragment() {
         )
     }
 
+    private fun scanFreshnessChip(alert: WifiSecurityAlert): UiChip {
+        val textRes = when (alert.scanFreshness) {
+            WifiScanFreshness.FRESH -> R.string.wifi_scan_chip_fresh
+            WifiScanFreshness.CACHED -> R.string.wifi_scan_chip_cached
+            WifiScanFreshness.STALE -> R.string.wifi_scan_chip_stale
+            WifiScanFreshness.UNAVAILABLE -> R.string.wifi_scan_chip_unavailable
+        }
+        val level = when (alert.scanFreshness) {
+            WifiScanFreshness.FRESH -> WifiNetworkRiskLevel.SAFE
+            WifiScanFreshness.CACHED,
+            WifiScanFreshness.STALE,
+            WifiScanFreshness.UNAVAILABLE -> WifiNetworkRiskLevel.WARNING
+        }
+        return UiChip(
+            text = getString(textRes),
+            level = level,
+            dialogTitle = getString(R.string.wifi_scan_data_title),
+            dialogMessage = scanFreshnessText(alert)
+        )
+    }
+
     private fun limitedVerificationChip(): UiChip {
         return limitedVerificationChip(latestSafetyAssessment?.uncertainties.orEmpty())
     }
@@ -1554,7 +1532,7 @@ class WifiSecurityFragment : Fragment() {
             level = WifiNetworkRiskLevel.WARNING,
             dialogTitle = "Limited verification",
             dialogMessage = buildString {
-                append("The score is being reduced because the app could not verify all parts of this Wi-Fi confidently.")
+                append("Missing data does not reduce the safety score. These checks could not be verified confidently.")
                 if (uncertaintyText.isNotBlank()) {
                     append("\n\nActive uncertainty signals:\n")
                     append(uncertaintyText)
@@ -1772,11 +1750,70 @@ class WifiSecurityFragment : Fragment() {
     }
 
     private fun showInfoDialog(title: String, message: String) {
-        AlertDialog.Builder(requireContext())
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle(title)
             .setMessage(message)
-            .setPositiveButton(android.R.string.ok, null)
+            .setPositiveButton(R.string.dialog_got_it, null)
             .show()
+    }
+
+    private fun signalQualityLabelRes(dbm: Int): Int = when {
+        dbm >= -55 -> R.string.wifi_signal_excellent
+        dbm >= -67 -> R.string.wifi_signal_good
+        dbm >= -75 -> R.string.wifi_signal_fair
+        else -> R.string.wifi_signal_weak
+    }
+
+    private fun requestNearbyWifiAccess() {
+        if (latestWifiAlert?.reason == WifiAlertReason.LOCATION_SERVICES_DISABLED && hasLocationPermission()) {
+            requestLocationServicesResolution(userInitiated = true)
+        } else {
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+    }
+
+    private fun addNearbyEmptyState(
+        container: LinearLayout,
+        title: String,
+        message: String,
+        showAction: Boolean
+    ) {
+        val card = MaterialCardView(requireContext()).apply {
+            setCardBackgroundColor(ContextCompat.getColor(requireContext(), R.color.rs_surface_tinted))
+            radius = resources.getDimension(R.dimen.rs_radius_medium)
+            strokeWidth = 0
+        }
+        val content = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            val padding = (16 * resources.displayMetrics.density).toInt()
+            setPadding(padding, padding, padding, padding)
+        }
+        content.addView(TextView(requireContext()).apply {
+            text = title
+            setTextAppearance(R.style.TextAppearance_Resistine_Section)
+        })
+        content.addView(TextView(requireContext()).apply {
+            text = message
+            setTextAppearance(R.style.TextAppearance_Resistine_Body)
+            setPadding(0, (4 * resources.displayMetrics.density).toInt(), 0, 0)
+        })
+        if (showAction) {
+            content.addView(MaterialButton(requireContext()).apply {
+                text = getString(R.string.wifi_nearby_access_action)
+                setOnClickListener { requestNearbyWifiAccess() }
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = (12 * resources.displayMetrics.density).toInt() }
+            })
+        }
+        card.addView(content)
+        container.addView(card)
     }
 
     private fun loadDebugDetailsEnabled(): Boolean {
@@ -1805,6 +1842,27 @@ class WifiSecurityFragment : Fragment() {
     private fun formatCheckedAt(timestampMs: Long): String {
         return DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM)
             .format(Date(timestampMs))
+    }
+
+    private fun scanFreshnessText(alert: WifiSecurityAlert): String {
+        val ageSeconds = alert.scanAgeMillis?.div(1_000L)
+        val ageText = when {
+            ageSeconds == null -> getString(R.string.wifi_scan_age_unknown)
+            ageSeconds < 60L -> getString(R.string.wifi_scan_age_seconds, ageSeconds)
+            else -> getString(R.string.wifi_scan_age_minutes, ageSeconds / 60L)
+        }
+        val state = when (alert.scanFreshness) {
+            WifiScanFreshness.FRESH -> getString(R.string.wifi_scan_freshness_fresh)
+            WifiScanFreshness.CACHED -> getString(R.string.wifi_scan_freshness_cached)
+            WifiScanFreshness.STALE -> getString(R.string.wifi_scan_freshness_stale)
+            WifiScanFreshness.UNAVAILABLE -> getString(R.string.wifi_scan_freshness_unavailable)
+        }
+        val throttleNote = if (alert.freshScanRequested && !alert.freshScanAccepted) {
+            getString(R.string.wifi_scan_refresh_deferred)
+        } else {
+            ""
+        }
+        return getString(R.string.wifi_scan_freshness_line, state, ageText, throttleNote)
     }
 
     private fun riskLevelLabelRes(level: WifiNetworkRiskLevel): Int {

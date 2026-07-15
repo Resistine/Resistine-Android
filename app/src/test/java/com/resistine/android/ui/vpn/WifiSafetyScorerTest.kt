@@ -47,7 +47,7 @@ class WifiSafetyScorerTest {
     }
 
     @Test
-    fun `missing permission now scores as limited coverage warning`() {
+    fun `missing permission limits confidence without lowering safety score`() {
         val alert = wifiAlert(
             reason = WifiAlertReason.MISSING_PERMISSION,
             securityType = null
@@ -56,15 +56,16 @@ class WifiSafetyScorerTest {
         val checks = WifiSafetyScorer.buildCoreChecks(alert, signals = null)
         val assessment = WifiSafetyScorer.buildSafetyAssessment(alert, checks)
 
-        assertEquals(68, assessment.score)
-        assertEquals(WifiNetworkRiskLevel.WARNING, assessment.level)
-        assertEquals(R.string.wifi_security_recommendation_warning, assessment.recommendationResId)
+        assertEquals(100, assessment.score)
+        assertEquals(WifiNetworkRiskLevel.SAFE, assessment.level)
+        assertEquals(R.string.wifi_security_recommendation_info, assessment.recommendationResId)
         assertTrue(assessment.isLimitedData)
+        assertFalse(assessment.isScoreAvailable)
         assertTrue(assessment.uncertainties.contains(WifiAssessmentUncertainty.ENCRYPTION_UNVERIFIED))
     }
 
     @Test
-    fun `unknown security is treated as danger when visibility is poor`() {
+    fun `unknown security remains limited data instead of being called dangerous`() {
         val alert = wifiAlert(
             reason = WifiAlertReason.UNKNOWN_SECURITY,
             securityType = WifiSecurityType.UNKNOWN
@@ -73,8 +74,10 @@ class WifiSafetyScorerTest {
         val checks = WifiSafetyScorer.buildCoreChecks(alert, signals = null)
         val assessment = WifiSafetyScorer.buildSafetyAssessment(alert, checks)
 
-        assertEquals(50, assessment.score)
-        assertEquals(WifiNetworkRiskLevel.DANGER, assessment.level)
+        assertEquals(100, assessment.score)
+        assertEquals(WifiNetworkRiskLevel.SAFE, assessment.level)
+        assertTrue(assessment.isLimitedData)
+        assertFalse(assessment.isScoreAvailable)
         assertTrue(assessment.uncertainties.contains(WifiAssessmentUncertainty.ENCRYPTION_UNVERIFIED))
     }
 
@@ -114,7 +117,7 @@ class WifiSafetyScorerTest {
     }
 
     @Test
-    fun `stacked limited data signals drag score into danger range`() {
+    fun `stacked limited data signals do not create a false danger score`() {
         val alert = wifiAlert(
             reason = WifiAlertReason.LOCATION_SERVICES_DISABLED,
             securityType = WifiSecurityType.UNKNOWN,
@@ -124,9 +127,37 @@ class WifiSafetyScorerTest {
         val checks = WifiSafetyScorer.buildCoreChecks(alert, signals = null)
         val assessment = WifiSafetyScorer.buildSafetyAssessment(alert, checks)
 
-        assertTrue(assessment.score <= 54)
-        assertEquals(WifiNetworkRiskLevel.DANGER, assessment.level)
+        assertEquals(100, assessment.score)
+        assertEquals(WifiNetworkRiskLevel.SAFE, assessment.level)
         assertTrue(assessment.isLimitedData)
+        assertFalse(assessment.isScoreAvailable)
+    }
+
+    @Test
+    fun `validated wpa2 is acceptable and is not penalized only for lacking wpa3`() {
+        val alert = wifiAlert(
+            reason = WifiAlertReason.SECURE,
+            securityType = WifiSecurityType.SECURE
+        ).copy(securityProfile = WifiSecurityProfile(mode = WifiSecurityMode.WPA2_PSK))
+        val signals = WifiSecuritySignals(
+            profile = WifiSecurityProfile(mode = WifiSecurityMode.WPA2_PSK),
+            isTransitionMode = false,
+            isOwe = false,
+            isOpenPlain = false,
+            isWpa2Personal = true,
+            isWpa3Personal = false,
+            isWpa2Enterprise = false,
+            isWpa3Enterprise = false,
+            isWep = false
+        )
+
+        val assessment = WifiSafetyScorer.buildSafetyAssessment(
+            alert,
+            WifiSafetyScorer.buildCoreChecks(alert, signals)
+        )
+
+        assertEquals(100, assessment.score)
+        assertEquals(WifiNetworkRiskLevel.SAFE, assessment.level)
     }
 
     @Test

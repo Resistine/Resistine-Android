@@ -7,8 +7,7 @@
     android:layout_marginBottom="14dp"
     android:background="@drawable/bg_wifi_network_card"
     android:orientation="vertical"
-    android:padding="12dp"
-    android:elevation="1dp">
+    android:padding="@dimen/rs_space_16">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -25,13 +24,12 @@
 
         <TextView
             android:id="@+id/textViewTrustedNetworkTitle"
+            style="@style/TextAppearance.Resistine.Section"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
             android:layout_weight="1"
-            android:text="@string/wifi_trusted_entry_title"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+            android:text="@string/wifi_trusted_entry_title" />
 
         <TextView
             android:id="@+id/textViewTrustedNetworkCurrentBadge"
@@ -51,11 +49,11 @@
 
     <TextView
         android:id="@+id/textViewTrustedNetworkBody"
+        style="@style/TextAppearance.Resistine.Body"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
-        android:text="@string/wifi_trusted_entry_body"
-        android:textSize="13sp" />
+        android:text="@string/wifi_trusted_entry_body" />
 
     <HorizontalScrollView
         android:id="@+id/scrollViewTrustedNetworkChips"
@@ -136,8 +134,9 @@
 
     </LinearLayout>
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/buttonRemoveTrustedNetwork"
+        style="@style/Widget.Resistine.Button.Outlined"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
