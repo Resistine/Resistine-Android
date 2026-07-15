@@ -19,4 +19,27 @@
     <color name="wifi_risk_safe_text">#1B5E20</color>
     <color name="wifi_risk_warning_text">#8A5000</color>
     <color name="wifi_risk_danger_text">#8A1A1A</color>
+
+    <!-- Resistine Material 3 design tokens. -->
+    <color name="rs_primary">#095ACF</color>
+    <color name="rs_primary_bright">#2C7DF0</color>
+    <color name="rs_primary_dark">#073B91</color>
+    <color name="rs_on_primary">#FFFFFFFF</color>
+    <color name="rs_background">#FFF4F8FD</color>
+    <color name="rs_surface">#FFFFFFFF</color>
+    <color name="rs_surface_tinted">#FFF8FAFD</color>
+    <color name="rs_surface_blue">#FFEAF3FF</color>
+    <color name="rs_text_primary">#FF0D1B33</color>
+    <color name="rs_text_secondary">#FF5F6F86</color>
+    <color name="rs_outline">#FFDCE7F5</color>
+    <color name="rs_outline_strong">#FFB8CDEA</color>
+    <color name="rs_switch_off">#FF8DA2BC</color>
+    <color name="rs_hero_overlay">#24FFFFFF</color>
+    <color name="rs_status_safe">#FF12A866</color>
+    <color name="rs_status_warning">#FFC98600</color>
+    <color name="rs_status_danger">#FFD93025</color>
+    <color name="rs_status_safe_container">#FFE9F8EF</color>
+    <color name="rs_status_warning_container">#FFFFF5DB</color>
+    <color name="rs_status_danger_container">#FFFFECEA</color>
+    <color name="rs_scrim">#330B2340</color>
 </resources>

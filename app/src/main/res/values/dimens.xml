@@ -5,4 +5,22 @@
     <dimen name="nav_header_vertical_spacing">8dp</dimen>
     <dimen name="nav_header_height">176dp</dimen>
     <dimen name="fab_margin">16dp</dimen>
+    <dimen name="rs_space_2">2dp</dimen>
+    <dimen name="rs_space_4">4dp</dimen>
+    <dimen name="rs_space_6">6dp</dimen>
+    <dimen name="rs_space_8">8dp</dimen>
+    <dimen name="rs_space_10">10dp</dimen>
+    <dimen name="rs_space_12">12dp</dimen>
+    <dimen name="rs_space_16">16dp</dimen>
+    <dimen name="rs_space_20">20dp</dimen>
+    <dimen name="rs_space_24">24dp</dimen>
+    <dimen name="rs_space_32">32dp</dimen>
+    <dimen name="rs_space_40">40dp</dimen>
+    <dimen name="rs_radius_small">12dp</dimen>
+    <dimen name="rs_radius_medium">18dp</dimen>
+    <dimen name="rs_radius_large">24dp</dimen>
+    <dimen name="rs_screen_padding">20dp</dimen>
+    <dimen name="rs_touch_target">48dp</dimen>
+    <dimen name="rs_bottom_nav_height">64dp</dimen>
+    <dimen name="rs_toolbar_height">64dp</dimen>
 </resources>

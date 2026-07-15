@@ -1,22 +1,30 @@
-<resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Theme.ResistineAndroidApp" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
-        <!-- Primary brand color. -->
-        <item name="colorPrimary">@color/dark_blue</item>
-        <item name="colorPrimaryVariant">@color/white</item>
-        <item name="colorOnPrimary">@color/white</item>
-        <item name="backgroundColor">@color/black</item>
-        <item name="textAppearanceCaption">@color/white</item>
-
-        <!-- Secondary brand color. -->
-        <item name="colorSecondary">@color/dark_blue</item>
-        <item name="colorSecondaryVariant">@color/blue_on_black</item>
-        <item name="colorOnSecondary">@color/blue_on_black</item>
-        <!-- Status bar color. -->
-        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
-        <!-- Customize your theme here. -->
-        <item name="android:windowBackground">@color/dark_grey</item>
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.ResistineAndroidApp" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/rs_primary</item>
+        <item name="colorOnPrimary">@color/rs_on_primary</item>
+        <item name="colorPrimaryContainer">@color/rs_surface_blue</item>
+        <item name="colorOnPrimaryContainer">@color/rs_text_primary</item>
+        <item name="colorSecondary">@color/rs_primary_bright</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="colorSecondaryContainer">@color/rs_surface_blue</item>
+        <item name="colorOnSecondaryContainer">@color/rs_primary_dark</item>
+        <item name="colorTertiary">@color/rs_primary</item>
+        <item name="colorOnTertiary">@color/white</item>
+        <item name="colorTertiaryContainer">@color/rs_surface_blue</item>
+        <item name="colorOnTertiaryContainer">@color/rs_primary_dark</item>
+        <item name="colorSurface">@color/rs_surface</item>
+        <item name="colorOnSurface">@color/rs_text_primary</item>
+        <item name="colorSurfaceVariant">@color/rs_surface_tinted</item>
+        <item name="colorOnSurfaceVariant">@color/rs_text_secondary</item>
+        <item name="colorOutline">@color/rs_outline</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">@color/rs_surface</item>
+        <item name="android:navigationBarColor">@color/rs_surface</item>
+        <item name="android:windowBackground">@color/rs_surface</item>
+        <item name="materialButtonStyle">@style/Widget.Resistine.Button.Primary</item>
+        <item name="materialCardViewStyle">@style/Widget.Resistine.Card</item>
+        <item name="textInputStyle">@style/Widget.Resistine.TextInputLayout</item>
+        <item name="materialSwitchStyle">@style/Widget.Resistine.Switch</item>
     </style>
-
-
 </resources>

@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Widget.Resistine.Switch" parent="Widget.Material3.CompoundButton.MaterialSwitch">
+        <item name="thumbTint">@color/rs_switch_thumb</item>
+        <item name="trackTint">@color/rs_switch_track</item>
+    </style>
+
+    <style name="TextAppearance.Resistine.Display" parent="TextAppearance.Material3.HeadlineLarge">
+        <item name="android:textColor">@color/rs_text_primary</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="TextAppearance.Resistine.Headline" parent="TextAppearance.Material3.HeadlineMedium">
+        <item name="android:textColor">@color/rs_text_primary</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="TextAppearance.Resistine.Title" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:textColor">@color/rs_text_primary</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="TextAppearance.Resistine.Section" parent="TextAppearance.Material3.TitleMedium">
+        <item name="android:textColor">@color/rs_text_primary</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="TextAppearance.Resistine.Body" parent="TextAppearance.Material3.BodyLarge">
+        <item name="android:textColor">@color/rs_text_secondary</item>
+    </style>
+
+    <style name="TextAppearance.Resistine.Label" parent="TextAppearance.Material3.LabelLarge">
+        <item name="android:textColor">@color/rs_text_primary</item>
+    </style>
+
+    <style name="Widget.Resistine.Card" parent="Widget.Material3.CardView.Elevated">
+        <item name="cardBackgroundColor">@color/rs_surface</item>
+        <item name="cardCornerRadius">@dimen/rs_radius_large</item>
+        <item name="cardElevation">2dp</item>
+        <item name="strokeColor">@color/rs_outline</item>
+        <item name="strokeWidth">0dp</item>
+    </style>
+
+    <style name="Widget.Resistine.Card.Tinted" parent="Widget.Resistine.Card">
+        <item name="cardBackgroundColor">@color/rs_surface_tinted</item>
+    </style>
+
+    <style name="Widget.Resistine.Button.Primary" parent="Widget.Material3.Button">
+        <item name="android:minHeight">52dp</item>
+        <item name="cornerRadius">18dp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="Widget.Resistine.Button.Outlined" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="android:minHeight">52dp</item>
+        <item name="cornerRadius">18dp</item>
+        <item name="strokeColor">@color/rs_primary_bright</item>
+        <item name="android:textAllCaps">false</item>
+    </style>
+
+    <style name="Widget.Resistine.TextInputLayout" parent="Widget.Material3.TextInputLayout.OutlinedBox">
+        <item name="boxCornerRadiusTopStart">16dp</item>
+        <item name="boxCornerRadiusTopEnd">16dp</item>
+        <item name="boxCornerRadiusBottomStart">16dp</item>
+        <item name="boxCornerRadiusBottomEnd">16dp</item>
+        <item name="boxStrokeColor">@color/rs_primary_bright</item>
+        <item name="hintTextColor">@color/rs_text_secondary</item>
+    </style>
+
+    <style name="Widget.Resistine.BottomNavigation" parent="Widget.Material3.BottomNavigationView">
+        <item name="itemActiveIndicatorStyle">@style/Widget.Resistine.NavigationIndicator</item>
+        <item name="itemIconTint">@color/rs_bottom_nav_color</item>
+        <item name="itemTextColor">@color/rs_bottom_nav_color</item>
+        <item name="backgroundTint">@null</item>
+        <item name="elevation">10dp</item>
+    </style>
+
+    <style name="Widget.Resistine.NavigationIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
+        <item name="android:color">@color/rs_surface_blue</item>
+    </style>
+</resources>
