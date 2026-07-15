@@ -6,6 +6,8 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.transition.AutoTransition
+import android.transition.TransitionManager
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -37,7 +39,7 @@ class AppsFragment : Fragment() {
     private var allApps: List<AppEntry> = emptyList()
     private var sortOption: SortOption = SortOption.NAME_ASC
     private var searchQuery: String = ""
-    private var filtersExpanded: Boolean = true
+    private var filtersExpanded: Boolean = false
     private lateinit var permissionScopeOptions: List<PermissionScopeOption>
     private var selectedPermissionScope: String? = null
     private var reviewQueue: List<AppEntry> = emptyList()
@@ -48,20 +50,21 @@ class AppsFragment : Fragment() {
     private var permissionRefreshJob: Job? = null
     private val badgeBaseLabels: Map<BadgeType, String> by lazy {
         mapOf(
-            BadgeType.SIGNATURE_MISMATCH to getString(R.string.badge_signature_mismatch),
-            BadgeType.LOOKALIKE_NAME to getString(R.string.badge_lookalike_name),
-            BadgeType.OUTDATED to getString(R.string.badge_outdated),
-            BadgeType.SIDELOADED to getString(R.string.badge_sideloaded),
+            BadgeType.ACCESSIBILITY_ENABLED to getString(R.string.badge_accessibility_enabled),
+            BadgeType.DEVICE_ADMIN to getString(R.string.badge_device_admin),
+            BadgeType.NOTIFICATION_ACCESS to getString(R.string.badge_notification_access),
+            BadgeType.LOCAL_INSTALL to getString(R.string.badge_local_install),
             BadgeType.DEBUGGABLE to getString(R.string.badge_debuggable),
             BadgeType.OLD_TARGET_SDK to getString(R.string.badge_old_target_sdk),
-            BadgeType.HIGH_RISK_PERMISSION to getString(R.string.badge_high_risk_permission)
+            BadgeType.SENSITIVE_PERMISSION to getString(R.string.badge_sensitive_permission)
         )
     }
     private val riskBaseLabels: Map<RiskVerdict, String> by lazy {
         mapOf(
-            RiskVerdict.SAFE to getString(R.string.risk_safe),
-            RiskVerdict.WARNING to getString(R.string.risk_warning),
-            RiskVerdict.RISK to getString(R.string.risk_risk)
+            RiskVerdict.NO_CONCERN to getString(R.string.app_verdict_no_concern),
+            RiskVerdict.REVIEW to getString(R.string.app_verdict_review),
+            RiskVerdict.URGENT_REVIEW to getString(R.string.app_verdict_urgent_review),
+            RiskVerdict.UNKNOWN to getString(R.string.app_verdict_unknown)
         )
     }
 
@@ -74,7 +77,7 @@ class AppsFragment : Fragment() {
         viewModel = ViewModelProvider(this)[AppsViewModel::class.java]
 
         adapter = AppAdapter(requireContext().packageManager) { entry ->
-            val opened = openPermissionSettingsForEntry(entry, selectedPermissionScope)
+            val opened = openReviewSettingsForEntry(entry, selectedPermissionScope)
             if (!opened) {
                 Toast.makeText(
                     requireContext(),
@@ -85,7 +88,7 @@ class AppsFragment : Fragment() {
         }
         binding.recyclerViewApps.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerViewApps.adapter = adapter
-        binding.recyclerViewApps.isNestedScrollingEnabled = false
+        binding.recyclerViewApps.isNestedScrollingEnabled = true
         binding.recyclerViewApps.setHasFixedSize(false)
 
         setupFilters()
@@ -105,48 +108,55 @@ class AppsFragment : Fragment() {
             maybeRunScan()
         }
 
-        viewModel.apps.observe(viewLifecycleOwner) { apps ->
-            allApps = apps
-            val currentPackages = apps.map { it.packageInfo.packageName }.toSet()
+        viewModel.uiState.observe(viewLifecycleOwner) { state ->
+            render(state)
+        }
+
+        return binding.root
+    }
+
+    private fun render(state: AppsUiState) {
+        if (state.apps != allApps) {
+            allApps = state.apps
+            val currentPackages = state.apps.map { it.packageInfo.packageName }.toSet()
             liveHighRiskPermissionOverrides.keys.retainAll(currentPackages)
-            if (lastOpenedAppPackage !in currentPackages) {
-                lastOpenedAppPackage = null
-            }
+            if (lastOpenedAppPackage !in currentPackages) lastOpenedAppPackage = null
             clearReviewSession()
             applyFilters()
             updatePermissionActionsUi()
         }
 
-        viewModel.scanSummary.observe(viewLifecycleOwner) { summary ->
-            if (summary.isScanned) {
-                binding.scanSummaryTitle.text = getString(R.string.scan_summary_title)
-                binding.scanSummaryBody.text = getString(
-                    R.string.scan_summary_body,
-                    summary.safe,
-                    summary.warning,
-                    summary.risk,
-                    summary.total
-                )
-                val formatted = DateFormat.getDateTimeInstance().format(Date(summary.lastScanAt ?: 0))
-                binding.scanSummaryTime.text = getString(R.string.scan_summary_time, formatted)
-            } else {
-                binding.scanSummaryTitle.text = getString(R.string.scan_summary_not_scanned)
-                binding.scanSummaryBody.text = getString(R.string.scan_summary_prompt)
-                binding.scanSummaryTime.text = ""
-            }
+        if (binding.switchSystemApps.isChecked != state.showSystemApps) {
+            binding.switchSystemApps.isChecked = state.showSystemApps
         }
 
-        viewModel.isScanning.observe(viewLifecycleOwner) { scanning ->
-            binding.scanProgress.visibility = if (scanning) View.VISIBLE else View.GONE
-            binding.buttonScan.isEnabled = !scanning
-            binding.buttonScan.text = if (scanning) {
-                getString(R.string.scan_in_progress)
-            } else {
-                getString(R.string.scan_button)
-            }
+        val summary = state.summary
+        if (summary.isScanned) {
+            binding.scanSummaryTitle.text = getString(R.string.scan_summary_title)
+            binding.scanSummaryBody.text = getString(
+                R.string.scan_summary_body,
+                summary.noConcern,
+                summary.review,
+                summary.urgentReview,
+                summary.total
+            )
+            val formatted = DateFormat.getDateTimeInstance().format(Date(summary.lastScanAt ?: 0))
+            binding.scanSummaryTime.text = getString(R.string.scan_summary_time, formatted)
+        } else {
+            binding.scanSummaryTitle.text = getString(R.string.scan_summary_not_scanned)
+            binding.scanSummaryBody.text = getString(R.string.scan_summary_prompt)
+            binding.scanSummaryTime.text = ""
         }
 
-        return binding.root
+        binding.scanProgress.visibility = if (state.isScanning) View.VISIBLE else View.GONE
+        binding.scanProgress.isIndeterminate = state.scanProgress == null
+        state.scanProgress?.let { binding.scanProgress.setProgressCompat(it, true) }
+        binding.buttonScan.isEnabled = !state.isScanning
+        binding.buttonScan.text = if (state.isScanning && state.scanProgress != null) {
+            getString(R.string.scan_progress_format, state.scanProgress)
+        } else {
+            getString(if (state.isScanning) R.string.scan_in_progress else R.string.scan_button)
+        }
     }
 
     private fun setupFilterToggle() {
@@ -155,15 +165,23 @@ class AppsFragment : Fragment() {
             filtersExpanded = !filtersExpanded
             updateFilterVisibility()
         }
+        binding.buttonDoneFilters.setOnClickListener {
+            filtersExpanded = false
+            updateFilterVisibility()
+        }
     }
 
     private fun updateFilterVisibility() {
+        TransitionManager.beginDelayedTransition(
+            binding.appBarContent,
+            AutoTransition().apply { duration = 180L }
+        )
         binding.filtersContainer.visibility = if (filtersExpanded) View.VISIBLE else View.GONE
-        binding.buttonToggleFilters.text = if (filtersExpanded) {
-            getString(R.string.hide_filters)
-        } else {
-            getString(R.string.show_filters)
-        }
+        binding.permissionActionsCard.visibility = View.GONE
+        binding.buttonToggleFilters.contentDescription = getString(
+            if (filtersExpanded) R.string.hide_filters else R.string.show_filters
+        )
+        binding.buttonToggleFilters.isSelected = filtersExpanded
     }
 
     private fun setupFilters() {
@@ -196,6 +214,15 @@ class AppsFragment : Fragment() {
         }
 
         binding.badgeChipGroup.setOnCheckedStateChangeListener { _, _ ->
+            applyFilters()
+        }
+
+        binding.buttonClearFilters.setOnClickListener {
+            sortOption = SortOption.NAME_ASC
+            binding.sortDropdown.setText(sortOptions.first(), false)
+            binding.riskChipGroup.clearCheck()
+            binding.badgeChipGroup.clearCheck()
+            binding.switchSystemApps.isChecked = false
             applyFilters()
         }
     }
@@ -232,7 +259,7 @@ class AppsFragment : Fragment() {
     private fun buildPermissionScopeOptions(): List<PermissionScopeOption> {
         val options = ArrayList<PermissionScopeOption>()
         options.add(PermissionScopeOption(null, getString(R.string.permission_actions_scope_all)))
-        ScanUtils.highRiskPermissions
+        ScanUtils.sensitiveRuntimePermissions
             .sortedBy { ScanUtils.permissionDisplayName(it) }
             .forEach { permission ->
                 options.add(PermissionScopeOption(permission, ScanUtils.permissionDisplayName(permission)))
@@ -391,8 +418,7 @@ class AppsFragment : Fragment() {
 
     private fun queryCurrentHighRiskPermissions(
         packageManager: PackageManager,
-        packageName: String,
-        label: String
+        packageName: String
     ): List<String> {
         val packageInfo = runCatching {
             val flags = PackageManager.GET_PERMISSIONS
@@ -409,12 +435,10 @@ class AppsFragment : Fragment() {
 
         val requested = packageInfo.requestedPermissions ?: return emptyList()
         val requestFlags = packageInfo.requestedPermissionsFlags
-        val allowed = ScanUtils.allowedHighRiskPermissions(packageName, label)
         val results = ArrayList<String>()
         for (i in requested.indices) {
             val permission = requested[i]
-            if (permission !in ScanUtils.highRiskPermissions) continue
-            if (permission in allowed) continue
+            if (permission !in ScanUtils.sensitiveRuntimePermissions) continue
             val granted = if (requestFlags != null && requestFlags.size > i) {
                 (requestFlags[i] and android.content.pm.PackageInfo.REQUESTED_PERMISSION_GRANTED) != 0
             } else {
@@ -438,6 +462,21 @@ class AppsFragment : Fragment() {
         return opened
     }
 
+    private fun openReviewSettingsForEntry(entry: AppEntry, preferredPermission: String?): Boolean {
+        val badgeTypes = entry.scanResult?.badges?.map { it.type }?.toSet().orEmpty()
+        val elevatedIntent = when {
+            BadgeType.ACCESSIBILITY_ENABLED in badgeTypes -> Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+            BadgeType.NOTIFICATION_ACCESS in badgeTypes -> Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+            BadgeType.DEVICE_ADMIN in badgeTypes -> Intent(Settings.ACTION_SECURITY_SETTINGS)
+            else -> null
+        }
+        if (elevatedIntent != null && launchFirstResolvable(listOf(elevatedIntent))) {
+            lastOpenedAppPackage = entry.packageInfo.packageName
+            return true
+        }
+        return openPermissionSettingsForEntry(entry, preferredPermission)
+    }
+
     private fun refreshLastOpenedAppPermissions() {
         val packageName = lastOpenedAppPackage ?: return
         val entry = allApps.firstOrNull { it.packageInfo.packageName == packageName } ?: run {
@@ -448,8 +487,8 @@ class AppsFragment : Fragment() {
         val packageManager = context.packageManager
         permissionRefreshJob?.cancel()
         permissionRefreshJob = viewLifecycleOwner.lifecycleScope.launch {
-            val currentPermissions = withContext(Dispatchers.Default) {
-                queryCurrentHighRiskPermissions(packageManager, packageName, entry.label).toSet()
+            val currentPermissions = withContext(Dispatchers.IO) {
+                queryCurrentHighRiskPermissions(packageManager, packageName).toSet()
             }
             liveHighRiskPermissionOverrides[packageName] = currentPermissions
             if (_binding != null) {
@@ -557,13 +596,13 @@ class AppsFragment : Fragment() {
                 counts[type] = (counts[type] ?: 0) + 1
             }
         }
-        updateBadgeChipText(binding.chipBadgeSignatureMismatch, BadgeType.SIGNATURE_MISMATCH, counts)
-        updateBadgeChipText(binding.chipBadgeLookalike, BadgeType.LOOKALIKE_NAME, counts)
-        updateBadgeChipText(binding.chipBadgeOutdated, BadgeType.OUTDATED, counts)
-        updateBadgeChipText(binding.chipBadgeSideloaded, BadgeType.SIDELOADED, counts)
+        updateBadgeChipText(binding.chipBadgeAccessibility, BadgeType.ACCESSIBILITY_ENABLED, counts)
+        updateBadgeChipText(binding.chipBadgeDeviceAdmin, BadgeType.DEVICE_ADMIN, counts)
+        updateBadgeChipText(binding.chipBadgeNotificationAccess, BadgeType.NOTIFICATION_ACCESS, counts)
+        updateBadgeChipText(binding.chipBadgeLocalInstall, BadgeType.LOCAL_INSTALL, counts)
         updateBadgeChipText(binding.chipBadgeDebuggable, BadgeType.DEBUGGABLE, counts)
         updateBadgeChipText(binding.chipBadgeOldTargetSdk, BadgeType.OLD_TARGET_SDK, counts)
-        updateBadgeChipText(binding.chipBadgeHighRiskPermission, BadgeType.HIGH_RISK_PERMISSION, counts)
+        updateBadgeChipText(binding.chipBadgeHighRiskPermission, BadgeType.SENSITIVE_PERMISSION, counts)
     }
 
     private fun updateRiskCounts(base: List<AppEntry>) {
@@ -572,9 +611,9 @@ class AppsFragment : Fragment() {
             val verdict = entry.scanResult?.verdict ?: continue
             counts[verdict] = (counts[verdict] ?: 0) + 1
         }
-        updateRiskChipText(binding.chipRiskSafe, RiskVerdict.SAFE, counts)
-        updateRiskChipText(binding.chipRiskWarning, RiskVerdict.WARNING, counts)
-        updateRiskChipText(binding.chipRiskRisk, RiskVerdict.RISK, counts)
+        updateRiskChipText(binding.chipRiskSafe, RiskVerdict.NO_CONCERN, counts)
+        updateRiskChipText(binding.chipRiskWarning, RiskVerdict.REVIEW, counts)
+        updateRiskChipText(binding.chipRiskRisk, RiskVerdict.URGENT_REVIEW, counts)
     }
 
     private fun updateRiskChipText(
@@ -602,9 +641,9 @@ class AppsFragment : Fragment() {
         val result = HashSet<RiskVerdict>()
         for (id in checked) {
             when (id) {
-                R.id.chip_risk_safe -> result.add(RiskVerdict.SAFE)
-                R.id.chip_risk_warning -> result.add(RiskVerdict.WARNING)
-                R.id.chip_risk_risk -> result.add(RiskVerdict.RISK)
+                R.id.chip_risk_safe -> result.add(RiskVerdict.NO_CONCERN)
+                R.id.chip_risk_warning -> result.add(RiskVerdict.REVIEW)
+                R.id.chip_risk_risk -> result.add(RiskVerdict.URGENT_REVIEW)
             }
         }
         return result
@@ -615,13 +654,13 @@ class AppsFragment : Fragment() {
         val result = HashSet<BadgeType>()
         for (id in checked) {
             when (id) {
-                R.id.chip_badge_signature_mismatch -> result.add(BadgeType.SIGNATURE_MISMATCH)
-                R.id.chip_badge_lookalike -> result.add(BadgeType.LOOKALIKE_NAME)
-                R.id.chip_badge_outdated -> result.add(BadgeType.OUTDATED)
-                R.id.chip_badge_sideloaded -> result.add(BadgeType.SIDELOADED)
+                R.id.chip_badge_accessibility -> result.add(BadgeType.ACCESSIBILITY_ENABLED)
+                R.id.chip_badge_device_admin -> result.add(BadgeType.DEVICE_ADMIN)
+                R.id.chip_badge_notification_access -> result.add(BadgeType.NOTIFICATION_ACCESS)
+                R.id.chip_badge_local_install -> result.add(BadgeType.LOCAL_INSTALL)
                 R.id.chip_badge_debuggable -> result.add(BadgeType.DEBUGGABLE)
                 R.id.chip_badge_old_target_sdk -> result.add(BadgeType.OLD_TARGET_SDK)
-                R.id.chip_badge_high_risk_permission -> result.add(BadgeType.HIGH_RISK_PERMISSION)
+                R.id.chip_badge_high_risk_permission -> result.add(BadgeType.SENSITIVE_PERMISSION)
             }
         }
         return result
@@ -656,6 +695,7 @@ class AppsFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         if (_binding != null) {
+            viewModel.refreshCapabilityState()
             refreshLastOpenedAppPermissions()
             updatePermissionActionsUi()
         }

@@ -3,20 +3,38 @@ package com.resistine.android.ui.apps
 import android.content.pm.PackageInfo
 
 enum class RiskVerdict {
-    SAFE,
-    WARNING,
-    RISK,
+    NO_CONCERN,
+    REVIEW,
+    URGENT_REVIEW,
     UNKNOWN
 }
 
 enum class BadgeType {
-    SIGNATURE_MISMATCH,
-    LOOKALIKE_NAME,
-    OUTDATED,
-    SIDELOADED,
+    UNKNOWN_SOURCE,
+    LOCAL_INSTALL,
     DEBUGGABLE,
     OLD_TARGET_SDK,
-    HIGH_RISK_PERMISSION
+    SENSITIVE_PERMISSION,
+    ACCESSIBILITY_ENABLED,
+    DEVICE_ADMIN,
+    NOTIFICATION_ACCESS,
+    INSTALLER_CAPABILITY,
+    OVERLAY_CAPABILITY,
+    VPN_CAPABILITY
+}
+
+enum class InstallProvenance {
+    SYSTEM,
+    PLAY_STORE,
+    RECOGNIZED_STORE,
+    LOCAL_OR_ADB,
+    UNKNOWN
+}
+
+enum class AppIdentityConfidence {
+    SYSTEM_VERIFIED,
+    STORE_RECORDED,
+    UNVERIFIED
 }
 
 data class Badge(
@@ -29,8 +47,10 @@ data class AppScanResult(
     val score: Int,
     val verdict: RiskVerdict,
     val badges: List<Badge>,
-    val apkSha256: List<String>,
-    val highRiskPermissions: List<String> = emptyList()
+    val highRiskPermissions: List<String> = emptyList(),
+    val provenance: InstallProvenance = InstallProvenance.UNKNOWN,
+    val identityConfidence: AppIdentityConfidence = AppIdentityConfidence.UNVERIFIED,
+    val scannedAtMillis: Long = 0L
 )
 
 data class AppEntry(
@@ -41,31 +61,9 @@ data class AppEntry(
 
 data class ScanSummary(
     val total: Int,
-    val safe: Int,
-    val warning: Int,
-    val risk: Int,
+    val noConcern: Int,
+    val review: Int,
+    val urgentReview: Int,
     val lastScanAt: Long?,
     val isScanned: Boolean
-)
-
-internal data class RegistryEntry(
-    val packageName: String,
-    val name: String,
-    val versionCode: Long,
-    val versionName: String,
-    val certSha256: Set<String>,
-    val devName: String,
-    val storeUrl: String,
-    val category: String
-)
-
-internal data class RegistryNameEntry(
-    val packageName: String,
-    val name: String,
-    val normalizedName: String
-)
-
-internal data class RegistryIndex(
-    val byPackage: Map<String, RegistryEntry>,
-    val nameIndex: Map<String, List<RegistryNameEntry>>
 )
