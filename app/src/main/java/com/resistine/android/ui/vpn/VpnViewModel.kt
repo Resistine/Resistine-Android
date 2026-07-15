@@ -45,13 +45,19 @@ import com.resistine.android.ui.wifi.WifiAutoProtectionDecider
 import com.resistine.android.ui.wifi.WifiClassificationInput
 import com.resistine.android.ui.wifi.WifiCurrentNetworkMatch
 import com.resistine.android.ui.wifi.WifiCurrentNetworkMatcher
+import com.resistine.android.ui.wifi.TlsProbeStatus
 import com.resistine.android.ui.wifi.WifiMatchConfidence
+import com.resistine.android.ui.wifi.WifiConnectionDiagnostics
+import com.resistine.android.ui.wifi.WifiConnectionDiagnosticsRepository
 import com.resistine.android.ui.wifi.WifiPmfState
 import com.resistine.android.ui.wifi.WifiRiskDimension
+import com.resistine.android.ui.wifi.WifiRefreshCoordinator
 import com.resistine.android.ui.wifi.WifiSafetyScorer
 import com.resistine.android.ui.wifi.WifiScanNetworkSnapshot
 import com.resistine.android.ui.wifi.WifiScanFreshness
+import com.resistine.android.ui.wifi.WifiScanEffectivenessMetrics
 import com.resistine.android.ui.wifi.WifiScanRepository
+import com.resistine.android.ui.wifi.WifiScanRequestStatus
 import com.resistine.android.ui.wifi.WifiScanSnapshot
 import com.resistine.android.ui.wifi.WifiScoreDimensionResult
 import com.resistine.android.ui.wifi.WifiSecurityClassifier
@@ -66,6 +72,8 @@ import com.resistine.android.ui.wifi.WifiTrustedBaselineManager
 import com.resistine.android.ui.wifi.WifiTrustedFingerprintObservation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -208,6 +216,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var isWifiMonitoringStarted = false
     private val wifiScanRepository = WifiScanRepository(application)
+    private val wifiDiagnosticsRepository = WifiConnectionDiagnosticsRepository(application)
     private var lastRiskLevel: WifiNetworkRiskLevel? = null
     private var lastAutoVpnRiskBand: Boolean? = null
     private val trustPrefs: SharedPreferences =
@@ -215,10 +224,11 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     private var currentWifiSsid: String? = null
     private var currentWifiBssid: String? = null
     private var currentWifiSecurityProfile: WifiSecurityProfile? = null
-    private val wifiRefreshLock = Any()
-    private var wifiRefreshJob: Job? = null
-    private var wifiRefreshPending = false
-    private var wifiFullRefreshPending = false
+    private val wifiRefreshCoordinator = WifiRefreshCoordinator(
+        scope = viewModelScope,
+        onRefreshingChanged = _isWifiRefreshing::postValue,
+        performRefresh = ::performWifiSecurityRefresh
+    )
 
     init {
         observeCurrentRuntime()
@@ -242,10 +252,10 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         )
         return VpnUiState(
             isConnected = isVpnConnectedLiveData.value == true,
-            statusMessage = if (runtime.isRunning) {
-                vpnStatus.value ?: runtime.detail
-            } else {
-                "VPN disconnected"
+            statusMessage = when {
+                runtime.isRunning || runtime.isConnecting -> vpnStatus.value ?: runtime.detail
+                runtime.detail != "Disconnected" -> runtime.detail
+                else -> "VPN disconnected"
             },
             runtimeStatus = runtime,
             deliveryMode = flowWazuhDeliveryMode.value ?: FlowWazuhDeliveryMode.LOCAL_QUEUE_ONLY,
@@ -405,7 +415,8 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         return WireGuardVpnRuntime(
             context = context,
             onStatusMessage = { message -> _vpnStatus.postValue(message) },
-            onTunnelUp = { fetchLocationData() },
+            onTunnelStarted = { fetchLocationData() },
+            onConnectionConfirmed = { fetchLocationData() },
             onTunnelDown = {
                 viewModelScope.launch {
                     delay(350L)
@@ -491,34 +502,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
      * @param lightweight If true, avoids triggering a fresh system Wi-Fi scan to save battery.
      */
     fun refreshWifiSecurityAlert(lightweight: Boolean = false) {
-        synchronized(wifiRefreshLock) {
-            wifiRefreshPending = true
-            if (!lightweight) wifiFullRefreshPending = true
-            if (wifiRefreshJob?.isActive == true) return
-            wifiRefreshJob = viewModelScope.launch(Dispatchers.Default) {
-                _isWifiRefreshing.postValue(true)
-                try {
-                    while (true) {
-                        val nextLightweight = synchronized(wifiRefreshLock) {
-                            wifiRefreshPending = false
-                            val fullRefresh = wifiFullRefreshPending
-                            wifiFullRefreshPending = false
-                            !fullRefresh
-                        }
-                        performWifiSecurityRefresh(nextLightweight)
-                        val shouldRepeat = synchronized(wifiRefreshLock) { wifiRefreshPending }
-                        if (!shouldRepeat) break
-                    }
-                } finally {
-                    _isWifiRefreshing.postValue(false)
-                    val restart = synchronized(wifiRefreshLock) {
-                        wifiRefreshJob = null
-                        wifiRefreshPending
-                    }
-                    if (restart) refreshWifiSecurityAlert(lightweight = true)
-                }
-            }
-        }
+        wifiRefreshCoordinator.request(lightweight)
     }
 
     private suspend fun performWifiSecurityRefresh(lightweight: Boolean) {
@@ -528,7 +512,13 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             allowRiskTransition = lightweight
         )
         if (!lightweight) {
-            val freshSnapshot = wifiScanRepository.snapshot(requestFreshScan = true)
+            val freshSnapshot = coroutineScope {
+                val diagnosticsProbe = async { wifiDiagnosticsRepository.probeTls() }
+                val scan = async { wifiScanRepository.snapshot(requestFreshScan = true) }
+                val result = scan.await()
+                diagnosticsProbe.await()
+                result
+            }
             publishWifiSecuritySnapshot(
                 scanSnapshot = freshSnapshot,
                 allowRiskTransition = true
@@ -697,6 +687,9 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             connectivityManager.registerDefaultNetworkCallback(callback)
             networkCallback = callback
             isWifiMonitoringStarted = true
+            wifiScanRepository.startMonitoring {
+                refreshWifiSecurityAlert(lightweight = true)
+            }
         } catch (_: Exception) {
             networkCallback = null
             isWifiMonitoringStarted = false
@@ -706,6 +699,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Unregisters the network callback and stops Wi-Fi monitoring. */
     fun stopWifiMonitoring() {
+        wifiScanRepository.stopMonitoring()
         if (!isWifiMonitoringStarted) {
             return
         }
@@ -724,6 +718,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun connectVpn(context: Context) {
+        if (vpnRuntimeStatus.value?.hasLocalTunnel == true) return
         viewModelScope.launch {
             currentRuntime.start()
         }
@@ -1020,7 +1015,10 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             scanFreshness = scanSnapshot.freshness,
             scanAgeMillis = scanSnapshot.ageMillis,
             freshScanRequested = scanSnapshot.freshScanRequested,
-            freshScanAccepted = scanSnapshot.freshScanAccepted
+            freshScanAccepted = scanSnapshot.freshScanAccepted,
+            scanRequestStatus = scanSnapshot.requestStatus,
+            scanCooldownRemainingMillis = scanSnapshot.cooldownRemainingMillis,
+            scanMetrics = scanSnapshot.metrics
         )
     }
 
@@ -1386,7 +1384,144 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             provisionalPenalty = provisionalPenalty,
             vpnActive = vpnActive
         )
+        val diagnostics = wifiDiagnosticsRepository.snapshot()
+        checks += buildPrivateDnsCheck(isWifiConnected, diagnostics)
+        checks += buildRouteAndDnsCheck(isWifiConnected, diagnostics)
+        checks += buildTlsReachabilityCheck(isWifiConnected, diagnostics)
+        checks += buildScanEffectivenessCheck(scanMetrics = alert.scanMetrics)
         return checks
+    }
+
+    private fun buildScanEffectivenessCheck(
+        scanMetrics: WifiScanEffectivenessMetrics
+    ): WifiAdvancedCheckItem {
+        val duration = scanMetrics.lastRequestDurationMillis?.let { " Last request: $it ms." }.orEmpty()
+        return safeCheck(
+            key = "scan_effectiveness",
+            titleRes = R.string.wifi_check_scan_effectiveness_title,
+            detail = "Active attempts: ${scanMetrics.activeAttempts}; updated: ${scanMetrics.updatedResults}; " +
+                "rejected: ${scanMetrics.rejectedRequests}; timed out: ${scanMetrics.timedOutRequests}; " +
+                "cooldown deferrals: ${scanMetrics.cooldownDeferrals}.$duration",
+            dimension = WifiRiskDimension.VISIBILITY
+        )
+    }
+
+    private fun buildPrivateDnsCheck(
+        isWifiConnected: Boolean,
+        diagnostics: WifiConnectionDiagnostics
+    ): WifiAdvancedCheckItem {
+        if (!isWifiConnected) {
+            return safeCheck(
+                key = "private_dns",
+                titleRes = R.string.wifi_check_private_dns_title,
+                detail = "Not on Wi-Fi.",
+                dimension = WifiRiskDimension.VISIBILITY
+            )
+        }
+        return when (diagnostics.privateDnsActive) {
+            true -> safeCheck(
+                key = "private_dns",
+                titleRes = R.string.wifi_check_private_dns_title,
+                detail = diagnostics.privateDnsServerName?.let { "Private DNS is active through $it." }
+                    ?: "Private DNS is active in automatic mode.",
+                dimension = WifiRiskDimension.VISIBILITY
+            )
+            false -> warningCheck(
+                key = "private_dns",
+                titleRes = R.string.wifi_check_private_dns_title,
+                detail = "Private DNS is not active. DNS may still be protected by the VPN or network resolver.",
+                penalty = 0,
+                dimension = WifiRiskDimension.VISIBILITY
+            )
+            null -> warningCheck(
+                key = "private_dns",
+                titleRes = R.string.wifi_check_private_dns_title,
+                detail = "This Android version does not expose Private DNS state.",
+                penalty = 0,
+                dimension = WifiRiskDimension.VISIBILITY
+            )
+        }
+    }
+
+    private fun buildRouteAndDnsCheck(
+        isWifiConnected: Boolean,
+        diagnostics: WifiConnectionDiagnostics
+    ): WifiAdvancedCheckItem {
+        if (!isWifiConnected) {
+            return safeCheck(
+                key = "route_dns",
+                titleRes = R.string.wifi_check_route_dns_title,
+                detail = "Not on Wi-Fi.",
+                dimension = WifiRiskDimension.VISIBILITY
+            )
+        }
+        val dnsDetail = if (diagnostics.dnsServers.isEmpty()) {
+            "Android exposed no DNS servers for the active route."
+        } else {
+            "DNS: ${diagnostics.dnsServers.joinToString()}"
+        }
+        return if (diagnostics.hasDefaultRoute && diagnostics.dnsServers.isNotEmpty()) {
+            safeCheck(
+                key = "route_dns",
+                titleRes = R.string.wifi_check_route_dns_title,
+                detail = buildString {
+                    append(if (diagnostics.activeRouteUsesVpn) "The active default route uses VPN. " else "A default route is active. ")
+                    append(dnsDetail)
+                },
+                dimension = WifiRiskDimension.VISIBILITY
+            )
+        } else {
+            warningCheck(
+                key = "route_dns",
+                titleRes = R.string.wifi_check_route_dns_title,
+                detail = "The active route is incomplete. $dnsDetail",
+                penalty = 0,
+                dimension = WifiRiskDimension.VISIBILITY
+            )
+        }
+    }
+
+    private fun buildTlsReachabilityCheck(
+        isWifiConnected: Boolean,
+        diagnostics: WifiConnectionDiagnostics
+    ): WifiAdvancedCheckItem {
+        if (!isWifiConnected) {
+            return safeCheck(
+                key = "tls_reachability",
+                titleRes = R.string.wifi_check_tls_reachability_title,
+                detail = "Not on Wi-Fi.",
+                dimension = WifiRiskDimension.VISIBILITY
+            )
+        }
+        return when (diagnostics.tlsProbeStatus) {
+            TlsProbeStatus.SUCCESS -> safeCheck(
+                key = "tls_reachability",
+                titleRes = R.string.wifi_check_tls_reachability_title,
+                detail = "Configured HTTPS endpoint completed a TLS request in ${diagnostics.tlsProbeLatencyMillis ?: 0L} ms.",
+                dimension = WifiRiskDimension.VISIBILITY
+            )
+            TlsProbeStatus.FAILED -> warningCheck(
+                key = "tls_reachability",
+                titleRes = R.string.wifi_check_tls_reachability_title,
+                detail = "Configured HTTPS reachability failed: ${diagnostics.tlsProbeDetail ?: "unknown error"}.",
+                penalty = 0,
+                dimension = WifiRiskDimension.VISIBILITY
+            )
+            TlsProbeStatus.NOT_CONFIGURED -> warningCheck(
+                key = "tls_reachability",
+                titleRes = R.string.wifi_check_tls_reachability_title,
+                detail = "No controlled HTTPS diagnostic endpoint is configured; no external probe was sent.",
+                penalty = 0,
+                dimension = WifiRiskDimension.VISIBILITY
+            )
+            TlsProbeStatus.NOT_RUN -> warningCheck(
+                key = "tls_reachability",
+                titleRes = R.string.wifi_check_tls_reachability_title,
+                detail = "Run a full refresh to test the configured HTTPS endpoint.",
+                penalty = 0,
+                dimension = WifiRiskDimension.VISIBILITY
+            )
+        }
     }
 
     private fun buildSafetyAssessment(
@@ -2886,6 +3021,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     override fun onCleared() {
+        wifiRefreshCoordinator.cancel()
         currentRuntime.status().removeObserver(runtimeStatusObserver)
         currentRuntime.close()
         stopWifiMonitoring()
@@ -3031,7 +3167,10 @@ data class WifiSecurityAlert(
     val scanFreshness: WifiScanFreshness = WifiScanFreshness.UNAVAILABLE,
     val scanAgeMillis: Long? = null,
     val freshScanRequested: Boolean = false,
-    val freshScanAccepted: Boolean = false
+    val freshScanAccepted: Boolean = false,
+    val scanRequestStatus: WifiScanRequestStatus = WifiScanRequestStatus.NOT_REQUESTED,
+    val scanCooldownRemainingMillis: Long = 0L,
+    val scanMetrics: WifiScanEffectivenessMetrics = WifiScanEffectivenessMetrics()
 )
 
 /** Stored profile for a network the user has explicitly trusted. */

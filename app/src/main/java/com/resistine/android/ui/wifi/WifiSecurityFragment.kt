@@ -47,6 +47,7 @@ import com.resistine.android.ui.vpn.WifiSafetyAssessment
 import com.resistine.android.ui.vpn.WifiSecurityAlert
 import com.resistine.android.ui.vpn.WifiSecurityType
 import com.resistine.android.ui.wifi.WifiScanFreshness
+import com.resistine.android.ui.wifi.WifiScanRequestStatus
 import java.text.DateFormat
 import java.util.Date
 
@@ -404,12 +405,12 @@ class WifiSecurityFragment : Fragment() {
     private fun handleRiskTransitionAlert(alert: WifiRiskTransitionAlert?) {
         if (alert == null || alert.id == lastHandledRiskAlertId) return
         lastHandledRiskAlertId = alert.id
+        if (!alert.worsened) {
+            vpnViewModel.clearRiskTransitionAlert()
+            return
+        }
         val message = getString(
-            if (alert.worsened) {
-                R.string.wifi_risk_transition_worsened
-            } else {
-                R.string.wifi_risk_transition_improved
-            },
+            R.string.wifi_risk_transition_worsened,
             getString(riskLevelLabelRes(alert.toLevel)),
             alert.score
         )
@@ -1857,10 +1858,15 @@ class WifiSecurityFragment : Fragment() {
             WifiScanFreshness.STALE -> getString(R.string.wifi_scan_freshness_stale)
             WifiScanFreshness.UNAVAILABLE -> getString(R.string.wifi_scan_freshness_unavailable)
         }
-        val throttleNote = if (alert.freshScanRequested && !alert.freshScanAccepted) {
-            getString(R.string.wifi_scan_refresh_deferred)
-        } else {
-            ""
+        val throttleNote = when (alert.scanRequestStatus) {
+            WifiScanRequestStatus.COOLDOWN -> getString(
+                R.string.wifi_scan_refresh_cooldown,
+                (alert.scanCooldownRemainingMillis + 999L) / 1_000L
+            )
+            WifiScanRequestStatus.REJECTED -> getString(R.string.wifi_scan_refresh_rejected)
+            WifiScanRequestStatus.TIMED_OUT -> getString(R.string.wifi_scan_refresh_timed_out)
+            WifiScanRequestStatus.NOT_REQUESTED,
+            WifiScanRequestStatus.UPDATED -> ""
         }
         return getString(R.string.wifi_scan_freshness_line, state, ageText, throttleNote)
     }
