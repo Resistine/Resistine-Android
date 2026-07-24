@@ -28,6 +28,8 @@ class AsyncFlowSegmentWriter(
         return queue.offer(record)
     }
 
+    fun queueDepth(): Int = queue.size
+
     override fun close() {
         running.set(false)
         worker?.join(2_000L)
@@ -64,4 +66,3 @@ class AsyncFlowSegmentWriter(
         )
     }
 }
-

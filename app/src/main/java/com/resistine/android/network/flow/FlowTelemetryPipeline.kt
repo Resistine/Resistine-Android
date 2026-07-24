@@ -8,7 +8,8 @@ class FlowTelemetryPipeline(
     private val stats: PacketPipelineStats,
     private val parser: TunPacketParser = TunPacketParser(),
     private val aggregator: FlowAggregator = FlowAggregator(),
-    private val ingestContext: FlowIngestContext = FlowIngestContext(),
+    private val contextResolver: FlowIngestContextResolver =
+        FlowIngestContextResolver { FlowIngestContext() },
     private val onFlowFlushed: (FlowRecord) -> Unit = {}
 ) : PacketTelemetrySink {
     private val closed = AtomicBoolean(false)
@@ -37,7 +38,7 @@ class FlowTelemetryPipeline(
         }
 
         stats.recordParseSuccess()
-        persist(aggregator.ingest(parsed, ingestContext).flushed)
+        persist(aggregator.ingest(parsed, contextResolver.resolve(parsed)).flushed)
         PacketTelemetryResult.ACCEPTED
     }
 

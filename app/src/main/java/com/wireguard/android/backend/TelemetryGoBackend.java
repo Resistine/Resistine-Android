@@ -73,7 +73,11 @@ public final class TelemetryGoBackend implements Backend {
 
     private static native long wgGetTelemetryDrops(int handle);
 
-    private static native void wgTurnOff(int handle);
+    private static native long wgGetTelemetryQueueDepth(int handle);
+
+    private static native long wgGetTelemetryQueueHighWater(int handle);
+
+    private static native long wgTurnOff(int handle);
 
     private static native int wgTurnOn(
             String ifName,
@@ -145,6 +149,18 @@ public final class TelemetryGoBackend implements Backend {
     @Override
     public String getVersion() {
         return wgVersion();
+    }
+
+    public synchronized long getTelemetryQueueDepth() {
+        return currentTunnelHandle == -1 ? 0L : wgGetTelemetryQueueDepth(currentTunnelHandle);
+    }
+
+    public synchronized long getTelemetryQueueHighWater() {
+        return currentTunnelHandle == -1 ? 0L : wgGetTelemetryQueueHighWater(currentTunnelHandle);
+    }
+
+    public synchronized long getTelemetryDrops() {
+        return currentTunnelHandle == -1 ? 0L : wgGetTelemetryDrops(currentTunnelHandle);
     }
 
     @Override
@@ -287,10 +303,11 @@ public final class TelemetryGoBackend implements Backend {
         final boolean protectedV4 = socketV4 < 0 || service.protect(socketV4);
         final boolean protectedV6 = socketV6 < 0 || service.protect(socketV6);
         if (!protectedV4 || !protectedV6) {
-            final long drops = wgGetTelemetryDrops(handle);
+            final long highWater = wgGetTelemetryQueueHighWater(handle);
             telemetry.prepareFinish();
-            wgTurnOff(handle);
+            final long drops = wgTurnOff(handle);
             telemetry.finish();
+            healthListener.onNativeQueueStats(0L, highWater);
             healthListener.onNativePacketDrops(drops);
             throw new BackendException(BackendException.Reason.GO_ACTIVATION_ERROR_CODE, -2);
         }
@@ -308,7 +325,7 @@ public final class TelemetryGoBackend implements Backend {
         }
         final int handle = currentTunnelHandle;
         final TelemetrySession telemetry = currentTelemetry;
-        final long drops = wgGetTelemetryDrops(handle);
+        final long highWater = wgGetTelemetryQueueHighWater(handle);
         currentTunnel = null;
         currentTunnelHandle = -1;
         currentConfig = null;
@@ -316,10 +333,11 @@ public final class TelemetryGoBackend implements Backend {
         if (telemetry != null) {
             telemetry.prepareFinish();
         }
-        wgTurnOff(handle);
+        final long drops = wgTurnOff(handle);
         if (telemetry != null) {
             telemetry.finish();
         }
+        healthListener.onNativeQueueStats(0L, highWater);
         healthListener.onNativePacketDrops(drops);
         try {
             vpnService.get(0, TimeUnit.NANOSECONDS).stopSelf();
@@ -383,7 +401,7 @@ public final class TelemetryGoBackend implements Backend {
         }
         final int handle = currentTunnelHandle;
         final TelemetrySession telemetry = currentTelemetry;
-        final long drops = wgGetTelemetryDrops(handle);
+        final long highWater = wgGetTelemetryQueueHighWater(handle);
         currentTunnel = null;
         currentTunnelHandle = -1;
         currentConfig = null;
@@ -391,10 +409,11 @@ public final class TelemetryGoBackend implements Backend {
         if (telemetry != null) {
             telemetry.prepareFinish();
         }
-        wgTurnOff(handle);
+        final long drops = wgTurnOff(handle);
         if (telemetry != null) {
             telemetry.finish();
         }
+        healthListener.onNativeQueueStats(0L, highWater);
         healthListener.onNativePacketDrops(drops);
         tunnel.onStateChange(Tunnel.State.DOWN);
     }
@@ -411,6 +430,9 @@ public final class TelemetryGoBackend implements Backend {
         void onNativePacketDrops(long count);
 
         void onTelemetryReaderFailure(Throwable error);
+
+        default void onNativeQueueStats(long depth, long highWater) {
+        }
     }
 
     public interface AlwaysOnCallback {

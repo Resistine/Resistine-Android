@@ -5,7 +5,9 @@ package main
 import (
 	"bytes"
 	"os"
+	"sync"
 	"testing"
+	"time"
 
 	"golang.org/x/sys/unix"
 	"golang.zx2c4.com/wireguard/tun"
@@ -91,32 +93,84 @@ func TestTelemetryDeviceCountsClosedChannelDrop(t *testing.T) {
 	if _, err := wrapped.Read(readBuffer, sizes, 0); err != nil {
 		t.Fatal(err)
 	}
+	deadline := time.Now().Add(time.Second)
+	for wrapped.droppedPackets() == 0 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
 	if wrapped.droppedPackets() != 1 {
 		t.Fatalf("drops=%d, want 1", wrapped.droppedPackets())
 	}
 }
 
-func TestTelemetryDeviceDropsInsteadOfBlockingWhenChannelIsFull(t *testing.T) {
+func TestTelemetryDeviceBuffersBurstWithoutDrops(t *testing.T) {
 	outbound, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_SEQPACKET|unix.SOCK_CLOEXEC, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer unix.Close(outbound[1])
 
-	base := &fakeTunDevice{readPacket: bytes.Repeat([]byte{0x45}, 1500)}
-	wrapped := newTelemetryDevice(base, outbound[0], -1)
+	const packetCount = 2_000
+	packet := bytes.Repeat([]byte{0x45}, 1_280)
+	base := &fakeTunDevice{readPacket: packet}
+	wrapped := newTelemetryDeviceWithQueueCapacity(base, outbound[0], -1, packetCount)
 	defer wrapped.Close()
 	readBuffer := [][]byte{make([]byte, 2048)}
 	sizes := make([]int, 1)
 
+	var receiver sync.WaitGroup
+	receiver.Add(1)
+	go func() {
+		defer receiver.Done()
+		buffer := make([]byte, 2_048)
+		for count := 0; count < packetCount; count++ {
+			if _, _, receiveErr := unix.Recvfrom(outbound[1], buffer, 0); receiveErr != nil {
+				return
+			}
+		}
+	}()
+
+	for attempt := 0; attempt < packetCount; attempt++ {
+		if _, readErr := wrapped.Read(readBuffer, sizes, 0); readErr != nil {
+			t.Fatal(readErr)
+		}
+	}
+	receiver.Wait()
+	if wrapped.droppedPackets() != 0 {
+		t.Fatalf("drops=%d, want 0", wrapped.droppedPackets())
+	}
+	if wrapped.queueHighWaterMark() == 0 {
+		t.Fatal("queue high-water mark was not recorded")
+	}
+}
+
+func TestTelemetryDeviceDropsInsteadOfBlockingWhenBoundedQueueIsFull(t *testing.T) {
+	outbound, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_SEQPACKET|unix.SOCK_CLOEXEC, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unix.Close(outbound[1])
+
+	base := &fakeTunDevice{readPacket: bytes.Repeat([]byte{0x45}, 1_500)}
+	wrapped := newTelemetryDeviceWithQueueCapacity(base, outbound[0], -1, 4)
+	readBuffer := [][]byte{make([]byte, 2_048)}
+	sizes := make([]int, 1)
+
+	started := time.Now()
 	for attempt := 0; attempt < 10_000 && wrapped.droppedPackets() == 0; attempt++ {
 		if _, readErr := wrapped.Read(readBuffer, sizes, 0); readErr != nil {
 			t.Fatal(readErr)
 		}
 	}
 	if wrapped.droppedPackets() == 0 {
-		t.Fatal("telemetry channel never filled")
+		t.Fatal("bounded telemetry queue never filled")
 	}
+	if time.Since(started) > time.Second {
+		t.Fatal("forwarding-side telemetry enqueue blocked")
+	}
+	if err := unix.Close(outbound[1]); err != nil {
+		t.Fatal(err)
+	}
+	wrapped.Close()
 }
 
 func assertTelemetryPacket(t *testing.T, fd int, packet []byte) {

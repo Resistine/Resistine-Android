@@ -7,6 +7,10 @@ data class PacketPipelineSnapshot(
     val packetsRead: Long,
     val bytesRead: Long,
     val forwardQueueDepth: Int,
+    val segmentQueueDepth: Int,
+    val wazuhQueueDepth: Int,
+    val nativeTelemetryQueueDepth: Long,
+    val nativeTelemetryQueueHighWater: Long,
     val forwardQueueDropped: Long,
     val forwardQueueDiscardedOnStop: Long,
     val parserSuccess: Long,
@@ -18,12 +22,39 @@ data class PacketPipelineSnapshot(
     val packetsRejectedAfterClose: Long,
     val nativeTelemetryDropped: Long,
     val telemetryReaderFailures: Long
-)
+) {
+    companion object {
+        fun empty() = PacketPipelineSnapshot(
+            packetsRead = 0L,
+            bytesRead = 0L,
+            forwardQueueDepth = 0,
+            segmentQueueDepth = 0,
+            wazuhQueueDepth = 0,
+            nativeTelemetryQueueDepth = 0L,
+            nativeTelemetryQueueHighWater = 0L,
+            forwardQueueDropped = 0L,
+            forwardQueueDiscardedOnStop = 0L,
+            parserSuccess = 0L,
+            parserFailure = 0L,
+            flowsFlushed = 0L,
+            segmentQueueDropped = 0L,
+            segmentWriteFailures = 0L,
+            wazuhQueueDropped = 0L,
+            packetsRejectedAfterClose = 0L,
+            nativeTelemetryDropped = 0L,
+            telemetryReaderFailures = 0L
+        )
+    }
+}
 
 class PacketPipelineStats {
     private val packetsRead = AtomicLong(0L)
     private val bytesRead = AtomicLong(0L)
     private val forwardQueueDepth = AtomicInteger(0)
+    private val segmentQueueDepth = AtomicInteger(0)
+    private val wazuhQueueDepth = AtomicInteger(0)
+    private val nativeTelemetryQueueDepth = AtomicLong(0L)
+    private val nativeTelemetryQueueHighWater = AtomicLong(0L)
     private val forwardQueueDropped = AtomicLong(0L)
     private val forwardQueueDiscardedOnStop = AtomicLong(0L)
     private val parserSuccess = AtomicLong(0L)
@@ -82,6 +113,23 @@ class PacketPipelineStats {
         flowsFlushed.addAndGet(count.toLong().coerceAtLeast(0L))
     }
 
+    fun updateSegmentQueueDepth(depth: Int) {
+        segmentQueueDepth.set(depth.coerceAtLeast(0))
+    }
+
+    fun recordWazuhQueued() {
+        wazuhQueueDepth.incrementAndGet()
+    }
+
+    fun recordWazuhDequeued() {
+        decrement(wazuhQueueDepth)
+    }
+
+    fun updateNativeQueueStats(depth: Long, highWater: Long) {
+        nativeTelemetryQueueDepth.set(depth.coerceAtLeast(0L))
+        updateMaximum(nativeTelemetryQueueHighWater, highWater.coerceAtLeast(0L))
+    }
+
     fun recordSegmentQueueDropped() {
         segmentQueueDropped.incrementAndGet()
     }
@@ -90,8 +138,8 @@ class PacketPipelineStats {
         segmentWriteFailures.incrementAndGet()
     }
 
-    fun recordWazuhQueueDropped() {
-        wazuhQueueDropped.incrementAndGet()
+    fun recordWazuhQueueDropped(count: Int = 1) {
+        wazuhQueueDropped.addAndGet(count.toLong().coerceAtLeast(0L))
     }
 
     fun recordPacketRejectedAfterClose() {
@@ -100,6 +148,10 @@ class PacketPipelineStats {
 
     fun recordNativeTelemetryDropped(count: Long) {
         nativeTelemetryDropped.addAndGet(count.coerceAtLeast(0L))
+    }
+
+    fun updateNativeTelemetryDropped(count: Long) {
+        updateMaximum(nativeTelemetryDropped, count.coerceAtLeast(0L))
     }
 
     fun recordTelemetryReaderFailure() {
@@ -111,6 +163,10 @@ class PacketPipelineStats {
             packetsRead = packetsRead.get(),
             bytesRead = bytesRead.get(),
             forwardQueueDepth = forwardQueueDepth.get(),
+            segmentQueueDepth = segmentQueueDepth.get(),
+            wazuhQueueDepth = wazuhQueueDepth.get(),
+            nativeTelemetryQueueDepth = nativeTelemetryQueueDepth.get(),
+            nativeTelemetryQueueHighWater = nativeTelemetryQueueHighWater.get(),
             forwardQueueDropped = forwardQueueDropped.get(),
             forwardQueueDiscardedOnStop = forwardQueueDiscardedOnStop.get(),
             parserSuccess = parserSuccess.get(),
@@ -130,6 +186,13 @@ class PacketPipelineStats {
             val current = counter.get()
             if (current <= 0) return
             if (counter.compareAndSet(current, current - 1)) return
+        }
+    }
+
+    private fun updateMaximum(counter: AtomicLong, value: Long) {
+        while (true) {
+            val current = counter.get()
+            if (value <= current || counter.compareAndSet(current, value)) return
         }
     }
 }

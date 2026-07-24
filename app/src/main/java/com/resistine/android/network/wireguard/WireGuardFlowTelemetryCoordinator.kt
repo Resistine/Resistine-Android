@@ -10,6 +10,7 @@ import com.resistine.android.network.WazuhConfigManager
 import com.resistine.android.network.WazuhConnectionMonitor
 import com.resistine.android.network.WazuhConnectionState
 import com.resistine.android.network.WazuhRemoteReadinessValidator
+import com.resistine.android.network.flow.AndroidFlowIngestContextResolver
 import com.resistine.android.network.flow.AsyncFlowSegmentWriter
 import com.resistine.android.network.flow.FlowSegmentStore
 import com.resistine.android.network.flow.FlowTelemetryPipeline
@@ -21,6 +22,7 @@ import com.resistine.android.network.flow.PacketTelemetrySink
 import com.resistine.android.network.flow.WazuhFlowEventFormatter
 import com.resistine.android.network.forwarding.PacketPipelineSnapshot
 import com.resistine.android.network.forwarding.PacketPipelineStats
+import com.resistine.android.network.forwarding.FlowTelemetryDiagnosticsMonitor
 import com.resistine.android.service.WazuhService
 import com.wireguard.android.backend.TelemetryGoBackend
 import java.io.File
@@ -63,11 +65,19 @@ class WireGuardFlowTelemetryCoordinator(
     private var expiryFlusher: Job? = null
 
     @Volatile
+    private var diagnosticsPublisher: Job? = null
+
+    @Volatile
+    private var sessionWriter: AsyncFlowSegmentWriter? = null
+
+    @Volatile
     private var lastSnapshot: PacketPipelineSnapshot? = null
 
     @Synchronized
     fun start() {
         if (activePipeline.get() != null) return
+        FlowTelemetryDiagnosticsMonitor.beginSession(appContext)
+        WazuhConnectionMonitor.beginTelemetrySession()
         val stats = PacketPipelineStats()
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val queue = Channel<String>(WAZUH_QUEUE_CAPACITY)
@@ -81,11 +91,13 @@ class WireGuardFlowTelemetryCoordinator(
         val pipeline = FlowTelemetryPipeline(
             writer = writer,
             stats = stats,
+            contextResolver = AndroidFlowIngestContextResolver(appContext),
             onFlowFlushed = { flow ->
                 queueFlow(queue, stats, WazuhFlowEventFormatter.format(flow))
             }
         )
         sessionStats = stats
+        sessionWriter = writer
         sessionScope = scope
         wazuhQueue = queue
         wazuhQueueWriter = queueWriter
@@ -94,6 +106,12 @@ class WireGuardFlowTelemetryCoordinator(
             while (isActive) {
                 delay(FLOW_EXPIRY_INTERVAL_MS)
                 pipeline.flushExpired(System.currentTimeMillis())
+            }
+        }
+        diagnosticsPublisher = scope.launch {
+            while (isActive) {
+                publishDiagnostics(stats, writer)
+                delay(DIAGNOSTICS_INTERVAL_MS)
             }
         }
         prepareWazuhDeliveryForHandshake()
@@ -114,14 +132,19 @@ class WireGuardFlowTelemetryCoordinator(
         }
         expiryFlusher?.cancelAndJoin()
         expiryFlusher = null
+        diagnosticsPublisher?.cancelAndJoin()
+        diagnosticsPublisher = null
         pipeline?.shutdown(System.currentTimeMillis())
         wazuhQueue?.close()
         wazuhQueueWriter?.join()
+        sessionStats?.updateSegmentQueueDepth(sessionWriter?.queueDepth() ?: 0)
         val snapshot = sessionStats?.snapshot() ?: lastSnapshot
         lastSnapshot = snapshot
+        snapshot?.let { FlowTelemetryDiagnosticsMonitor.publish(appContext, it) }
         sessionScope?.cancel()
         sessionScope = null
         sessionStats = null
+        sessionWriter = null
         wazuhQueue = null
         wazuhQueueWriter = null
         stopWazuhUploader()
@@ -129,7 +152,10 @@ class WireGuardFlowTelemetryCoordinator(
         snapshot
     }
 
-    fun snapshot(): PacketPipelineSnapshot? = sessionStats?.snapshot() ?: lastSnapshot
+    fun snapshot(): PacketPipelineSnapshot? {
+        sessionStats?.updateSegmentQueueDepth(sessionWriter?.queueDepth() ?: 0)
+        return sessionStats?.snapshot() ?: lastSnapshot
+    }
 
     override fun ingest(
         packet: ByteArray,
@@ -143,7 +169,7 @@ class WireGuardFlowTelemetryCoordinator(
 
     override fun onNativePacketDrops(count: Long) {
         if (count <= 0L) return
-        sessionStats?.recordNativeTelemetryDropped(count)
+        sessionStats?.updateNativeTelemetryDropped(count)
         Log.w(TAG, "Native WireGuard telemetry dropped $count packets")
         onHealthMessage("Telemetry dropped $count packets under load")
     }
@@ -154,8 +180,19 @@ class WireGuardFlowTelemetryCoordinator(
         onHealthMessage("Telemetry reader failure: ${error.message ?: error.javaClass.simpleName}")
     }
 
+    override fun onNativeQueueStats(depth: Long, highWater: Long) {
+        sessionStats?.updateNativeQueueStats(depth, highWater)
+    }
+
+    fun updateNativeStats(depth: Long, highWater: Long, dropped: Long) {
+        onNativeQueueStats(depth, highWater)
+        sessionStats?.updateNativeTelemetryDropped(dropped)
+    }
+
     private fun queueFlow(queue: Channel<String>, stats: PacketPipelineStats, message: String) {
+        stats.recordWazuhQueued()
         if (queue.trySend(message).isFailure) {
+            stats.recordWazuhDequeued()
             stats.recordWazuhQueueDropped()
             Log.w(TAG, "Wazuh persistence queue is full; local segment remains available")
         }
@@ -163,15 +200,26 @@ class WireGuardFlowTelemetryCoordinator(
 
     private suspend fun persistWazuhQueue(queue: Channel<String>) {
         for (message in queue) {
+            sessionStats?.recordWazuhDequeued()
             runCatching {
-                logDao.insertBounded(
+                val trimmed = logDao.insertBounded(
                     LogEntry(timestamp = System.currentTimeMillis(), message = message)
                 )
+                if (trimmed > 0) {
+                    sessionStats?.recordWazuhQueueDropped(trimmed)
+                    onHealthMessage("Wazuh local queue reached its retention limit")
+                }
             }.onFailure { error ->
+                sessionStats?.recordWazuhQueueDropped()
                 Log.w(TAG, "Failed to persist WireGuard flow for Wazuh", error)
                 onHealthMessage("Failed to queue flow event: ${error.message}")
             }
         }
+    }
+
+    private fun publishDiagnostics(stats: PacketPipelineStats, writer: AsyncFlowSegmentWriter) {
+        stats.updateSegmentQueueDepth(writer.queueDepth())
+        FlowTelemetryDiagnosticsMonitor.publish(appContext, stats.snapshot())
     }
 
     private fun configureWazuhDelivery() {
@@ -235,6 +283,7 @@ class WireGuardFlowTelemetryCoordinator(
         private const val TAG = "WireGuardFlowTelemetry"
         private const val FLOW_SEGMENT_DIR = "flow-segments"
         private const val FLOW_EXPIRY_INTERVAL_MS = 5_000L
+        private const val DIAGNOSTICS_INTERVAL_MS = 1_000L
         private const val WAZUH_QUEUE_CAPACITY = 2_048
     }
 }

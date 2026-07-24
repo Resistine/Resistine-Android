@@ -57,4 +57,25 @@ class PacketPipelineStatsTest {
         assertEquals(1L, snapshot.telemetryReaderFailures)
         assertEquals(1L, snapshot.wazuhQueueDropped)
     }
+
+    @Test
+    fun `queue depths and native high water remain observable`() {
+        val stats = PacketPipelineStats()
+        stats.updateSegmentQueueDepth(7)
+        stats.recordWazuhQueued()
+        stats.recordWazuhQueued()
+        stats.recordWazuhDequeued()
+        stats.updateNativeQueueStats(depth = 12L, highWater = 40L)
+        stats.updateNativeQueueStats(depth = 3L, highWater = 20L)
+        stats.updateNativeTelemetryDropped(5L)
+        stats.updateNativeTelemetryDropped(2L)
+
+        val snapshot = stats.snapshot()
+
+        assertEquals(7, snapshot.segmentQueueDepth)
+        assertEquals(1, snapshot.wazuhQueueDepth)
+        assertEquals(3L, snapshot.nativeTelemetryQueueDepth)
+        assertEquals(40L, snapshot.nativeTelemetryQueueHighWater)
+        assertEquals(5L, snapshot.nativeTelemetryDropped)
+    }
 }

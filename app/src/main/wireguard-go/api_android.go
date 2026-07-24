@@ -172,7 +172,7 @@ func resistineWgTurnOn(
 }
 
 //export resistineWgTurnOff
-func resistineWgTurnOff(handle int32) {
+func resistineWgTurnOff(handle int32) uint64 {
 	handlesMu.Lock()
 	tunnel, ok := handles[handle]
 	if ok {
@@ -180,12 +180,16 @@ func resistineWgTurnOff(handle int32) {
 	}
 	handlesMu.Unlock()
 	if !ok {
-		return
+		return 0
 	}
 	if tunnel.uapi != nil {
 		_ = tunnel.uapi.Close()
 	}
 	tunnel.device.Close()
+	if tunnel.telemetry == nil {
+		return 0
+	}
+	return tunnel.telemetry.droppedPackets()
 }
 
 //export resistineWgGetSocketV4
@@ -242,6 +246,24 @@ func resistineWgGetTelemetryDrops(handle int32) uint64 {
 		return 0
 	}
 	return tunnel.telemetry.droppedPackets()
+}
+
+//export resistineWgGetTelemetryQueueDepth
+func resistineWgGetTelemetryQueueDepth(handle int32) uint64 {
+	tunnel, ok := lookupHandle(handle)
+	if !ok || tunnel.telemetry == nil {
+		return 0
+	}
+	return tunnel.telemetry.queuedPackets()
+}
+
+//export resistineWgGetTelemetryQueueHighWater
+func resistineWgGetTelemetryQueueHighWater(handle int32) uint64 {
+	tunnel, ok := lookupHandle(handle)
+	if !ok || tunnel.telemetry == nil {
+		return 0
+	}
+	return tunnel.telemetry.queueHighWaterMark()
 }
 
 //export resistineWgVersion

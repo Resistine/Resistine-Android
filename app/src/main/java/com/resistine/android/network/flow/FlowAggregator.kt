@@ -5,6 +5,7 @@ import java.util.UUID
 private data class FlowKey(
     val protocol: FlowProtocol,
     val identity: TransportFlowIdentity,
+    val networkType: FlowNetworkType,
     val appUid: Int?,
     val appPackage: String?
 )
@@ -64,6 +65,7 @@ class FlowAggregator(
                 dstIp = packet.dstIp,
                 dstPort = packet.dstPort
             ),
+            networkType = context.networkType,
             appUid = context.appUid,
             appPackage = context.appPackage
         )

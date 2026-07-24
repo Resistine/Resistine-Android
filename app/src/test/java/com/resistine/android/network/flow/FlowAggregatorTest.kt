@@ -149,4 +149,34 @@ class FlowAggregatorTest {
         assertEquals(1, result.activeFlowCount)
         assertEquals("8.8.8.8", result.flushed.single().dstIp)
     }
+
+    @Test
+    fun `network handoff creates separate flow records`() {
+        val aggregator = FlowAggregator()
+        val packet = PacketMetadata(
+            timestampMillis = 1_000L,
+            ipVersion = 4,
+            protocolCode = 6,
+            srcIp = "10.0.0.2",
+            srcPort = 50000,
+            dstIp = "1.1.1.1",
+            dstPort = 443,
+            bytes = 100,
+            outbound = true
+        )
+
+        aggregator.ingest(packet, FlowIngestContext(networkType = FlowNetworkType.WIFI))
+        aggregator.ingest(
+            packet.copy(timestampMillis = 2_000L),
+            FlowIngestContext(networkType = FlowNetworkType.CELLULAR)
+        )
+
+        val records = aggregator.flushAll(3_000L)
+
+        assertEquals(2, records.size)
+        assertEquals(
+            setOf(FlowNetworkType.WIFI, FlowNetworkType.CELLULAR),
+            records.map(FlowRecord::networkType).toSet()
+        )
+    }
 }

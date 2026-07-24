@@ -12,8 +12,10 @@ import com.wireguard.android.backend.Tunnel.State
 import com.wireguard.config.Config
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -38,6 +40,7 @@ class WireGuardVpnRuntime(
     private val backendSelection = createBackend()
     private val backend: Backend? = backendSelection.backend
     private val tunnelName = "MyWireGuardTunnel"
+    private var nativeDiagnosticsJob: Job? = null
     private val _status = MutableLiveData(
         VpnRuntimeStatus(
             mode = mode,
@@ -85,6 +88,7 @@ class WireGuardVpnRuntime(
         try {
             val attemptStartedAt = System.currentTimeMillis()
             startWithRetry(config)
+            startNativeDiagnostics()
             update(
                 isRunning = false,
                 detail = "Waiting for WireGuard peer handshake…",
@@ -92,6 +96,7 @@ class WireGuardVpnRuntime(
             )
             onStatusMessage("Waiting for WireGuard peer handshake")
             if (!awaitConfirmedHandshake(attemptStartedAt)) {
+                stopNativeDiagnostics()
                 setWireGuardState(State.DOWN, null)
                 finalizeTelemetryStop()
                 val detail = "Connection failed: WireGuard server did not respond"
@@ -106,6 +111,7 @@ class WireGuardVpnRuntime(
             onStatusMessage(detail)
             onConnectionConfirmed()
         } catch (error: Exception) {
+            stopNativeDiagnostics()
             telemetryCoordinator.stop()
             val reason = error.extractWireGuardReason() ?: error.message ?: "Unknown error"
             update(isRunning = false, detail = reason)
@@ -115,6 +121,7 @@ class WireGuardVpnRuntime(
 
     override suspend fun stop() = lifecycleMutex.withLock {
         try {
+            stopNativeDiagnostics()
             setWireGuardState(State.DOWN, null)
             val snapshot = finalizeTelemetryStop()
             val dropped = snapshot?.nativeTelemetryDropped ?: 0L
@@ -177,6 +184,26 @@ class WireGuardVpnRuntime(
 
     private suspend fun finalizeTelemetryStop() = telemetryCoordinator.stop()
 
+    private fun startNativeDiagnostics() {
+        val telemetryBackend = backend as? TelemetryGoBackend ?: return
+        nativeDiagnosticsJob?.cancel()
+        nativeDiagnosticsJob = runtimeScope.launch {
+            while (true) {
+                telemetryCoordinator.updateNativeStats(
+                    telemetryBackend.telemetryQueueDepth,
+                    telemetryBackend.telemetryQueueHighWater,
+                    telemetryBackend.telemetryDrops
+                )
+                delay(NATIVE_DIAGNOSTICS_INTERVAL_MS)
+            }
+        }
+    }
+
+    private suspend fun stopNativeDiagnostics() {
+        nativeDiagnosticsJob?.cancelAndJoin()
+        nativeDiagnosticsJob = null
+    }
+
     private fun createBackend(): BackendSelection {
         return try {
             val telemetryBackend = TelemetryGoBackend(
@@ -227,6 +254,7 @@ class WireGuardVpnRuntime(
 
     private companion object {
         private const val RUNTIME_LABEL = "WireGuard with flow telemetry"
+        private const val NATIVE_DIAGNOSTICS_INTERVAL_MS = 1_000L
         internal const val PINNED_WIREGUARD_GO_VERSION = "f333402"
         private const val HANDSHAKE_TIMEOUT_MS = 20_000L
         private const val HANDSHAKE_POLL_INTERVAL_MS = 500L

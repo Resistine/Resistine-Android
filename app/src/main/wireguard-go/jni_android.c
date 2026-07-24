@@ -14,11 +14,13 @@ struct go_string {
 extern int resistineWgTurnOn(struct go_string ifname, int tun_fd,
                              int outbound_telemetry_fd, int inbound_telemetry_fd,
                              struct go_string settings);
-extern void resistineWgTurnOff(int handle);
+extern uint64_t resistineWgTurnOff(int handle);
 extern int resistineWgGetSocketV4(int handle);
 extern int resistineWgGetSocketV6(int handle);
 extern char *resistineWgGetConfig(int handle);
 extern uint64_t resistineWgGetTelemetryDrops(int handle);
+extern uint64_t resistineWgGetTelemetryQueueDepth(int handle);
+extern uint64_t resistineWgGetTelemetryQueueHighWater(int handle);
 extern char *resistineWgVersion(void);
 
 JNIEXPORT jint JNICALL
@@ -41,12 +43,12 @@ Java_com_wireguard_android_backend_TelemetryGoBackend_wgTurnOn(
     return result;
 }
 
-JNIEXPORT void JNICALL
+JNIEXPORT jlong JNICALL
 Java_com_wireguard_android_backend_TelemetryGoBackend_wgTurnOff(
         JNIEnv *env, jclass clazz, jint handle) {
     (void) env;
     (void) clazz;
-    resistineWgTurnOff(handle);
+    return (jlong) resistineWgTurnOff(handle);
 }
 
 JNIEXPORT jint JNICALL
@@ -84,6 +86,22 @@ Java_com_wireguard_android_backend_TelemetryGoBackend_wgGetTelemetryDrops(
     (void) env;
     (void) clazz;
     return (jlong) resistineWgGetTelemetryDrops(handle);
+}
+
+JNIEXPORT jlong JNICALL
+Java_com_wireguard_android_backend_TelemetryGoBackend_wgGetTelemetryQueueDepth(
+        JNIEnv *env, jclass clazz, jint handle) {
+    (void) env;
+    (void) clazz;
+    return (jlong) resistineWgGetTelemetryQueueDepth(handle);
+}
+
+JNIEXPORT jlong JNICALL
+Java_com_wireguard_android_backend_TelemetryGoBackend_wgGetTelemetryQueueHighWater(
+        JNIEnv *env, jclass clazz, jint handle) {
+    (void) env;
+    (void) clazz;
+    return (jlong) resistineWgGetTelemetryQueueHighWater(handle);
 }
 
 JNIEXPORT jstring JNICALL

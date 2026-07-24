@@ -128,4 +128,37 @@ class FlowTelemetryPipelineTest {
         assertEquals(1L, snapshot.parserFailure)
         assertTrue(store.readAllRecords().isEmpty())
     }
+
+    @Test
+    fun `resolved metadata is attached to generated flow`() {
+        val store = FlowSegmentStore(temporaryFolder.newFolder("metadata-pipeline"))
+        val stats = PacketPipelineStats()
+        val pipeline = FlowTelemetryPipeline(
+            writer = AsyncFlowSegmentWriter(store),
+            stats = stats,
+            contextResolver = FlowIngestContextResolver {
+                FlowIngestContext(
+                    networkType = FlowNetworkType.CELLULAR,
+                    appUid = 10123,
+                    appPackage = "com.example.client",
+                    vpnActive = true
+                )
+            }
+        )
+        val packet = PacketFixtures.ipv4TcpPacket(
+            src = byteArrayOf(10, 0, 0, 2),
+            dst = byteArrayOf(93, 184.toByte(), 216.toByte(), 34),
+            srcPort = 51000,
+            dstPort = 443,
+            payload = byteArrayOf()
+        )
+
+        pipeline.ingest(packet, packet.size, PacketDirection.OUTBOUND, 1_000L)
+        pipeline.shutdown(1_001L)
+
+        val record = store.readAllRecords().single()
+        assertEquals(FlowNetworkType.CELLULAR, record.networkType)
+        assertEquals(10123, record.appUid)
+        assertEquals("com.example.client", record.appPackage)
+    }
 }
