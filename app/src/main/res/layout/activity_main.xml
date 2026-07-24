@@ -1,67 +1,87 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.drawerlayout.widget.DrawerLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/drawerLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/rs_background"
     tools:context=".MainActivity">
 
-    <com.google.android.material.appbar.MaterialToolbar
-        android:id="@+id/toolbar"
-        android:layout_width="0dp"
-        android:layout_height="@dimen/rs_toolbar_height"
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
         android:background="@color/rs_background"
-        android:elevation="0dp"
-        android:paddingStart="@dimen/rs_space_8"
-        android:paddingEnd="@dimen/rs_space_8"
-        app:contentInsetStartWithNavigation="0dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:navigationIconTint="@color/rs_primary"
-        app:popupTheme="@style/Theme.ResistineAndroidApp.PopupOverlay"
-        app:title="">
+        tools:context=".MainActivity">
 
-        <ImageView
-            android:id="@+id/brandLogo"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
-            android:layout_gravity="start|center_vertical"
-            android:contentDescription="@string/resistine_logo_description"
-            android:scaleType="centerInside"
-            android:src="@drawable/resistine_shield" />
-    </com.google.android.material.appbar.MaterialToolbar>
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="0dp"
+            android:layout_height="@dimen/rs_toolbar_height"
+            android:background="@color/rs_background"
+            android:elevation="0dp"
+            android:paddingEnd="@dimen/rs_space_8"
+            app:contentInsetStartWithNavigation="0dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:navigationIconTint="@color/rs_primary"
+            app:popupTheme="@style/Theme.ResistineAndroidApp.PopupOverlay"
+            app:title="">
 
-    <androidx.fragment.app.FragmentContainerView
-        android:id="@+id/nav_host_fragment_content_main"
-        android:name="androidx.navigation.fragment.NavHostFragment"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        app:defaultNavHost="true"
-        app:layout_constraintBottom_toTopOf="@id/bottomNavigation"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/toolbar"
-        app:navGraph="@navigation/mobile_navigation" />
+            <ImageButton
+                android:id="@+id/homeNavigationButton"
+                android:layout_width="@dimen/rs_touch_target"
+                android:layout_height="@dimen/rs_touch_target"
+                android:layout_gravity="start|center_vertical"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/navigation_back_home"
+                android:padding="@dimen/rs_space_12"
+                android:src="@drawable/ic_arrow_back_24"
+                android:visibility="gone"
+                app:tint="@color/rs_primary" />
 
-    <com.google.android.material.bottomnavigation.BottomNavigationView
-        android:id="@+id/bottomNavigation"
-        style="@style/Widget.Resistine.BottomNavigation"
-        android:layout_width="0dp"
-        android:layout_height="@dimen/rs_bottom_nav_height"
-        android:layout_marginStart="@dimen/rs_space_12"
-        android:layout_marginEnd="@dimen/rs_space_12"
-        android:layout_marginBottom="@dimen/rs_space_8"
-        android:background="@drawable/bg_bottom_navigation"
-        android:paddingStart="@dimen/rs_space_4"
-        android:paddingEnd="@dimen/rs_space_4"
-        app:backgroundTint="@null"
-        app:itemHorizontalTranslationEnabled="false"
-        app:labelVisibilityMode="unlabeled"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
+            <ImageView
+                android:id="@+id/brandLogo"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:layout_gravity="start|center_vertical"
+                android:contentDescription="@string/resistine_logo_description"
+                android:scaleType="centerInside"
+                android:src="@drawable/resistine_shield" />
+        </com.google.android.material.appbar.MaterialToolbar>
+
+        <androidx.fragment.app.FragmentContainerView
+            android:id="@+id/nav_host_fragment_content_main"
+            android:name="androidx.navigation.fragment.NavHostFragment"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:defaultNavHost="true"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/toolbar"
+            app:navGraph="@navigation/mobile_navigation" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <com.google.android.material.navigation.NavigationView
+        android:id="@+id/navigationView"
+        android:layout_width="@dimen/rs_navigation_drawer_width"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:background="@color/rs_surface"
+        android:fitsSystemWindows="false"
+        app:headerLayout="@layout/nav_header_main"
+        app:itemHorizontalPadding="@dimen/rs_space_20"
+        app:itemIconTint="@color/rs_navigation_color"
+        app:itemIconPadding="@dimen/rs_space_16"
+        app:itemShapeAppearance="@style/ShapeAppearance.Resistine.NavigationIndicator"
+        app:itemShapeFillColor="@color/rs_navigation_item_background"
+        app:itemShapeInsetBottom="@dimen/rs_space_4"
+        app:itemShapeInsetEnd="@dimen/rs_space_12"
+        app:itemShapeInsetStart="@dimen/rs_space_12"
+        app:itemShapeInsetTop="@dimen/rs_space_4"
+        app:itemTextColor="@color/rs_navigation_color"
         app:menu="@menu/bottom_navigation" />
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.drawerlayout.widget.DrawerLayout>

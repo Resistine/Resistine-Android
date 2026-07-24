@@ -1,29 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="@dimen/nav_header_height"
-    android:background="@color/dark_blue"
-    android:gravity="bottom"
+    android:background="@color/rs_surface"
+    android:gravity="center_vertical"
     android:orientation="vertical"
-    android:paddingTop="@dimen/activity_vertical_margin"
-    android:paddingRight="@dimen/activity_horizontal_margin"
-    android:paddingBottom="@dimen/activity_vertical_margin"
-    android:theme="@style/ThemeOverlay.AppCompat.Dark">
+    android:paddingStart="@dimen/rs_space_24"
+    android:paddingTop="@dimen/rs_space_20"
+    android:paddingEnd="@dimen/rs_space_24"
+    android:paddingBottom="@dimen/rs_space_16">
 
     <ImageView
         android:id="@+id/imageView"
-        android:layout_width="200dp"
-        android:layout_height="70dp"
-        android:contentDescription="@string/nav_header_desc"
-        android:paddingTop="@dimen/nav_header_vertical_spacing"
-        android:layout_gravity="start"
-        app:srcCompat="@drawable/resistine1200" />
+        android:layout_width="52dp"
+        android:layout_height="52dp"
+        android:contentDescription="@string/resistine_logo_description"
+        android:src="@drawable/resistine_shield" />
 
     <TextView
         android:id="@+id/textView"
-        android:layout_marginLeft="15dp"
-        android:layout_width="wrap_content"
+        style="@style/TextAppearance.Resistine.Title"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/nav_header_subtitle" />
+        android:layout_marginTop="@dimen/rs_space_12"
+        android:text="@string/app_name" />
+
+    <TextView
+        style="@style/TextAppearance.Resistine.Body"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/rs_space_2"
+        android:text="@string/nav_header_subtitle"
+        android:textSize="14sp" />
 </LinearLayout>

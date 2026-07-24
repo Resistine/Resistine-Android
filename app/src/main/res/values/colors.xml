@@ -42,4 +42,5 @@
     <color name="rs_status_warning_container">#FFFFF5DB</color>
     <color name="rs_status_danger_container">#FFFFECEA</color>
     <color name="rs_scrim">#330B2340</color>
+    <color name="rs_launcher_background">#101B2D</color>
 </resources>

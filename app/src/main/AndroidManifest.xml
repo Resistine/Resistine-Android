@@ -20,6 +20,7 @@
     <!-- For Location -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
 
 
     <application
@@ -27,9 +28,9 @@
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
-        android:icon="@drawable/resistine_shield"
+        android:icon="@mipmap/ic_launcher_disconnected"
         android:label="@string/app_name"
-        android:roundIcon="@drawable/resistine_shield"
+        android:roundIcon="@mipmap/ic_launcher_disconnected"
         android:supportsRtl="true"
         android:theme="@style/Theme.ResistineAndroidApp"
         android:networkSecurityConfig="@xml/network_security_config">
@@ -54,13 +55,35 @@
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.ResistineAndroidApp.NoActionBar">
+            android:theme="@style/Theme.ResistineAndroidApp.NoActionBar" />
+
+        <activity-alias
+            android:name=".LauncherDisconnected"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_disconnected"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_disconnected"
+            android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherConnected"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_connected"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_connected"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
     </application>
 
 </manifest>

@@ -1,0 +1,9 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/rs_launcher_background" />
+    <item
+        android:bottom="12dp"
+        android:drawable="@drawable/launcher_foreground_connected"
+        android:left="12dp"
+        android:right="12dp"
+        android:top="12dp" />
+</layer-list>

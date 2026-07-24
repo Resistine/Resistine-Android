@@ -72,11 +72,11 @@
         <item name="hintTextColor">@color/rs_text_secondary</item>
     </style>
 
-    <style name="Widget.Resistine.BottomNavigation" parent="Widget.Material3.BottomNavigationView">
-        <item name="itemActiveIndicatorStyle">@null</item>
-        <item name="itemIconTint">@color/rs_bottom_nav_color</item>
-        <item name="itemTextColor">@color/rs_bottom_nav_color</item>
-        <item name="backgroundTint">@null</item>
-        <item name="elevation">10dp</item>
+    <style name="ShapeAppearance.Resistine.NavigationIndicator" parent="ShapeAppearance.Material3.Corner.Full" />
+
+    <style name="Widget.Resistine.ChatMessage" parent="TextAppearance.Resistine.Body">
+        <item name="android:textColor">@color/rs_text_primary</item>
+        <item name="android:lineSpacingExtra">3dp</item>
+        <item name="android:textIsSelectable">true</item>
     </style>
 </resources>

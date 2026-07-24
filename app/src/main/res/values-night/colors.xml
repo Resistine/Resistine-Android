@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="dark_blue">#8DBBFF</color>
+    <color name="light_grey">#202733</color>
+    <color name="dark_grey">#E7EDF6</color>
+    <color name="success_green">#53D68C</color>
+    <color name="error_red">#FF8A80</color>
+    <color name="blue_on_black">#8DBBFF</color>
+    <color name="wifi_risk_safe_bg">#173C2A</color>
+    <color name="wifi_risk_warning_bg">#473713</color>
+    <color name="wifi_risk_danger_bg">#4A2224</color>
+    <color name="wifi_risk_safe_text">#79DFA7</color>
+    <color name="wifi_risk_warning_text">#FFD071</color>
+    <color name="wifi_risk_danger_text">#FFAAA4</color>
+
+    <color name="rs_primary">#8DBBFF</color>
+    <color name="rs_primary_bright">#A8C8FF</color>
+    <color name="rs_primary_dark">#D5E3FF</color>
+    <color name="rs_on_primary">#062E6F</color>
+    <color name="rs_background">#101318</color>
+    <color name="rs_surface">#171A20</color>
+    <color name="rs_surface_tinted">#1D222B</color>
+    <color name="rs_surface_blue">#243044</color>
+    <color name="rs_text_primary">#E7EDF6</color>
+    <color name="rs_text_secondary">#B5C0CF</color>
+    <color name="rs_outline">#303947</color>
+    <color name="rs_outline_strong">#526177</color>
+    <color name="rs_switch_off">#718096</color>
+    <color name="rs_hero_overlay">#16000000</color>
+    <color name="rs_status_safe">#53D68C</color>
+    <color name="rs_status_warning">#FFD071</color>
+    <color name="rs_status_danger">#FFAAA4</color>
+    <color name="rs_status_safe_container">#173C2A</color>
+    <color name="rs_status_warning_container">#473713</color>
+    <color name="rs_status_danger_container">#4A2224</color>
+    <color name="rs_scrim">#99000000</color>
+    <color name="rs_launcher_background">#101B2D</color>
+</resources>

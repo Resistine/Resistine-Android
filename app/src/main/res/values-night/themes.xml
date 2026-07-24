@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.ResistineAndroidApp" parent="Theme.Material3.Light.NoActionBar">
+    <style name="Theme.ResistineAndroidApp" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorPrimary">@color/rs_primary</item>
         <item name="colorOnPrimary">@color/rs_on_primary</item>
         <item name="colorPrimaryContainer">@color/rs_surface_blue</item>
@@ -18,7 +18,8 @@
         <item name="colorSurfaceVariant">@color/rs_surface_tinted</item>
         <item name="colorOnSurfaceVariant">@color/rs_text_secondary</item>
         <item name="colorOutline">@color/rs_outline</item>
-        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
         <item name="android:statusBarColor">@color/rs_surface</item>
         <item name="android:navigationBarColor">@color/rs_surface</item>
         <item name="android:windowBackground">@color/rs_surface</item>
@@ -27,4 +28,8 @@
         <item name="textInputStyle">@style/Widget.Resistine.TextInputLayout</item>
         <item name="materialSwitchStyle">@style/Widget.Resistine.Switch</item>
     </style>
+
+    <style name="Theme.ResistineAndroidApp.NoActionBar" parent="Theme.ResistineAndroidApp" />
+    <style name="Theme.ResistineAndroidApp.AppBarOverlay" parent="ThemeOverlay.Material3.Dark.ActionBar" />
+    <style name="Theme.ResistineAndroidApp.PopupOverlay" parent="ThemeOverlay.Material3.Dark" />
 </resources>

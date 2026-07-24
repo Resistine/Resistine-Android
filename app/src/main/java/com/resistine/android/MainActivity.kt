@@ -11,7 +11,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePadding
-import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.drawerlayout.widget.DrawerLayout
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.AppBarConfiguration
@@ -26,9 +26,9 @@ import com.resistine.android.ui.vpn.VpnViewModel
 /**
  * Single-activity shell for the Resistine application.
  *
- * Primary destinations use the Material 3 bottom navigation. Authentication and
- * detail destinations keep the same Navigation Component graph while hiding the
- * bottom bar, so runtime and back-stack behavior remain independent from styling.
+ * Primary destinations use an expandable navigation drawer. Authentication and
+ * detail destinations keep the same Navigation Component graph with the drawer
+ * locked closed.
  */
 class MainActivity : AppCompatActivity() {
 
@@ -45,6 +45,11 @@ class MainActivity : AppCompatActivity() {
         R.id.nav_apps,
         R.id.nav_chat
     )
+    private val drawerDestinations = primaryDestinations + setOf(
+        R.id.nav_settings,
+        R.id.nav_security,
+        R.id.nav_log_viewer
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,38 +64,68 @@ class MainActivity : AppCompatActivity() {
         val navHostFragment = supportFragmentManager
             .findFragmentById(R.id.nav_host_fragment_content_main) as NavHostFragment
         navController = navHostFragment.navController
-        appBarConfiguration = AppBarConfiguration(primaryDestinations + R.id.nav_welcome)
+        appBarConfiguration = AppBarConfiguration.Builder(
+            drawerDestinations + R.id.nav_welcome
+        )
+            .setOpenableLayout(binding.drawerLayout)
+            .build()
 
         setupActionBarWithNavController(navController, appBarConfiguration)
         supportActionBar?.setDisplayShowTitleEnabled(false)
-        binding.bottomNavigation.setupWithNavController(navController)
+        binding.navigationView.setupWithNavController(navController)
+        binding.homeNavigationButton.setOnClickListener { navigateHome() }
         configureDestinationChrome(navController)
     }
 
     private fun configureDestinationChrome(navController: NavController) {
         navController.addOnDestinationChangedListener { _, destination, _ ->
             val isRouter = destination.id == R.id.nav_router
-            val isPrimary = destination.id in primaryDestinations
+            val hasDrawer = destination.id in drawerDestinations
 
             binding.toolbar.visibility = if (isRouter) View.GONE else View.VISIBLE
-            binding.bottomNavigation.visibility = if (isPrimary) View.VISIBLE else View.GONE
+            binding.drawerLayout.setDrawerLockMode(
+                if (hasDrawer) {
+                    DrawerLayout.LOCK_MODE_UNLOCKED
+                } else {
+                    DrawerLayout.LOCK_MODE_LOCKED_CLOSED
+                }
+            )
+            if (!hasDrawer) {
+                binding.drawerLayout.closeDrawers()
+            }
+            binding.homeNavigationButton.visibility =
+                if (hasDrawer && destination.id != R.id.nav_home) View.VISIBLE else View.GONE
+            if (destination.id == R.id.nav_welcome) {
+                supportActionBar?.setDisplayHomeAsUpEnabled(false)
+                binding.toolbar.navigationIcon = null
+            }
             animateDestinationChange()
             invalidateOptionsMenu()
         }
     }
 
+    private fun navigateHome() {
+        if (navController.currentDestination?.id == R.id.nav_home) return
+        if (!navController.popBackStack(R.id.nav_home, false)) {
+            navController.navigate(R.id.nav_home)
+        }
+    }
+
     private fun applySystemBarInsets() {
         val toolbarBaseHeight = resources.getDimensionPixelSize(R.dimen.rs_toolbar_height)
-        val bottomNavBaseMargin = resources.getDimensionPixelSize(R.dimen.rs_space_8)
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
             val bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
-            binding.toolbar.updatePadding(top = bars.top)
-            binding.toolbar.updateLayoutParams<ConstraintLayout.LayoutParams> {
+            binding.toolbar.updatePadding(left = bars.left, top = bars.top, right = bars.right)
+            binding.toolbar.updateLayoutParams {
                 height = toolbarBaseHeight + bars.top
             }
-            binding.bottomNavigation.updateLayoutParams<ConstraintLayout.LayoutParams> {
-                bottomMargin = bottomNavBaseMargin + bars.bottom
-            }
+            binding.navigationView.updatePadding(
+                left = bars.left,
+                top = bars.top,
+                right = bars.right,
+                bottom = bars.bottom
+            )
+            binding.navHostFragmentContentMain.updatePadding(bottom = bars.bottom)
             windowInsets
         }
     }
