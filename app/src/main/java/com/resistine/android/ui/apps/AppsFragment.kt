@@ -107,6 +107,7 @@ class AppsFragment : Fragment() {
         binding.switchSystemApps.setOnCheckedChangeListener { _, isChecked ->
             prefs.edit().putBoolean(KEY_SHOW_SYSTEM_APPS, isChecked).apply()
             viewModel.setShowSystemApps(isChecked)
+            updateFilterSummary()
         }
 
         binding.buttonScan.setOnClickListener {
@@ -279,7 +280,7 @@ class AppsFragment : Fragment() {
         binding.buttonToggleFilters.contentDescription = getString(
             if (filtersExpanded) R.string.hide_filters else R.string.show_filters
         )
-        binding.buttonToggleFilters.isSelected = filtersExpanded
+        updateFilterSummary()
     }
 
     private fun setupFilters() {
@@ -322,6 +323,24 @@ class AppsFragment : Fragment() {
             binding.badgeChipGroup.clearCheck()
             binding.switchSystemApps.isChecked = false
             applyFilters()
+        }
+    }
+
+    private fun updateFilterSummary() {
+        val activeCount = selectedRiskVerdicts().size +
+            selectedBadgeTypes().size +
+            if (binding.switchSystemApps.isChecked) 1 else 0 +
+            if (sortOption != SortOption.NAME_ASC) 1 else 0
+        binding.filterSummary.text = if (activeCount == 0) {
+            getString(R.string.filters_summary_default)
+        } else {
+            getString(R.string.filters_active_count, activeCount)
+        }
+        binding.buttonToggleFilters.isSelected = filtersExpanded || activeCount > 0
+        binding.buttonToggleFilters.contentDescription = if (filtersExpanded) {
+            getString(R.string.hide_filters)
+        } else {
+            getString(R.string.show_filters_with_count, activeCount)
         }
     }
 
@@ -405,6 +424,7 @@ class AppsFragment : Fragment() {
         }
 
         adapter.submitList(sorted)
+        updateFilterSummary()
     }
 
     private fun openPermissionManager(permission: String?) {

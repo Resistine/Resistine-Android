@@ -88,8 +88,7 @@ object WifiSafetyScorer {
         }
         val limitedConfidence = uncertainties.isNotEmpty()
         val isLimitedData = limitedReason || limitedConfidence
-        val isScoreAvailable = WifiAssessmentUncertainty.ENCRYPTION_UNVERIFIED !in uncertainties &&
-            alert.isOnWifi
+        val isScoreAvailable = alert.isOnWifi && uncertainties.isEmpty()
         val recommendationResId = when {
             level != WifiNetworkRiskLevel.SAFE -> R.string.wifi_security_recommendation_warning
             isLimitedData -> R.string.wifi_security_recommendation_info

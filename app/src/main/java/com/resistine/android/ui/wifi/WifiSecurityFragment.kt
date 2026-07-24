@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Build
 import android.provider.Settings
 import android.transition.AutoTransition
 import android.transition.TransitionManager
@@ -57,7 +58,7 @@ class WifiSecurityFragment : Fragment() {
     private val binding get() = _binding!!
     private val vpnViewModel: VpnViewModel by activityViewModels()
 
-    private var isNearbyNetworksExpanded = false
+    private var isNearbyNetworksExpanded = true
     private var isTrustedNetworksExpanded = false
     private var isCurrentWifiDetailsExpanded = false
     private var latestNearbyNetworksState = WifiNearbyNetworksState()
@@ -74,7 +75,7 @@ class WifiSecurityFragment : Fragment() {
 
     private val locationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
-            val granted = permissions.any { it.value } || hasLocationPermission()
+            val granted = hasWifiScanPermissions()
             if (!granted) {
                 Toast.makeText(
                     requireContext(),
@@ -366,7 +367,7 @@ class WifiSecurityFragment : Fragment() {
         }
         binding.textViewWifiSafetyBody.text = assessment.summary
         binding.textViewWifiRecommendation.text = getString(assessment.recommendationResId)
-        renderScoreBreakdown(assessment.dimensions)
+        renderScoreBreakdown(assessment)
         latestWifiAlert?.let { renderCurrentWifiSummaryChips(it) }
     }
 
@@ -588,16 +589,27 @@ class WifiSecurityFragment : Fragment() {
             .show()
     }
 
-    private fun renderScoreBreakdown(dimensions: List<WifiScoreDimensionResult>) {
+    private fun renderScoreBreakdown(assessment: WifiSafetyAssessment) {
+        val dimensions = assessment.dimensions
         val penalties = dimensions
             .filter { it.penalty > 0 }
             .sortedWith(compareByDescending<WifiScoreDimensionResult> { it.penalty }.thenBy { it.dimension.name })
         val chipsContainer = binding.layoutScoreBreakdownChips
         chipsContainer.removeAllViews()
 
+        if (!assessment.isScoreAvailable) {
+            binding.scrollViewScoreBreakdown.visibility = View.GONE
+            binding.textViewScoreBreakdownEmpty.visibility = View.VISIBLE
+            binding.textViewScoreBreakdownEmpty.text =
+                getString(R.string.wifi_score_breakdown_verification_needed)
+            return
+        }
+
         if (penalties.isEmpty()) {
             binding.scrollViewScoreBreakdown.visibility = View.GONE
             binding.textViewScoreBreakdownEmpty.visibility = View.VISIBLE
+            binding.textViewScoreBreakdownEmpty.text =
+                getString(R.string.wifi_score_breakdown_none)
             return
         }
 
@@ -605,19 +617,14 @@ class WifiSecurityFragment : Fragment() {
         binding.textViewScoreBreakdownEmpty.visibility = View.GONE
 
         val totalPenalty = penalties.sumOf { it.penalty }
-        val totalLevel = when {
-            totalPenalty >= 30 -> WifiNetworkRiskLevel.DANGER
-            totalPenalty >= 12 -> WifiNetworkRiskLevel.WARNING
-            else -> WifiNetworkRiskLevel.SAFE
-        }
         addScoreBreakdownChip(
             text = getString(R.string.wifi_score_breakdown_total_format, totalPenalty),
-            level = totalLevel,
+            level = assessment.level,
             dialogTitle = getString(R.string.wifi_score_details_title),
             dialogMessage = buildTotalBreakdownMessage(dimensions)
         )
 
-        penalties.forEach { dimension ->
+        penalties.take(2).forEach { dimension ->
             addScoreBreakdownChip(
                 text = getString(
                     R.string.wifi_score_breakdown_chip_format,
@@ -679,7 +686,7 @@ class WifiSecurityFragment : Fragment() {
         val currentAlert = latestWifiAlert
         container.removeAllViews()
         when {
-            state.messageResId != null -> addNearbyEmptyState(
+            state.networks.isEmpty() && state.messageResId != null -> addNearbyEmptyState(
                 container = container,
                 title = getString(R.string.wifi_nearby_access_needed_title),
                 message = getString(state.messageResId),
@@ -692,6 +699,9 @@ class WifiSecurityFragment : Fragment() {
                 showAction = false
             )
             else -> {
+                state.messageResId?.let { messageResId ->
+                    addSectionMessage(container, getString(messageResId))
+                }
                 state.networks.forEach { network ->
                     val row = layoutInflater.inflate(
                         R.layout.item_wifi_available_network,
@@ -1346,7 +1356,9 @@ class WifiSecurityFragment : Fragment() {
 
     private fun nearbyNetworkChips(network: WifiNearbyNetwork): List<UiChip> {
         val chips = mutableListOf<UiChip>()
-        chips += nearbyScoreChip(network)
+        if (!network.isLimitedData) {
+            chips += nearbyScoreChip(network)
+        }
         chips += securityProfileChip(network.securityProfile)
         val pmfState = network.securityProfile?.pmfState
         if (pmfState != null && pmfState != WifiPmfState.UNKNOWN && pmfState != WifiPmfState.NOT_APPLICABLE) {
@@ -1367,7 +1379,9 @@ class WifiSecurityFragment : Fragment() {
                 notApplicable = false
             )
         }
-        if (network.matchConfidence != WifiMatchConfidence.VERIFIED_BSSID) {
+        if (!network.isLimitedData &&
+            network.matchConfidence != WifiMatchConfidence.VERIFIED_BSSID
+        ) {
             chips += matchConfidenceChip(network.matchConfidence)
         }
         return chips
@@ -1531,11 +1545,11 @@ class WifiSecurityFragment : Fragment() {
         return UiChip(
             text = getString(R.string.wifi_chip_limited_verification),
             level = WifiNetworkRiskLevel.WARNING,
-            dialogTitle = "Limited verification",
+            dialogTitle = getString(R.string.wifi_verification_needed_title),
             dialogMessage = buildString {
-                append("Missing data does not reduce the safety score. These checks could not be verified confidently.")
+                append(getString(R.string.wifi_verification_needed_body))
                 if (uncertaintyText.isNotBlank()) {
-                    append("\n\nActive uncertainty signals:\n")
+                    append("\n\n")
                     append(uncertaintyText)
                 }
             }
@@ -1769,13 +1783,26 @@ class WifiSecurityFragment : Fragment() {
         if (latestWifiAlert?.reason == WifiAlertReason.LOCATION_SERVICES_DISABLED && hasLocationPermission()) {
             requestLocationServicesResolution(userInitiated = true)
         } else {
-            locationPermissionLauncher.launch(
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                )
-            )
+            locationPermissionLauncher.launch(requiredWifiScanPermissions())
         }
+    }
+
+    private fun requiredWifiScanPermissions(): Array<String> = buildList {
+        add(Manifest.permission.ACCESS_FINE_LOCATION)
+        add(Manifest.permission.ACCESS_COARSE_LOCATION)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            add(Manifest.permission.NEARBY_WIFI_DEVICES)
+        }
+    }.toTypedArray()
+
+    private fun hasWifiScanPermissions(): Boolean {
+        val locationGranted = hasLocationPermission()
+        val nearbyGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.NEARBY_WIFI_DEVICES
+            ) == PackageManager.PERMISSION_GRANTED
+        return locationGranted && nearbyGranted
     }
 
     private fun addNearbyEmptyState(

@@ -51,13 +51,11 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
+                        android:orientation="vertical">
 
                         <LinearLayout
-                            android:layout_width="0dp"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
                             android:orientation="vertical">
 
                             <TextView android:id="@+id/scan_summary_title" style="@style/TextAppearance.Resistine.Section" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/scan_summary_not_scanned" />
@@ -68,10 +66,9 @@
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/button_scan"
                             style="@style/Widget.Resistine.Button.Primary"
-                            android:layout_width="wrap_content"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="@dimen/rs_space_12"
-                            android:minWidth="120dp"
+                            android:layout_marginTop="@dimen/rs_space_12"
                             android:text="@string/scan_button" />
                     </LinearLayout>
 
@@ -166,17 +163,21 @@
 
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="@dimen/rs_space_16">
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
-                        <TextView style="@style/TextAppearance.Resistine.Section" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/filters_title" />
-                        <com.google.android.material.button.MaterialButton android:id="@+id/button_clear_filters" style="@style/Widget.Material3.Button.TextButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:minHeight="40dp" android:text="@string/filters_clear" />
+                        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                            <TextView style="@style/TextAppearance.Resistine.Section" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/filters_title" />
+                            <TextView android:id="@+id/filter_summary" style="@style/TextAppearance.Resistine.Label" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="@dimen/rs_space_2" android:text="@string/filters_summary_default" />
+                        </LinearLayout>
+                        <com.google.android.material.button.MaterialButton android:id="@+id/button_clear_filters" style="@style/Widget.Material3.Button.TextButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:minHeight="40dp" android:text="@string/filters_reset" />
                         <com.google.android.material.button.MaterialButton android:id="@+id/button_done_filters" style="@style/Widget.Material3.Button.TonalButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="@dimen/rs_space_4" android:minHeight="40dp" android:text="@string/filters_done" />
                     </LinearLayout>
-                    <com.google.android.material.textfield.TextInputLayout android:id="@+id/sort_input_layout" style="@style/Widget.Resistine.TextInputLayout" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/sort_by" app:endIconMode="dropdown_menu">
+                    <com.google.android.material.textfield.TextInputLayout android:id="@+id/sort_input_layout" style="@style/Widget.Resistine.TextInputLayout" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="@dimen/rs_space_12" android:hint="@string/sort_by" app:endIconMode="dropdown_menu">
                         <com.google.android.material.textfield.MaterialAutoCompleteTextView android:id="@+id/sort_dropdown" android:layout_width="match_parent" android:layout_height="wrap_content" android:cursorVisible="false" android:focusable="false" android:gravity="center_vertical" android:inputType="none" android:minHeight="56dp" android:paddingStart="16dp" android:paddingEnd="48dp" android:singleLine="true" android:textAlignment="viewStart" />
                     </com.google.android.material.textfield.TextInputLayout>
 
                     <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/switch_system_apps" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="@dimen/rs_space_8" android:text="@string/show_system_apps" />
 
                     <TextView android:id="@+id/risk_filter_label" style="@style/TextAppearance.Resistine.Section" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="@dimen/rs_space_12" android:text="@string/filter_risk_label" />
+                    <TextView style="@style/TextAppearance.Resistine.Label" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="@dimen/rs_space_2" android:text="@string/filter_risk_help" />
                     <com.google.android.material.chip.ChipGroup android:id="@+id/risk_chip_group" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="@dimen/rs_space_6" app:chipSpacingHorizontal="6dp" app:chipSpacingVertical="4dp" app:singleSelection="false">
                         <com.google.android.material.chip.Chip android:id="@+id/chip_risk_safe" android:layout_width="wrap_content" android:layout_height="wrap_content" android:checkable="true" android:text="@string/app_verdict_no_concern" />
                         <com.google.android.material.chip.Chip android:id="@+id/chip_risk_warning" android:layout_width="wrap_content" android:layout_height="wrap_content" android:checkable="true" android:text="@string/app_verdict_review" />
@@ -184,6 +185,7 @@
                     </com.google.android.material.chip.ChipGroup>
 
                     <TextView android:id="@+id/badge_filter_label" style="@style/TextAppearance.Resistine.Section" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="@dimen/rs_space_12" android:text="@string/filter_badge_label" />
+                    <TextView style="@style/TextAppearance.Resistine.Label" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="@dimen/rs_space_2" android:text="@string/filter_badge_help" />
                     <com.google.android.material.chip.ChipGroup android:id="@+id/badge_chip_group" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="@dimen/rs_space_6" app:chipSpacingHorizontal="6dp" app:chipSpacingVertical="4dp" app:singleSelection="false">
                         <com.google.android.material.chip.Chip android:id="@+id/chip_badge_accessibility" android:layout_width="wrap_content" android:layout_height="wrap_content" android:checkable="true" android:text="@string/badge_accessibility_enabled" />
                         <com.google.android.material.chip.Chip android:id="@+id/chip_badge_device_admin" android:layout_width="wrap_content" android:layout_height="wrap_content" android:checkable="true" android:text="@string/badge_device_admin" />
@@ -259,9 +261,9 @@
                 android:insetRight="0dp"
                 android:insetBottom="0dp"
                 android:text=""
-                app:backgroundTint="@color/rs_surface_blue"
+                app:backgroundTint="@color/rs_filter_button_background"
                 app:icon="@drawable/ic_filter_24"
-                app:iconTint="@color/rs_primary" />
+                app:iconTint="@color/rs_filter_icon_tint" />
         </LinearLayout>
     </com.google.android.material.appbar.AppBarLayout>
 

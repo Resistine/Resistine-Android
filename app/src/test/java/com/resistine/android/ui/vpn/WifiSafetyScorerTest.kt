@@ -134,6 +134,27 @@ class WifiSafetyScorerTest {
     }
 
     @Test
+    fun `secure wifi without verified access point identity hides numeric score`() {
+        val alert = wifiAlert(
+            reason = WifiAlertReason.SECURE,
+            securityType = WifiSecurityType.SECURE,
+            matchConfidence = WifiMatchConfidence.UNAVAILABLE
+        )
+
+        val checks = WifiSafetyScorer.buildCoreChecks(alert, signals = null)
+        val assessment = WifiSafetyScorer.buildSafetyAssessment(alert, checks)
+
+        assertEquals(100, assessment.score)
+        assertTrue(assessment.isLimitedData)
+        assertFalse(assessment.isScoreAvailable)
+        assertTrue(
+            assessment.uncertainties.contains(
+                WifiAssessmentUncertainty.AP_IDENTITY_UNAVAILABLE
+            )
+        )
+    }
+
+    @Test
     fun `validated wpa2 is acceptable and is not penalized only for lacking wpa3`() {
         val alert = wifiAlert(
             reason = WifiAlertReason.SECURE,

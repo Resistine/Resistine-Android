@@ -22,10 +22,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val context = getApplication<Application>().applicationContext
         val vpnConnected = hasTransport(NetworkCapabilities.TRANSPORT_VPN)
         val wifiConnected = hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
-        val protected = vpnConnected || wifiConnected
 
         _uiState.value = HomeUiState(
-            isProtected = protected,
+            isProtected = vpnConnected,
             securityScore = when {
                 vpnConnected && wifiConnected -> 96
                 vpnConnected || wifiConnected -> 86
@@ -37,10 +36,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 HomeCardItem(
                     title = context.getString(R.string.menu_wifi_security),
                     summary = context.getString(R.string.home_network_protection),
-                    status = if (wifiConnected) context.getString(R.string.wifi_security_type_secure) else context.getString(R.string.wifi_security_no_network),
+                    status = if (wifiConnected) context.getString(R.string.home_card_connected) else context.getString(R.string.wifi_security_no_network),
                     iconResId = R.drawable.ic_menu_wifi,
                     destinationFragmentId = R.id.nav_wifi_security,
-                    statusColorResId = if (wifiConnected) R.color.rs_status_safe else R.color.rs_status_warning
+                    statusColorResId = R.color.rs_status_warning
                 ),
                 HomeCardItem(
                     title = context.getString(R.string.menu_vpn),
