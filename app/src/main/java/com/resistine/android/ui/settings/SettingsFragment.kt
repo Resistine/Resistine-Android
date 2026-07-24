@@ -13,6 +13,8 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.resistine.android.R
 import com.resistine.android.databinding.FragmentSettingsBinding
 import com.resistine.android.network.flow.FlowWazuhDeliveryMode
+import com.resistine.android.ui.theme.AppThemeManager
+import com.resistine.android.ui.theme.AppThemeMode
 import com.resistine.android.ui.vpn.VpnUiState
 import com.resistine.android.ui.vpn.VpnViewModel
 
@@ -22,6 +24,7 @@ class SettingsFragment : Fragment() {
     private val settingsViewModel: SettingsViewModel by viewModels()
     private val vpnViewModel: VpnViewModel by activityViewModels()
     private var renderingDeliveryState = false
+    private var renderingTheme = false
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -34,6 +37,7 @@ class SettingsFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         populateEndpointFields()
+        bindThemeControls()
         binding.editConfiguration.transformationMethod = PasswordTransformationMethod.getInstance()
         binding.switchShowConfiguration.setOnCheckedChangeListener { _, isChecked ->
             val selection = binding.editConfiguration.selectionStart.coerceAtLeast(0)
@@ -91,6 +95,29 @@ class SettingsFragment : Fragment() {
         vpnViewModel.uiState.observe(viewLifecycleOwner, ::renderDelivery)
     }
 
+    private fun bindThemeControls() {
+        renderingTheme = true
+        binding.themeModeGroup.check(
+            when (AppThemeManager.current(requireContext())) {
+                AppThemeMode.SYSTEM -> R.id.themeSystem
+                AppThemeMode.LIGHT -> R.id.themeLight
+                AppThemeMode.DARK -> R.id.themeDark
+            }
+        )
+        renderingTheme = false
+        binding.themeModeGroup.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (!isChecked || renderingTheme) return@addOnButtonCheckedListener
+            AppThemeManager.set(
+                requireContext(),
+                when (checkedId) {
+                    R.id.themeDark -> AppThemeMode.DARK
+                    R.id.themeLight -> AppThemeMode.LIGHT
+                    else -> AppThemeMode.SYSTEM
+                }
+            )
+        }
+    }
+
     private fun renderConfiguration(state: SettingsUiState) = with(binding) {
         if (!editConfiguration.hasFocus() && editConfiguration.text?.toString() != state.configuration) {
             editConfiguration.setText(state.configuration)
@@ -131,6 +158,28 @@ class SettingsFragment : Fragment() {
             FlowWazuhDeliveryMode.REMOTE_MANAGER ->
                 getString(R.string.flow_wazuh_remote_status_format, state.wazuhStatus)
         }
+        val diagnostics = state.telemetryDiagnostics
+        textViewFlowTelemetryDiagnostics.text = getString(
+            R.string.flow_telemetry_diagnostics_format,
+            diagnostics.flowsFlushed,
+            state.wazuhRecordsDelivered,
+            state.queuedRecords,
+            diagnostics.nativeTelemetryQueueDepth,
+            diagnostics.nativeTelemetryQueueHighWater,
+            diagnostics.segmentQueueDepth,
+            diagnostics.wazuhQueueDepth,
+            diagnostics.forwardQueueDepth,
+            diagnostics.nativeTelemetryDropped,
+            diagnostics.segmentQueueDropped,
+            diagnostics.segmentWriteFailures,
+            diagnostics.wazuhQueueDropped,
+            diagnostics.telemetryReaderFailures,
+            diagnostics.forwardQueueDropped,
+            diagnostics.forwardQueueDiscardedOnStop,
+            diagnostics.packetsRejectedAfterClose,
+            diagnostics.parserFailure,
+            state.wazuhLastError ?: getString(R.string.flow_telemetry_no_error)
+        )
         radioFlowWazuhLocal.isEnabled = state.settingsEnabled
         radioFlowWazuhRemote.isEnabled = state.settingsEnabled
         editTextWazuhManagerHost.isEnabled = state.settingsEnabled

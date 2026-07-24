@@ -6,6 +6,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.resistine.android.ui.vpn.runtime.WireGuardConfigReader
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeNotNull
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -14,11 +15,11 @@ class StoredWireGuardConfigInstrumentedTest {
     @Test
     fun parsesStoredProvisioningConfigWithoutExposingKeys() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val config = requireNotNull(WireGuardConfigReader.loadConfig(context)) {
-            "No stored WireGuard configuration. Complete OTP login before running this check."
-        }
-        val interfaceConfig = config.`interface`
-        val peers = config.peers
+        val config = WireGuardConfigReader.loadConfig(context)
+        assumeNotNull("Complete OTP login before running this check.", config)
+        val requiredConfig = config!!
+        val interfaceConfig = requiredConfig.`interface`
+        val peers = requiredConfig.peers
         assertEquals("Expected exactly one WireGuard peer", 1, peers.size)
 
         val addresses = interfaceConfig.addresses.map { "${it.address.hostAddress}/${it.mask}" }

@@ -5,6 +5,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -15,13 +16,15 @@ class WazuhLocalManagerIntegrationTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
         val arguments = InstrumentationRegistry.getArguments()
-        val managerHost = requireNotNull(arguments.getString("wazuh_host")) {
-            "Pass -e wazuh_host with the disposable manager hostname or IP"
-        }
+        val managerHost = arguments.getString("wazuh_host")
+        assumeTrue(
+            "Pass -e wazuh_host with the disposable manager hostname or IP",
+            !managerHost.isNullOrBlank()
+        )
         val authPort = arguments.getString("wazuh_auth_port")?.toIntOrNull() ?: 1515
         val logPort = arguments.getString("wazuh_log_port")?.toIntOrNull() ?: 1514
         val agentGroup = arguments.getString("wazuh_agent_group") ?: "default"
-        val endpoint = WazuhManagerEndpoint(managerHost, authPort, logPort)
+        val endpoint = WazuhManagerEndpoint(managerHost!!, authPort, logPort)
         val readiness = WazuhRemoteReadinessValidator.validate(endpoint)
         require(readiness.ready) { readiness.issues.joinToString("; ") }
         val suffix = System.currentTimeMillis().toString().takeLast(8)

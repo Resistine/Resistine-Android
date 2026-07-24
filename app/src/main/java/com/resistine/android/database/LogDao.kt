@@ -18,11 +18,12 @@ interface LogDao {
     suspend fun deleteOldest(count: Int)
 
     @Transaction
-    suspend fun insertBounded(log: LogEntry, maxRows: Int = MAX_PENDING_ROWS) {
+    suspend fun insertBounded(log: LogEntry, maxRows: Int = MAX_PENDING_ROWS): Int {
         require(maxRows > 0)
         insert(log)
-        val excess = countAll() - maxRows
+        val excess = (countAll() - maxRows).coerceAtLeast(0)
         if (excess > 0) deleteOldest(excess)
+        return excess
     }
 
     @Query("SELECT * FROM pending_logs ORDER BY timestamp ASC LIMIT 50")

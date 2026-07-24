@@ -39,6 +39,8 @@ import com.resistine.android.network.WazuhManagerEndpoint
 import com.resistine.android.network.WazuhRemoteReadinessValidator
 import com.resistine.android.network.flow.FlowWazuhDeliveryMode
 import com.resistine.android.network.flow.FlowWazuhDeliveryStore
+import com.resistine.android.network.forwarding.FlowTelemetryDiagnosticsMonitor
+import com.resistine.android.network.forwarding.PacketPipelineSnapshot
 import com.resistine.android.security.CryptoManager
 import com.resistine.android.ui.wifi.WifiAssessmentUncertainty
 import com.resistine.android.ui.wifi.WifiAutoProtectionDecider
@@ -81,6 +83,7 @@ import com.resistine.android.ui.vpn.runtime.VpnRuntime
 import com.resistine.android.ui.vpn.runtime.VpnRuntimeMode
 import com.resistine.android.ui.vpn.runtime.VpnRuntimeStatus
 import com.resistine.android.ui.vpn.runtime.WireGuardVpnRuntime
+import com.resistine.android.ui.icon.VpnLauncherIconManager
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.OkHttpClient
@@ -133,6 +136,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         isVpnConnected = status.isRunning
         _isVpnConnected.postValue(status.isRunning)
         _vpnRuntimeStatus.postValue(status)
+        VpnLauncherIconManager.setConnected(getApplication(), status.isRunning)
     }
     private val currentRuntime: VpnRuntime = createRuntime()
 
@@ -172,6 +176,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         addSource(androidVersion) { publish() }
         addSource(batteryLevel) { publish() }
         addSource(WazuhConnectionMonitor.status) { publish() }
+        addSource(FlowTelemetryDiagnosticsMonitor.snapshot) { publish() }
     }
 
     private val _wifiSecurityAlert = MutableLiveData<WifiSecurityAlert>()
@@ -238,6 +243,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         _autoVpnPolicy.value = loadAutoVpnPolicy()
         _autoProtectUnknownWifi.value = loadAutoProtectUnknownWifi()
         createRiskNotificationChannelIfNeeded()
+        FlowTelemetryDiagnosticsMonitor.initialize(application)
         observePendingFlowLogCount()
         fetchLocationData()
         refreshWifiSecurityAlert()
@@ -250,6 +256,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             label = "WireGuard with flow telemetry",
             detail = "Disconnected"
         )
+        val wazuh = WazuhConnectionMonitor.status.value
         return VpnUiState(
             isConnected = isVpnConnectedLiveData.value == true,
             statusMessage = when {
@@ -260,9 +267,12 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             runtimeStatus = runtime,
             deliveryMode = flowWazuhDeliveryMode.value ?: FlowWazuhDeliveryMode.LOCAL_QUEUE_ONLY,
             queuedRecords = pendingFlowLogCount.value ?: 0,
-            wazuhStatus = WazuhConnectionMonitor.status.value?.detail ?: "Waiting for VPN",
-            wazuhState = WazuhConnectionMonitor.status.value?.state
-                ?: WazuhConnectionState.WAITING_FOR_VPN,
+            wazuhStatus = wazuh?.detail ?: "Waiting for VPN",
+            wazuhState = wazuh?.state ?: WazuhConnectionState.WAITING_FOR_VPN,
+            wazuhRecordsDelivered = wazuh?.flowRecordsDelivered ?: 0L,
+            wazuhLastError = wazuh?.lastError,
+            telemetryDiagnostics = FlowTelemetryDiagnosticsMonitor.snapshot.value
+                ?: PacketPipelineSnapshot.empty(),
             ipAddress = ipAddress.value ?: "IP address: Loading…",
             location = locationString.value ?: "Location: Loading…",
             deviceModel = deviceModel.value ?: "Device: Loading…",
@@ -1133,14 +1143,12 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 matchConfidence = matchConfidence,
                 hasInternetAccess = if (isCurrent) currentAlert.hasInternetAccess else null
             )
-            val combinedRiskLevel = maxRiskLevel(risk.level, scorePreview.assessment.level)
-
             WifiNearbyNetwork(
                 ssid = ssid,
                 bssid = bssid,
                 securityType = securityType,
                 securityProfile = signals.profile,
-                riskLevel = combinedRiskLevel,
+                riskLevel = scorePreview.assessment.level,
                 reason = risk.reason,
                 isTrusted = trustedProfile != null,
                 isCurrent = isCurrent,
@@ -2702,8 +2710,12 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     )
 
     private fun hasLocationPermission(context: Application): Boolean {
-        return context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
-            context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val locationGranted =
+            context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val nearbyWifiGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            context.checkSelfPermission(Manifest.permission.NEARBY_WIFI_DEVICES) == PackageManager.PERMISSION_GRANTED
+        return locationGranted && nearbyWifiGranted
     }
 
     private fun isLocationServicesEnabled(context: Context): Boolean {
@@ -3206,11 +3218,11 @@ data class WifiAdvancedCheckItem(
 /** The results of a comprehensive safety assessment. */
 data class WifiSafetyAssessment(
     val score: Int = 100,
-    val level: WifiNetworkRiskLevel = WifiNetworkRiskLevel.SAFE,
+    val level: WifiNetworkRiskLevel = WifiNetworkRiskLevel.WARNING,
     val summary: String = "",
-    val recommendationResId: Int = R.string.wifi_security_recommendation_secure,
-    val isLimitedData: Boolean = false,
-    val isScoreAvailable: Boolean = true,
+    val recommendationResId: Int = R.string.wifi_security_recommendation_info,
+    val isLimitedData: Boolean = true,
+    val isScoreAvailable: Boolean = false,
     val isOnWifi: Boolean = false,
     val uncertainties: Set<WifiAssessmentUncertainty> = emptySet(),
     val dimensions: List<WifiScoreDimensionResult> = emptyList()

@@ -181,11 +181,15 @@ class WazuhService : Service() {
                     entries = logDao.getPendingLogs(),
                     acknowledgementBatchSize = UPLOAD_ACKNOWLEDGEMENT_BATCH_SIZE,
                     send = { logEntry ->
-                        currentLogger.sendSingleLog(
+                        val sent = currentLogger.sendSingleLog(
                             credentials.agentId,
                             credentials.agentKey,
                             logEntry.message
                         )
+                        if (sent && logEntry.message.contains(FLOW_EVENT_MARKER)) {
+                            WazuhConnectionMonitor.recordFlowDelivered()
+                        }
+                        sent
                     },
                     acknowledge = logDao::deleteLogsByIds,
                     throttle = { delay(LOG_UPLOAD_INTERVAL_MS) }
@@ -330,5 +334,6 @@ class WazuhService : Service() {
         private const val KEEPALIVE_INTERVAL_MS = 30_000L
         private const val LOG_UPLOAD_INTERVAL_MS = 20L
         private const val UPLOAD_ACKNOWLEDGEMENT_BATCH_SIZE = 10
+        private const val FLOW_EVENT_MARKER = "\"event_type\":\"resistine_flow\""
     }
 }

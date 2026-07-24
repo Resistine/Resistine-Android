@@ -2,6 +2,7 @@ package com.resistine.android.ui.vpn
 
 import com.resistine.android.network.WazuhConnectionState
 import com.resistine.android.network.flow.FlowWazuhDeliveryMode
+import com.resistine.android.network.forwarding.PacketPipelineSnapshot
 import com.resistine.android.ui.vpn.runtime.VpnRuntimeStatus
 
 data class VpnUiState(
@@ -12,6 +13,9 @@ data class VpnUiState(
     val queuedRecords: Int,
     val wazuhStatus: String,
     val wazuhState: WazuhConnectionState,
+    val wazuhRecordsDelivered: Long,
+    val wazuhLastError: String?,
+    val telemetryDiagnostics: PacketPipelineSnapshot,
     val ipAddress: String,
     val location: String,
     val deviceModel: String,

@@ -16,17 +16,43 @@ enum class WazuhConnectionState {
 
 data class WazuhConnectionStatus(
     val state: WazuhConnectionState,
-    val detail: String
+    val detail: String,
+    val flowRecordsDelivered: Long = 0L,
+    val lastError: String? = null
 )
 
 object WazuhConnectionMonitor {
-    private val mutableStatus = MutableLiveData(
+    private var currentStatus =
         WazuhConnectionStatus(WazuhConnectionState.STOPPED, "Uploader stopped")
-    )
+    private val mutableStatus = MutableLiveData(currentStatus)
 
     val status: LiveData<WazuhConnectionStatus> = mutableStatus
 
+    @Synchronized
+    fun beginTelemetrySession() {
+        currentStatus = currentStatus.copy(flowRecordsDelivered = 0L, lastError = null)
+        mutableStatus.postValue(currentStatus)
+    }
+
+    @Synchronized
     fun update(state: WazuhConnectionState, detail: String) {
-        mutableStatus.postValue(WazuhConnectionStatus(state, detail))
+        currentStatus = currentStatus.copy(
+            state = state,
+            detail = detail,
+            lastError = if (state == WazuhConnectionState.ERROR) {
+                detail
+            } else {
+                currentStatus.lastError
+            }
+        )
+        mutableStatus.postValue(currentStatus)
+    }
+
+    @Synchronized
+    fun recordFlowDelivered() {
+        currentStatus = currentStatus.copy(
+            flowRecordsDelivered = currentStatus.flowRecordsDelivered + 1L
+        )
+        mutableStatus.postValue(currentStatus)
     }
 }
