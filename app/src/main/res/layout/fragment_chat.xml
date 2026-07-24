@@ -14,10 +14,26 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="@string/chat_title"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/buttonNewChat"
         android:layout_marginStart="@dimen/rs_space_12"
         app:layout_constraintStart_toEndOf="@id/chatBrand"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/buttonNewChat"
+        style="@style/Widget.Material3.Button.IconButton"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:contentDescription="@string/chat_new_conversation"
+        android:insetLeft="0dp"
+        android:insetTop="0dp"
+        android:insetRight="0dp"
+        android:insetBottom="0dp"
+        app:icon="@drawable/ic_delete_24"
+        app:iconTint="@color/rs_text_secondary"
+        app:layout_constraintBottom_toBottomOf="@id/chatTitle"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/chatTitle" />
 
     <ImageView
         android:id="@+id/chatBrand"
@@ -119,5 +135,25 @@
             app:iconGravity="textStart"
             app:iconPadding="0dp"
             app:iconTint="@color/white" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/buttonStop"
+            style="@style/Widget.Resistine.Button.Outlined"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_marginStart="@dimen/rs_space_8"
+            android:contentDescription="@string/chat_stop_response"
+            android:insetLeft="0dp"
+            android:insetTop="0dp"
+            android:insetRight="0dp"
+            android:insetBottom="0dp"
+            android:minWidth="0dp"
+            android:padding="0dp"
+            android:text=""
+            android:visibility="gone"
+            app:icon="@drawable/ic_stop_24"
+            app:iconGravity="textStart"
+            app:iconPadding="0dp"
+            app:iconTint="@color/rs_status_danger" />
     </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

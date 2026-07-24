@@ -14,6 +14,9 @@ interface ChatDao {
     @Query("SELECT * FROM chat_messages LIMIT 1")
     suspend fun getMessagesSync(): List<ChatMessage>
 
+    @Query("SELECT * FROM chat_messages ORDER BY timestamp ASC")
+    suspend fun getAllMessagesSync(): List<ChatMessage>
+
     @Insert
     suspend fun insertMessage(message: ChatMessage)
 

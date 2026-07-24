@@ -2,7 +2,7 @@ package com.resistine.android.ui.chat
 
 import android.animation.ObjectAnimator
 import android.animation.PropertyValuesHolder
-import android.graphics.Color
+import android.text.method.LinkMovementMethod
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -14,13 +14,17 @@ import androidx.recyclerview.widget.RecyclerView
 import com.resistine.android.R
 import com.resistine.android.databinding.ItemMessageBinding
 import com.resistine.android.databinding.ItemTypingBinding
+import io.noties.markwon.Markwon
 
 internal sealed interface ChatRow {
     data class Message(val value: ChatMessage) : ChatRow
     data object Typing : ChatRow
 }
 
-internal class ChatAdapter : ListAdapter<ChatRow, RecyclerView.ViewHolder>(DiffCallback()) {
+internal class ChatAdapter(
+    private val markwon: Markwon,
+    private val onCopy: (String) -> Unit
+) : ListAdapter<ChatRow, RecyclerView.ViewHolder>(DiffCallback()) {
 
     fun submitState(state: ChatUiState) {
         val rows = state.messages.map(ChatRow::Message).toMutableList<ChatRow>()
@@ -38,7 +42,11 @@ internal class ChatAdapter : ListAdapter<ChatRow, RecyclerView.ViewHolder>(DiffC
         return if (viewType == VIEW_TYPE_TYPING) {
             TypingViewHolder(ItemTypingBinding.inflate(inflater, parent, false))
         } else {
-            MessageViewHolder(ItemMessageBinding.inflate(inflater, parent, false))
+            MessageViewHolder(
+                ItemMessageBinding.inflate(inflater, parent, false),
+                markwon,
+                onCopy
+            )
         }
     }
 
@@ -55,12 +63,20 @@ internal class ChatAdapter : ListAdapter<ChatRow, RecyclerView.ViewHolder>(DiffC
     }
 
     private class MessageViewHolder(
-        private val binding: ItemMessageBinding
+        private val binding: ItemMessageBinding,
+        private val markwon: Markwon,
+        private val onCopy: (String) -> Unit
     ) : RecyclerView.ViewHolder(binding.root) {
         fun bind(message: ChatMessage) {
             val context = binding.root.context
-            binding.textViewMessage.text = message.text
             binding.root.gravity = if (message.isUser) Gravity.END else Gravity.START
+            if (message.isUser) {
+                binding.textViewMessage.text = message.text
+                binding.textViewMessage.movementMethod = null
+            } else {
+                markwon.setMarkdown(binding.textViewMessage, message.text)
+                binding.textViewMessage.movementMethod = LinkMovementMethod.getInstance()
+            }
             binding.textViewMessage.setBackgroundResource(
                 if (message.isUser) R.drawable.background_home2 else R.drawable.background_home
             )
@@ -70,6 +86,12 @@ internal class ChatAdapter : ListAdapter<ChatRow, RecyclerView.ViewHolder>(DiffC
                     if (message.isUser) R.color.white else R.color.rs_text_primary
                 )
             )
+            binding.messageActions.visibility = if (message.isUser) View.GONE else View.VISIBLE
+            binding.buttonCopyMessage.setOnClickListener { onCopy(message.text) }
+            binding.textViewMessage.setOnLongClickListener {
+                onCopy(message.text)
+                true
+            }
         }
     }
 

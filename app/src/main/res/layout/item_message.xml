@@ -1,15 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:gravity="start"
-    android:orientation="horizontal"
+    android:orientation="vertical"
     android:paddingTop="@dimen/rs_space_4"
     android:paddingBottom="@dimen/rs_space_4">
 
     <TextView
         android:id="@+id/textViewMessage"
-        style="@style/TextAppearance.Resistine.Body"
+        style="@style/Widget.Resistine.ChatMessage"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="@dimen/rs_space_4"
@@ -20,4 +21,26 @@
         android:paddingTop="@dimen/rs_space_12"
         android:paddingEnd="@dimen/rs_space_16"
         android:paddingBottom="@dimen/rs_space_12" />
+
+    <LinearLayout
+        android:id="@+id/messageActions"
+        android:layout_width="wrap_content"
+        android:layout_height="40dp"
+        android:layout_marginStart="@dimen/rs_space_4"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/buttonCopyMessage"
+            style="@style/Widget.Material3.Button.IconButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:contentDescription="@string/chat_copy_response"
+            android:insetLeft="0dp"
+            android:insetTop="0dp"
+            android:insetRight="0dp"
+            android:insetBottom="0dp"
+            app:icon="@drawable/ic_copy_24"
+            app:iconTint="@color/rs_text_secondary" />
+    </LinearLayout>
 </LinearLayout>
