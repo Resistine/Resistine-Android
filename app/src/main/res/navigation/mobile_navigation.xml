@@ -57,12 +57,6 @@
         tools:layout="@layout/fragment_settings" />
 
     <fragment
-        android:id="@+id/nav_security"
-        android:name="com.resistine.android.ui.security.SecurityFragment"
-        android:label="Device Security"
-        tools:layout="@layout/fragment_security" />
-
-    <fragment
         android:id="@+id/nav_log_viewer"
         android:name="com.resistine.android.ui.logs.LogViewerFragment"
         android:label="Log Viewer"

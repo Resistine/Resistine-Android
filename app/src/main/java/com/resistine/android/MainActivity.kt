@@ -47,7 +47,6 @@ class MainActivity : AppCompatActivity() {
     )
     private val drawerDestinations = primaryDestinations + setOf(
         R.id.nav_settings,
-        R.id.nav_security,
         R.id.nav_log_viewer
     )
 

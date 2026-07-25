@@ -1,7 +1,7 @@
 package com.resistine.android.ui
 
-import android.content.ComponentName
 import android.graphics.Bitmap
+import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatDelegate
@@ -25,6 +25,7 @@ import com.resistine.android.ui.theme.AppThemeMode
 import io.noties.markwon.Markwon
 import io.noties.markwon.ext.strikethrough.StrikethroughPlugin
 import org.junit.After
+import org.junit.Before
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -36,15 +37,17 @@ import java.io.FileOutputStream
 @RunWith(AndroidJUnit4::class)
 class MainActivityUiInstrumentedTest {
 
+    @Before
+    fun resetLauncherIcon() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        VpnLauncherIconManager.resetForTest(context)
+    }
+
     @After
     fun restoreDefaults() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         AppThemeManager.set(context, AppThemeMode.SYSTEM)
-        context.getSharedPreferences("launcher_icon", android.content.Context.MODE_PRIVATE)
-            .edit()
-            .clear()
-            .commit()
-        VpnLauncherIconManager.setConnected(context, false)
+        VpnLauncherIconManager.resetForTest(context)
     }
 
     @Test
@@ -110,19 +113,43 @@ class MainActivityUiInstrumentedTest {
     }
 
     @Test
-    fun themeChoicePersistsAndLauncherAliasesSwitch() {
+    fun themeChoicePersists() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         AppThemeManager.set(context, AppThemeMode.DARK)
         assertEquals(AppThemeMode.DARK, AppThemeManager.current(context))
         assertEquals(AppCompatDelegate.MODE_NIGHT_YES, AppCompatDelegate.getDefaultNightMode())
+    }
 
-        context.getSharedPreferences("launcher_icon", android.content.Context.MODE_PRIVATE)
-            .edit()
-            .clear()
-            .commit()
-        VpnLauncherIconManager.setConnected(context, true)
-        assertAliasState(context, ".LauncherConnected", PackageManager.COMPONENT_ENABLED_STATE_ENABLED)
-        assertAliasState(context, ".LauncherDisconnected", PackageManager.COMPONENT_ENABLED_STATE_DISABLED)
+    @Test
+    fun launcherStatusChangeWaitsUntilActivityStops() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val connected = ComponentName(context, "com.resistine.android.LauncherConnected")
+        val disconnected = ComponentName(context, "com.resistine.android.LauncherDisconnected")
+        val scenario = ActivityScenario.launch(MainActivity::class.java)
+
+        scenario.onActivity {
+            VpnLauncherIconManager.requestConnected(context, true)
+            assertEquals(
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                context.packageManager.getComponentEnabledSetting(connected)
+            )
+            assertEquals(
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                context.packageManager.getComponentEnabledSetting(disconnected)
+            )
+        }
+
+        scenario.close()
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+
+        assertEquals(
+            PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+            context.packageManager.getComponentEnabledSetting(connected)
+        )
+        assertEquals(
+            PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+            context.packageManager.getComponentEnabledSetting(disconnected)
+        )
     }
 
     @Test
@@ -163,16 +190,4 @@ class MainActivityUiInstrumentedTest {
         }
     }
 
-    private fun assertAliasState(
-        context: android.content.Context,
-        alias: String,
-        expected: Int
-    ) {
-        assertEquals(
-            expected,
-            context.packageManager.getComponentEnabledSetting(
-                ComponentName(context, context.packageName + alias)
-            )
-        )
-    }
 }

@@ -8,6 +8,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.resistine.android.R
+import com.resistine.android.ui.vpn.runtime.VpnRuntimeStatus
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -15,16 +16,18 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     val uiState: LiveData<HomeUiState> = _uiState
 
     init {
-        refresh()
+        refresh(null)
     }
 
-    fun refresh() {
+    fun refresh(vpnRuntimeStatus: VpnRuntimeStatus?) {
         val context = getApplication<Application>().applicationContext
-        val vpnConnected = hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+        val vpnConnected = vpnRuntimeStatus?.isRunning == true
+        val vpnConnecting = vpnRuntimeStatus?.isConnecting == true
         val wifiConnected = hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
 
         _uiState.value = HomeUiState(
             isProtected = vpnConnected,
+            isVpnConnecting = vpnConnecting,
             securityScore = when {
                 vpnConnected && wifiConnected -> 96
                 vpnConnected || wifiConnected -> 86
@@ -44,7 +47,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 HomeCardItem(
                     title = context.getString(R.string.menu_vpn),
                     summary = context.getString(R.string.home_traffic_protection),
-                    status = if (vpnConnected) context.getString(R.string.home_card_connected) else context.getString(R.string.vpn_status_disconnected),
+                    status = when {
+                        vpnConnected -> context.getString(R.string.home_card_connected)
+                        vpnConnecting -> context.getString(R.string.home_vpn_verifying)
+                        else -> context.getString(R.string.vpn_status_disconnected)
+                    },
                     iconResId = R.drawable.ic_menu_vpn,
                     destinationFragmentId = R.id.nav_vpn,
                     statusColorResId = if (vpnConnected) R.color.rs_status_safe else R.color.rs_status_warning
@@ -56,14 +63,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     iconResId = R.drawable.ic_menu_apps,
                     destinationFragmentId = R.id.nav_apps,
                     statusColorResId = R.color.rs_status_safe
-                ),
-                HomeCardItem(
-                    title = context.getString(R.string.device_security),
-                    summary = context.getString(R.string.home_endpoint_monitoring),
-                    status = if (vpnConnected) context.getString(R.string.home_card_online) else context.getString(R.string.home_waiting_for_vpn),
-                    iconResId = R.drawable.ic_menu_agent,
-                    destinationFragmentId = R.id.nav_security,
-                    statusColorResId = if (vpnConnected) R.color.rs_status_safe else R.color.rs_status_warning
                 )
             )
         )

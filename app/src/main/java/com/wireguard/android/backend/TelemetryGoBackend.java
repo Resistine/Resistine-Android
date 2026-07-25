@@ -12,6 +12,7 @@ import androidx.collection.ArraySet;
 
 import com.resistine.android.network.flow.PacketDirection;
 import com.resistine.android.network.flow.PacketTelemetrySink;
+import com.resistine.android.ui.vpn.runtime.VpnRuntimeController;
 import com.wireguard.config.Config;
 import com.wireguard.config.InetEndpoint;
 import com.wireguard.config.InetNetwork;
@@ -448,8 +449,9 @@ public final class TelemetryGoBackend implements Backend {
 
         @Override
         public void onCreate() {
-            vpnService.complete(this);
             super.onCreate();
+            vpnService.complete(this);
+            VpnRuntimeController.onServiceCreated(this);
         }
 
         @Override
@@ -457,6 +459,7 @@ public final class TelemetryGoBackend implements Backend {
             if (owner != null) {
                 owner.handleServiceDestroyed();
             }
+            VpnRuntimeController.onServiceDestroyed(this);
             vpnService = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
                     ? vpnService.newIncompleteFuture()
                     : new CompletableFuture<>();
@@ -466,6 +469,7 @@ public final class TelemetryGoBackend implements Backend {
         @Override
         public int onStartCommand(@Nullable final Intent intent, final int flags, final int startId) {
             vpnService.complete(this);
+            final int result = VpnRuntimeController.onStartCommand(this, intent);
             if (intent == null
                     || intent.getComponent() == null
                     || !intent.getComponent().getPackageName().equals(getPackageName())) {
@@ -473,7 +477,13 @@ public final class TelemetryGoBackend implements Backend {
                     alwaysOnCallback.alwaysOnTriggered();
                 }
             }
-            return super.onStartCommand(intent, flags, startId);
+            return result;
+        }
+
+        @Override
+        public void onRevoke() {
+            VpnRuntimeController.onRevoke(this);
+            super.onRevoke();
         }
 
         public void setOwner(final TelemetryGoBackend owner) {

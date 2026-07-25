@@ -79,11 +79,9 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import com.resistine.android.ui.vpn.runtime.VpnRuntime
 import com.resistine.android.ui.vpn.runtime.VpnRuntimeMode
+import com.resistine.android.ui.vpn.runtime.VpnRuntimeController
 import com.resistine.android.ui.vpn.runtime.VpnRuntimeStatus
-import com.resistine.android.ui.vpn.runtime.WireGuardVpnRuntime
-import com.resistine.android.ui.icon.VpnLauncherIconManager
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.OkHttpClient
@@ -133,12 +131,20 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     val vpnRuntimeStatus: LiveData<VpnRuntimeStatus> = _vpnRuntimeStatus
 
     private val runtimeStatusObserver = Observer<VpnRuntimeStatus> { status ->
+        val wasConnected = isVpnConnected
         isVpnConnected = status.isRunning
         _isVpnConnected.postValue(status.isRunning)
         _vpnRuntimeStatus.postValue(status)
-        VpnLauncherIconManager.setConnected(getApplication(), status.isRunning)
+        if (status.isRunning && !wasConnected) {
+            fetchLocationData()
+        } else if (!status.hasLocalTunnel && wasConnected) {
+            viewModelScope.launch {
+                delay(350L)
+                fetchLocationData()
+            }
+        }
     }
-    private val currentRuntime: VpnRuntime = createRuntime()
+    private val runtimeMessageObserver = Observer<String>(_vpnStatus::postValue)
 
     private val _ipAddress = MutableLiveData<String>()
     /** LiveData holding the public IP address of the device. */
@@ -160,7 +166,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     /** LiveData holding the location information (City, Country) inferred from the IP. */
     val locationString: LiveData<String> = _locationString
 
-    /** Single render model consumed by VPN and Device Security presentation layers. */
+    /** Single render model consumed by the VPN controls and diagnostics settings. */
     val uiState: LiveData<VpnUiState> = MediatorLiveData<VpnUiState>().apply {
         fun publish() {
             value = buildVpnUiState()
@@ -288,7 +294,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
      * @param context The context used to access SharedPreferences and Database.
      */
     fun logout(context: Context) {
-        if (isVpnConnected) {
+        if (hasLocalTunnel()) {
             disconnectVpn()
         }
         
@@ -321,7 +327,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
      * @param context Application context.
      */
     fun toggleVpn(context: Context) {
-        if (isVpnConnected) {
+        if (hasLocalTunnel()) {
             disconnectVpn()
         } else {
             connectVpn(context)
@@ -334,7 +340,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
      * @param context Application context.
      */
     fun connectVpnIfNeeded(context: Context) {
-        if (!isVpnConnected) {
+        if (!hasLocalTunnel()) {
             connectVpn(context)
         }
     }
@@ -343,13 +349,13 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
      * Ensures the VPN is disconnected.
      */
     fun disconnectVpnIfConnected() {
-        if (isVpnConnected) {
+        if (hasLocalTunnel()) {
             disconnectVpn()
         }
     }
 
     fun setFlowWazuhDeliveryMode(mode: FlowWazuhDeliveryMode) {
-        if (isVpnConnected) {
+        if (hasLocalTunnel()) {
             _vpnStatus.postValue("Disconnect WireGuard before changing Wazuh delivery")
             return
         }
@@ -387,7 +393,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     fun wazuhManagerEndpoint(): WazuhManagerEndpoint = wazuhConfigManager.endpoint()
 
     fun updateWazuhManagerEndpoint(host: String, authPort: Int, logPort: Int): String? {
-        if (isVpnConnected) {
+        if (hasLocalTunnel()) {
             return "Disconnect WireGuard before changing the manager endpoint"
         }
         return runCatching {
@@ -420,25 +426,10 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun createRuntime(): VpnRuntime {
-        val context = getApplication<Application>()
-        return WireGuardVpnRuntime(
-            context = context,
-            onStatusMessage = { message -> _vpnStatus.postValue(message) },
-            onTunnelStarted = { fetchLocationData() },
-            onConnectionConfirmed = { fetchLocationData() },
-            onTunnelDown = {
-                viewModelScope.launch {
-                    delay(350L)
-                    fetchLocationData()
-                }
-            }
-        )
-    }
-
     private fun observeCurrentRuntime() {
-        currentRuntime.status().observeForever(runtimeStatusObserver)
-        currentRuntime.status().value?.let(runtimeStatusObserver::onChanged)
+        VpnRuntimeController.status.observeForever(runtimeStatusObserver)
+        VpnRuntimeController.message.observeForever(runtimeMessageObserver)
+        VpnRuntimeController.status.value?.let(runtimeStatusObserver::onChanged)
     }
 
     /**
@@ -729,15 +720,11 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun connectVpn(context: Context) {
         if (vpnRuntimeStatus.value?.hasLocalTunnel == true) return
-        viewModelScope.launch {
-            currentRuntime.start()
-        }
+        VpnRuntimeController.connect(context.applicationContext)
     }
 
     private fun disconnectVpn() {
-        viewModelScope.launch {
-            currentRuntime.stop()
-        }
+        VpnRuntimeController.disconnect(getApplication())
     }
 
     private fun loadPhoneInfo() {
@@ -1642,7 +1629,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         } else if (!riskBand &&
             previousRiskBand &&
             policy == AutoVpnPolicy.CONNECT_AND_DISCONNECT_ON_SAFE &&
-            isVpnConnected
+            hasLocalTunnel()
         ) {
             disconnectVpn()
             _autoVpnActionMessageRes.postValue(R.string.wifi_auto_vpn_auto_disconnected)
@@ -1656,13 +1643,14 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             _autoVpnActionMessageRes.postValue(R.string.wifi_auto_vpn_permission_required)
             return
         }
-        if (!isVpnConnected) {
+        if (!hasLocalTunnel()) {
             connectVpn(context)
-            if (isVpnConnected) {
-                _autoVpnActionMessageRes.postValue(R.string.wifi_auto_vpn_auto_connected)
-            }
+            _autoVpnActionMessageRes.postValue(R.string.wifi_auto_vpn_auto_connected)
         }
     }
+
+    private fun hasLocalTunnel(): Boolean =
+        vpnRuntimeStatus.value?.hasLocalTunnel == true
 
     private fun postRiskNotification(alert: WifiRiskTransitionAlert) {
         val context = getApplication<Application>()
@@ -3034,8 +3022,8 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
     override fun onCleared() {
         wifiRefreshCoordinator.cancel()
-        currentRuntime.status().removeObserver(runtimeStatusObserver)
-        currentRuntime.close()
+        VpnRuntimeController.status.removeObserver(runtimeStatusObserver)
+        VpnRuntimeController.message.removeObserver(runtimeMessageObserver)
         stopWifiMonitoring()
         super.onCleared()
     }
