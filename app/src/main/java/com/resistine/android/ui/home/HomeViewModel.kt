@@ -63,6 +63,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     iconResId = R.drawable.ic_menu_apps,
                     destinationFragmentId = R.id.nav_apps,
                     statusColorResId = R.color.rs_status_safe
+                ),
+                HomeCardItem(
+                    title = context.getString(R.string.home_chatbot),
+                    summary = context.getString(R.string.home_chatbot_summary),
+                    status = if (vpnConnected) context.getString(R.string.home_ready) else context.getString(R.string.home_not_ready),
+                    iconResId = R.drawable.baseline_chat_24,
+                    destinationFragmentId = R.id.nav_chat,
+                    statusColorResId = if (vpnConnected) R.color.rs_status_safe else R.color.rs_status_warning
                 )
             )
         )

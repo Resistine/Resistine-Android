@@ -2,6 +2,7 @@ package com.resistine.android.security
 
 import android.content.Context
 import android.os.Build
+import android.provider.Settings
 import android.util.Log
 import com.resistine.android.R
 import org.json.JSONObject
@@ -69,18 +70,40 @@ class WazuhAgent(private val context: Context) {
             LogLevel.DEBUG -> Log.d(TAG, logcatMessage)
         }
 
-        try {
-            logFile.appendText(logMessage)
-        } catch (e: IOException) {
-            Log.e(TAG, "Failed to write to log file", e)
-        }
+
 
         // Save to Room database for background upload
         scope.launch {
-            database.logDao().insertBounded(
-                LogEntry(timestamp = System.currentTimeMillis(), message = logMessage)
-            )
+            try {
+                rotateLogIfNeeded()
+                logFile.appendText(logMessage)
+            } catch (e: IOException) {
+                Log.e(TAG, "Failed to write to log file", e)
+            }
+            try {
+                database.logDao().insertBounded(
+                    LogEntry(timestamp = System.currentTimeMillis(), message = logMessage)
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to insert log entry", e)
+            }
+
             // scheduleLogUpload() - Disabling worker, WazuhService will handle upload through its persistent connection
+        }
+    }
+
+    private fun rotateLogIfNeeded() {
+        if (logFile.exists() && logFile.length() > MAX_LOG_FILE_SIZE) {
+            Log.i(TAG, "Rotating log file (size: ${logFile.length()})")
+            val lines = logFile.readLines()
+            if (lines.size > 500) {
+                // Keep only the last 200 lines if the file is getting too big
+                val lastLines = lines.takeLast(200)
+                logFile.writeText(lastLines.joinToString("\n") + "\n")
+            } else {
+                // If not many lines but large size (unlikely for text), just clear it
+                logFile.writeText("")
+            }
         }
     }
 
@@ -95,8 +118,10 @@ class WazuhAgent(private val context: Context) {
     fun readLogs(): String {
         return try {
             if (logFile.exists()) {
-                // Read file and wrap in a JSON array for nice printing
-                "[\n" + logFile.readLines().joinToString(",\n") + "\n]"
+                // Read last 200 lines to prevent OOM
+                val lines = logFile.readLines()
+                val lastLines = if (lines.size > 200) lines.takeLast(200) else lines
+                "[\n" + lastLines.joinToString(",\n") + "\n]"
             } else {
                 context.getString(R.string.wazuh_log_file_not_found)
             }
@@ -109,10 +134,39 @@ class WazuhAgent(private val context: Context) {
     fun logAppStart() {
         log(LogLevel.NOTICE, context.getString(R.string.wazuh_log_app_started))
         logDeviceInfo()
+        logSystemSecurityPosture()
     }
 
     fun logDeviceUnlock() {
         log(LogLevel.INFO, context.getString(R.string.wazuh_log_device_unlocked))
+    }
+
+    fun logScreenState(isOn: Boolean) {
+        val data = JSONObject()
+        data.put("screen_on", isOn)
+        val message = context.getString(if (isOn) R.string.wazuh_screen_on else R.string.wazuh_screen_off)
+        log(LogLevel.DEBUG, message, data)
+    }
+
+    fun logPackageEvent(action: String, packageName: String) {
+        val data = JSONObject()
+        data.put("package_name", packageName)
+        data.put("action", action)
+        log(LogLevel.NOTICE, context.getString(R.string.wazuh_log_package_event, action, packageName), data)
+    }
+
+    fun logSystemSecurityPosture() {
+        val data = JSONObject()
+        val adbEnabled = Settings.Global.getInt(context.contentResolver, Settings.Global.ADB_ENABLED, 0) != 0
+        val developmentSettingsEnabled = Settings.Global.getInt(context.contentResolver, Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) != 0
+        val installNonMarketApps = Settings.Secure.getInt(context.contentResolver, Settings.Secure.INSTALL_NON_MARKET_APPS, 0) != 0
+
+        data.put("adb_enabled", adbEnabled)
+        data.put("development_settings_enabled", developmentSettingsEnabled)
+        data.put("install_non_market_apps", installNonMarketApps)
+        data.put("is_rooted", isDeviceRooted())
+
+        log(LogLevel.NOTICE, context.getString(R.string.wazuh_log_system_posture), data)
     }
 
     fun logBatteryState(level: Int, scale: Int, isCharging: Boolean) {
@@ -184,6 +238,7 @@ class WazuhAgent(private val context: Context) {
 
     companion object {
         private const val TAG = "WazuhAgent"
+        private const val MAX_LOG_FILE_SIZE = 1 * 1024 * 1024 // 1MB
         @Volatile
         private var INSTANCE: WazuhAgent? = null
 

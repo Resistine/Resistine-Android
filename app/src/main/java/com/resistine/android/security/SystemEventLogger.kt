@@ -17,6 +17,12 @@ class SystemEventLogger(private val context: Context) {
                 Intent.ACTION_USER_PRESENT -> wazuhAgent.logDeviceUnlock()
                 Intent.ACTION_BATTERY_CHANGED -> logBatteryState(intent)
                 ConnectivityManager.CONNECTIVITY_ACTION -> logNetworkState()
+                Intent.ACTION_SCREEN_ON -> wazuhAgent.logScreenState(true)
+                Intent.ACTION_SCREEN_OFF -> wazuhAgent.logScreenState(false)
+                Intent.ACTION_PACKAGE_ADDED, Intent.ACTION_PACKAGE_REMOVED, Intent.ACTION_PACKAGE_REPLACED -> {
+                    val packageName = intent.data?.encodedSchemeSpecificPart ?: "unknown"
+                    wazuhAgent.logPackageEvent(intent.action ?: "unknown", packageName)
+                }
             }
         }
     }
@@ -26,8 +32,19 @@ class SystemEventLogger(private val context: Context) {
             addAction(Intent.ACTION_USER_PRESENT)
             addAction(Intent.ACTION_BATTERY_CHANGED)
             addAction(ConnectivityManager.CONNECTIVITY_ACTION)
+            addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_SCREEN_OFF)
         }
         context.registerReceiver(receiver, filter)
+
+        val packageFilter = IntentFilter().apply {
+            addAction(Intent.ACTION_PACKAGE_ADDED)
+            addAction(Intent.ACTION_PACKAGE_REMOVED)
+            addAction(Intent.ACTION_PACKAGE_REPLACED)
+            addDataScheme("package")
+        }
+        context.registerReceiver(receiver, packageFilter)
+
         // Log initial network state
         logNetworkState()
     }

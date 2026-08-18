@@ -39,14 +39,10 @@ class MainActivity : AppCompatActivity() {
     private val vpnViewModel: VpnViewModel by viewModels()
 
     private val primaryDestinations = setOf(
-        R.id.nav_home,
-        R.id.nav_wifi_security,
-        R.id.nav_vpn,
-        R.id.nav_apps,
-        R.id.nav_chat
+        R.id.nav_home
     )
     private val drawerDestinations = primaryDestinations + setOf(
-        R.id.nav_settings,
+//        R.id.nav_settings,
         R.id.nav_log_viewer
     )
 
