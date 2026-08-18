@@ -549,8 +549,11 @@
     <string name="home_traffic_protection">Traffic protection</string>
     <string name="home_vpn_verifying">Verifying connection</string>
     <string name="home_app_scanner">App Scanner</string>
+    <string name="home_chatbot">Security Chatbot</string>
     <string name="home_installed_apps">Installed-app review</string>
+    <string name="home_chatbot_summary">AI Security Assistant</string>"
     <string name="home_ready">Ready</string>
+    <string name="home_not_ready">Not ready</string>
     <string name="apps_screen_title">App posture</string>
     <string name="apps_screen_subtitle">See observable security signals from installed apps, with clear context and direct permission controls.</string>
     <string name="apps_results_title">Installed apps</string>
@@ -578,6 +581,9 @@
     <string name="wazuh_log_device_unlocked">Device unlocked.</string>
     <string name="wazuh_log_battery_state_changed">Battery state changed</string>
     <string name="wazuh_log_network_state_changed">Network state changed</string>
+    <string name="wazuh_log_screen_state_changed">Screen state changed</string>
+    <string name="wazuh_log_package_event">Package event: %1$s for %2$s</string>
+    <string name="wazuh_log_system_posture">System security posture check</string>
     <string name="wazuh_log_device_info">Device information</string>
     <string name="wazuh_battery_charging">Charging</string>
     <string name="wazuh_battery_discharging">Discharging</string>
@@ -600,10 +606,11 @@
     <string name="agent_registration_failed">Registration failed: %1$s</string>
     <string name="agent_initiating_connection">Initiating connection...</string>
     <string name="agent_log_sent">SSH Log sent!</string>
+    
 
     <string name="device_admin_label">Resistine Security Guard</string>
     <string name="device_admin_description">Enables detection of unauthorized lock screen attempts and other system security events.</string>
     <string name="wazuh_log_lock_failed">Lock screen security: Failed password attempt detected.</string>
-    <string name="enable_lock_screen_monitoring">Enable Lock Screen Protection</string>
-    <string name="lock_screen_monitoring_active">Lock Screen Protection is Active</string>
+    <string name="wazuh_screen_on">Screen ON</string>
+    <string name="wazuh_screen_off">Screen OFF</string>
 </resources>
