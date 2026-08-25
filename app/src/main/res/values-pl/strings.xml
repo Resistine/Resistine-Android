@@ -1,0 +1,703 @@
+<resources>
+    <string name="resistine_logo_description">Logo Resistine z tarczą</string>
+    <string name="settings_title">Ustawienia</string>
+    <string name="settings_subtitle">Zarządzaj ochroną, przesyłaniem danych i konfiguracją przypisaną do tego urządzenia.</string>
+    <string name="settings_appearance_title">Wygląd</string>
+    <string name="settings_appearance_subtitle">Używaj ustawienia systemowego albo wybierz na stałe jasny lub ciemny motyw.</string>
+    <string name="theme_system">Systemowy</string>
+    <string name="theme_light">Jasny</string>
+    <string name="theme_dark">Ciemny</string>
+
+    <string name="settings_vpn_config_title">Konfiguracja VPN</string>
+    <string name="settings_config_ready">Konfiguracja jest aktywna</string>
+    <string name="settings_config_missing">Brak zapisanej konfiguracji</string>
+    <string name="settings_config_warning">Ta konfiguracja zawiera poufne dane dostępowe do połączenia. Zmieniaj tylko ustawienia, które rozumiesz, i nigdy nie udostępniaj jej zawartości.</string>
+    <string name="settings_show_sensitive_config">Pokaż poufną konfigurację</string>
+    <string name="settings_config_editor_hint">Konfiguracja WireGuard</string>
+    <string name="settings_save_config">Zapisz zmiany</string>
+    <string name="settings_restore_action">Przywróć domyślne</string>
+    <string name="settings_restore_title">Przywrócić konfigurację z rejestracji?</string>
+    <string name="settings_restore_confirmation">Obecna konfiguracja zostanie zastąpiona pierwotną konfiguracją otrzymaną podczas rejestracji tego urządzenia.</string>
+    <string name="settings_disconnect_to_edit">Rozłącz VPN przed zmianą ustawień przesyłania danych.</string>
+
+    <string name="vpn_badge_on">OCHRONA WŁĄCZONA</string>
+    <string name="vpn_badge_off">OCHRONA WYŁĄCZONA</string>
+    <string name="vpn_badge_connecting">SPRAWDZANIE POŁĄCZENIA</string>
+    <string name="vpn_connection_details">Szczegóły połączenia</string>
+    <string name="vpn_connect_action">Połącz</string>
+    <string name="vpn_disconnect_action">Rozłącz</string>
+    <string name="vpn_connecting_action">Łączenie…</string>
+    <string name="vpn_manage_settings">Ustawienia VPN</string>
+
+    <string name="wifi_security_screen_subheader_compact">Bezpieczeństwo bieżącej sieci i automatyczna ochrona.</string>
+    <string name="wifi_explore_title">Informacje o sieci</string>
+    <string name="apps_screen_subtitle_compact">Sprawdź potencjalne zagrożenia i uprawnienia aplikacji.</string>
+
+    <string name="app_badges_more">+%1$d więcej</string>
+    <string name="app_badges_more_description">Pokaż jeszcze %1$d wyników</string>
+    <string name="review_findings_button">Sprawdź wyniki</string>
+    <string name="review_findings_title">Wyniki dla %1$s</string>
+    <string name="review_findings_close">Zamknij</string>
+    <string name="review_findings_open_settings">Otwórz ustawienia aplikacji</string>
+    <string name="scan_progress_format">Skanowanie: %1$d%%</string>
+
+    <string name="chat_prompt_vpn">Dlaczego VPN jest wyłączony?</string>
+    <string name="chat_prompt_wifi">Sprawdź bezpieczeństwo mojego Wi-Fi</string>
+    <string name="chat_prompt_priority">Co powinienem naprawić najpierw?</string>
+
+    <string name="app_name">Resistine</string>
+    <string name="navigation_drawer_open">Otwórz menu nawigacji</string>
+    <string name="navigation_drawer_close">Zamknij menu nawigacji</string>
+    <string name="navigation_back_home">Wróć do strony głównej</string>
+    <string name="nav_header_title">Resistine</string>
+    <string name="nav_header_subtitle">Ochrona i informacje o bezpieczeństwie</string>
+    <string name="nav_header_desc">Nagłówek menu nawigacji</string>
+
+    <string name="action_settings">Ustawienia</string>
+    <string name="app_icon">Ikona</string>
+    <string name="menu_home">Strona główna</string>
+    <string name="menu_vpn">VPN</string>
+    <string name="menu_wifi_security">Bezpieczeństwo Wi-Fi</string>
+    <string name="menu_apps">Aplikacje</string>
+    <string name="menu_agent">Agent</string>
+
+    <string name="welcome_message">Witaj w aplikacji</string>
+    <string name="enter_your_email">Podaj swój adres e-mail</string>
+    <string name="email_address">Adres e-mail</string>
+    <string name="enter_email">Wpisz adres e-mail</string>
+    <string name="sign_in">Zaloguj się</string>
+    <string name="skip_registration">Pomiń rejestrację</string>
+    <string name="send_code">Wyślij kod</string>
+    <string name="enter_otp">Wpisz kod weryfikacyjny</string>
+    <string name="verify">Zweryfikuj</string>
+    <string name="resend">Wyślij ponownie</string>
+    <string name="change_email">Zmień adres e-mail</string>
+    <string name="version_label">Wersja: %1$s</string>
+
+    <string name="vpn_access_denied">Nie przyznano dostępu do VPN</string>
+    <string name="vpn_disabled_register_required">VPN jest wyłączony. Zarejestruj urządzenie, aby go włączyć.</string>
+    <string name="vpn_status_connected">VPN połączony</string>
+
+    <string name="menu_chat">Resistine AI</string>
+    <string name="menu_wifi_short">Wi-Fi</string>
+    <string name="menu_ai_short">AI</string>
+
+    <string name="chat_message_hint">Zapytaj o bezpieczeństwo urządzenia</string>
+    <string name="chat_title">Asystent bezpieczeństwa</string>
+    <string name="chat_subtitle">Zapytaj o swoje urządzenie, aplikacje, sieć i stan ochrony.</string>
+    <string name="chat_thinking">Resistine analizuje…</string>
+    <string name="chat_new_conversation">Nowa rozmowa</string>
+    <string name="chat_new_conversation_confirmation">Wyczyścić tę rozmowę i zacząć od nowa?</string>
+    <string name="chat_clear_action">Wyczyść</string>
+    <string name="chat_stop_response">Zatrzymaj odpowiedź</string>
+    <string name="chat_copy_response">Kopiuj odpowiedź</string>
+    <string name="chat_copy_label">Odpowiedź Resistine</string>
+    <string name="chat_copied">Odpowiedź skopiowana</string>
+    <string name="chat_retry">Spróbuj ponownie</string>
+    <string name="send_message">Wyślij</string>
+
+    <string name="resend_with_timer">Wyślij ponownie (%1$ds)</string>
+    <string name="failed_to_send_code">Nie udało się wysłać kodu.</string>
+    <string name="email_not_available">Adres e-mail jest niedostępny.</string>
+    <string name="error_processing_config">Błąd podczas przetwarzania konfiguracji: %1$s</string>
+    <string name="verification_failed">Weryfikacja nie powiodła się.</string>
+
+    <string name="get_started">Rozpocznij</string>
+    <string name="welcome_security_headline">Bezpieczeństwo, które jest zawsze z Tobą</string>
+    <string name="welcome_security_body">Monitoruj urządzenie, sieć i aplikacje w jednym bezpiecznym miejscu.</string>
+    <string name="secure_your_account">Zabezpiecz swoje konto</string>
+    <string name="email_verification_explanation">Podaj adres e-mail, aby otrzymać kod weryfikacyjny.</string>
+    <string name="email_privacy_note">Adres jest używany wyłącznie do zabezpieczenia Twojego konta Resistine.</string>
+    <string name="verify_your_email">Zweryfikuj adres e-mail</string>
+    <string name="otp_explanation">Wpisz sześciocyfrowy kod wysłany na Twój adres e-mail.</string>
+    <string name="otp_expiry_note">Kod jest ważny przez 10 minut.</string>
+    <string name="email_hint">email@example.com</string>
+    <string name="enter_otp_code">Wpisz kod weryfikacyjny</string>
+
+    <string name="vpn_status_disconnected">VPN rozłączony</string>
+    <string name="connect_vpn">Połącz z VPN</string>
+    <string name="disconnect_vpn">Rozłącz VPN</string>
+    <string name="vpn_screen_subheader">Chroń ruch sieciowy, przesyłając go przez bezpieczny tunel VPN.</string>
+    <string name="vpn_protection_title">Ochrona VPN</string>
+    <string name="vpn_status_label">Stan VPN</string>
+    <string name="vpn_delivery_section">Przesyłanie danych</string>
+    <string name="vpn_runtime_status_default">WireGuard z telemetrią ruchu — rozłączony</string>
+    <string name="vpn_runtime_status_format">%1$s — %2$s</string>
+
+    <string name="flow_wazuh_delivery_title">Przesyłanie do Wazuh</string>
+    <string name="flow_wazuh_delivery_subtitle">Wybierz, czy dane o ruchu mają pozostać na urządzeniu, czy być wysyłane do skonfigurowanego serwera.</string>
+    <string name="flow_wazuh_local_only">Tylko kolejka lokalna — bez wysyłania</string>
+    <string name="flow_wazuh_remote_manager">Zdalny serwer Wazuh</string>
+    <string name="flow_wazuh_local_status">Wysyłanie zdalne jest wyłączone. Dane oczekujące w kolejce: %1$d</string>
+    <string name="flow_wazuh_remote_status">Przesyłanie do serwera rozpocznie się razem z tunelem WireGuard.</string>
+    <string name="flow_wazuh_remote_status_format">Moduł wysyłania: %1$s</string>
+    <string name="flow_wazuh_manager_host">Adres serwera</string>
+    <string name="flow_wazuh_auth_port">Port rejestracji</string>
+    <string name="flow_wazuh_log_port">Port logów</string>
+    <string name="flow_wazuh_save_endpoint">Zapisz adres serwera</string>
+    <string name="flow_wazuh_endpoint_saved">Adres serwera Wazuh został zapisany.</string>
+    <string name="flow_wazuh_invalid_port">Podaj prawidłowe porty z zakresu od 1 do 65535.</string>
+
+    <string name="flow_telemetry_diagnostics_title">Diagnostyka telemetrii</string>
+    <string name="flow_telemetry_diagnostics_empty">Nie zakończono jeszcze żadnej sesji telemetrii.</string>
+    <string name="flow_telemetry_no_error">brak</string>
+    <string name="flow_telemetry_diagnostics_format">Wygenerowane przepływy: %1$d\nZapisy do gniazda Wazuh: %2$d\nOczekujące rekordy Wazuh: %3$d\nKolejki — natywna: %4$d (maks. %5$d), segment: %6$d, zapis: %7$d, przekazywanie: %8$d\nOdrzucone — natywne: %9$d, segment: %10$d, Wazuh: %12$d, przekazywanie: %14$d, przy zatrzymaniu: %15$d\nBłędy — zapis segmentu: %11$d, odczyt: %13$d, po zamknięciu: %16$d, parser: %17$d\nOstatni błąd Wazuh: %18$s</string>
+    <string name="flow_telemetry_channel_name">Telemetria ruchu VPN</string>
+    <string name="flow_telemetry_channel_description">Rejestruje metadane pakietów przekazywanych przez VPN na potrzeby logowania przepływów w Wazuh.</string>
+    <string name="flow_telemetry_notification_title">Telemetria ruchu jest aktywna</string>
+    <string name="flow_telemetry_notification_text">Przekazywanie ruchu i rejestrowanie metadanych połączeń.</string>
+
+    <string name="network_scan_header">Bezpieczeństwo sieci</string>
+    <string name="network_scan_subheader">Sprawdź bieżące połączenie Wi-Fi i pobliskie sieci pod kątem zagrożeń.</string>
+
+    <string name="system_information">Informacje o urządzeniu</string>
+    <string name="ip_address_loading">Adres IP: ładowanie&#8230;</string>
+    <string name="android_version_loading">Wersja Androida: ładowanie&#8230;</string>
+    <string name="battery_level_loading">Poziom baterii: ładowanie&#8230;</string>
+    <string name="device_model_loading">Model urządzenia: ładowanie&#8230;</string>
+    <string name="location_loading">Lokalizacja: ładowanie&#8230;</string>
+
+    <string name="please_enter_email">Podaj adres e-mail</string>
+    <string name="please_enter_valid_email">Podaj prawidłowy adres e-mail</string>
+    <string name="enter_verification_code">Wpisz kod weryfikacyjny</string>
+    <string name="please_enter_a_6_digit_code">Wpisz 6-cyfrowy kod</string>
+
+    <string name="scan_button">Sprawdź aplikacje</string>
+    <string name="scan_in_progress">Sprawdzanie aplikacji…</string>
+    <string name="scan_not_run">Jeszcze nie sprawdzono</string>
+    <string name="scan_risk_label">Wynik oceny: %1$d · %2$s</string>
+    <string name="scan_summary_title">Stan bezpieczeństwa aplikacji</string>
+    <string name="scan_summary_not_scanned">Stan bezpieczeństwa aplikacji</string>
+    <string name="scan_summary_prompt">Uruchom analizę na urządzeniu, aby sprawdzić aktywny dostęp do wrażliwych funkcji oraz źródła instalacji aplikacji.</string>
+    <string name="scan_summary_body">Bez problemów: %1$d · Do sprawdzenia: %2$d · Pilne: %3$d · Razem: %4$d</string>
+    <string name="scan_summary_time">Ostatnie skanowanie: %1$s</string>
+    <string name="scan_summary_time_with_metrics">Ostatnie skanowanie: %1$s · aplikacje: %2$d · %3$s · %4$s</string>
+    <string name="scan_duration_ms">%1$d ms</string>
+    <string name="scan_mode_full">aplikacje + uprawnienia</string>
+    <string name="scan_mode_runtime">odświeżenie uprawnień</string>
+
+    <string name="integrity_title_not_run">Kontrola środowiska Play Protect</string>
+    <string name="integrity_title_running">Sprawdzanie bezpieczeństwa urządzenia</string>
+    <string name="integrity_title_trusted">Środowisko zweryfikowane</string>
+    <string name="integrity_title_review">Wymagana uwaga</string>
+    <string name="integrity_title_error">Nie można sprawdzić środowiska</string>
+    <string name="integrity_title_configuration">Wymagana konfiguracja Play Integrity</string>
+    <string name="integrity_body_not_run">Play Integrity sprawdza po stronie serwera autentyczność aplikacji, integralność urządzenia, stan Play Protect, licencję oraz dostęp potencjalnie niebezpiecznych aplikacji.</string>
+    <string name="integrity_privacy_note">Ta opcjonalna kontrola wysyła zabezpieczony token integralności i identyfikator żądania do Google Play oraz skonfigurowanej usługi weryfikacyjnej. Lista zainstalowanych aplikacji pozostaje na tym urządzeniu.</string>
+    <string name="integrity_run_check">Sprawdź urządzenie</string>
+    <string name="integrity_check_again">Sprawdź ponownie</string>
+    <string name="integrity_fix_issues">Rozwiąż problemy</string>
+    <string name="integrity_consent_title">Uruchomić kontrolę Play Integrity?</string>
+    <string name="integrity_consent_message">Google Play sprawdzi tę aplikację i środowisko urządzenia. Zabezpieczony token oraz jednorazowy identyfikator żądania zostaną wysłane do skonfigurowanej usługi weryfikacyjnej Resistine. Nazwy zainstalowanych aplikacji ani ich uprawnienia nie są przesyłane.</string>
+    <string name="integrity_consent_accept">Uruchom kontrolę</string>
+    <string name="integrity_verdict_line">%1$s: %2$s</string>
+    <string name="integrity_remediation_failed">Nie udało się otworzyć narzędzia naprawczego Google Play: %1$s</string>
+
+    <string name="scan_consent_title">Analiza bezpieczeństwa aplikacji na urządzeniu</string>
+    <string name="scan_consent_message">Lista zainstalowanych aplikacji zawiera wrażliwe informacje. Resistine lokalnie sprawdza źródło instalacji, przyznane uprawnienia i aktywny dostęp rozszerzony. Lista aplikacji ani wyniki analizy nie opuszczają tego urządzenia.</string>
+    <string name="scan_consent_accept">Uruchom analizę</string>
+    <string name="scan_consent_decline">Anuluj</string>
+
+    <string name="badge_debuggable">Tryb debugowania</string>
+    <string name="badge_old_target_sdk">Stara wersja docelowa Androida</string>
+    <string name="badge_high_risk_permission">Wrażliwe uprawnienia</string>
+    <string name="badge_high_risk_permission_count">Wrażliwe uprawnienia (%1$d)</string>
+    <string name="badge_accessibility_enabled">Dostęp do ułatwień dostępu</string>
+    <string name="badge_device_admin">Administrator urządzenia</string>
+    <string name="badge_notification_access">Dostęp do powiadomień</string>
+    <string name="badge_local_install">Instalacja spoza sklepu</string>
+    <string name="badge_sensitive_permission">Wrażliwe uprawnienia</string>
+    <string name="show_system_apps">Uwzględnij Androida i aplikacje systemowe</string>
+
+    <string name="badge_desc_debuggable">Aplikacja została zbudowana z włączonym trybem debugowania.</string>
+    <string name="badge_desc_old_target_sdk">Aplikacja jest przeznaczona dla Androida 9 (SDK 28) lub starszego.</string>
+    <string name="badge_desc_high_risk_permission">Aplikacja ma obecnie co najmniej jedno wrażliwe uprawnienie.</string>
+    <string name="badge_desc_unknown_source">Android nie był w stanie wiarygodnie ustalić źródła instalacji.</string>
+    <string name="badge_desc_local_install">Android wskazuje instalację lokalną, z pobranego pliku, przez ADB lub z nierozpoznanego źródła.</string>
+    <string name="badge_desc_accessibility_enabled">Aplikacja ma aktywną usługę ułatwień dostępu i może obserwować lub kontrolować działania na ekranie.</string>
+    <string name="badge_desc_device_admin">Aplikacja ma obecnie uprawnienia administratora urządzenia.</string>
+    <string name="badge_desc_notification_access">Aplikacja może odczytywać powiadomienia innych aplikacji.</string>
+    <string name="badge_desc_installer_capability">Aplikacja deklaruje możliwość przekazywania plików APK do instalatora pakietów Androida.</string>
+    <string name="badge_desc_overlay_capability">Aplikacja może wyświetlać elementy nad innymi aplikacjami. Android decyduje, czy ten dostęp jest obecnie przyznany.</string>
+    <string name="badge_desc_overlay_enabled">Android zezwala tej aplikacji na wyświetlanie treści nad innymi aplikacjami.</string>
+    <string name="badge_desc_usage_access_enabled">Android zezwala tej aplikacji na dostęp do historii użycia aplikacji.</string>
+    <string name="badge_desc_battery_optimization_exempt">Ta aplikacja nie podlega standardowej optymalizacji baterii i może swobodniej działać w tle.</string>
+    <string name="badge_desc_vpn_capability">Aplikacja deklaruje usługę VPN Androida. Sama ta informacja nie oznacza zagrożenia.</string>
+
+    <string name="badge_overlay_enabled">Wyświetlanie nad innymi aplikacjami</string>
+    <string name="badge_usage_access_enabled">Dostęp do danych o użyciu</string>
+    <string name="badge_battery_optimization_exempt">Brak ograniczeń baterii</string>
+
+    <string name="search_apps">Szukaj aplikacji</string>
+    <string name="sort_by">Sortowanie</string>
+    <string name="filters_title">Filtruj aplikacje</string>
+    <string name="filters_clear">Wyczyść</string>
+    <string name="filters_reset">Resetuj</string>
+    <string name="filters_done">Gotowe</string>
+    <string name="filters_summary_default">Wyświetlane są wszystkie sprawdzone aplikacje</string>
+    <string name="filters_active_count">Aktywne filtry: %1$d</string>
+    <string name="filter_risk_label">Poziom oceny</string>
+    <string name="filter_risk_help">Wybierz co najmniej jeden poziom. Jeśli nic nie zaznaczysz, zobaczysz wszystkie poziomy.</string>
+    <string name="filter_badge_label">Uprawnienia i źródło instalacji</string>
+    <string name="filter_badge_help">Aplikacje muszą spełniać wszystkie zaznaczone kryteria.</string>
+
+    <string name="risk_safe">Bezpieczne</string>
+    <string name="risk_warning">Ostrzeżenie</string>
+    <string name="risk_risk">Ryzyko</string>
+    <string name="risk_unknown">Nieznane</string>
+
+    <string name="app_verdict_no_concern">Brak problemów</string>
+    <string name="app_verdict_review">Do sprawdzenia</string>
+    <string name="app_verdict_urgent_review">Pilnie sprawdź</string>
+    <string name="app_verdict_unknown">Nie oceniono</string>
+
+    <string name="sort_name_asc">Nazwa (A–Z)</string>
+    <string name="sort_name_desc">Nazwa (Z–A)</string>
+    <string name="sort_risk_high_low">Wynik oceny (od najwyższego)</string>
+    <string name="sort_risk_low_high">Wynik oceny (od najniższego)</string>
+
+    <string name="show_filters">Pokaż filtry</string>
+    <string name="show_filters_with_count">Pokaż filtry · aktywne: %1$d</string>
+    <string name="hide_filters">Ukryj filtry</string>
+
+    <string name="manage_permissions_button">Zarządzaj uprawnieniami</string>
+    <string name="review_elevated_access_button">Sprawdź rozszerzony dostęp</string>
+    <string name="manage_permission_single_button">Zarządzaj: %1$s</string>
+    <string name="manage_permissions_count_button">Zarządzaj uprawnieniami (%1$d)</string>
+
+    <string name="permission_actions_title">Zarządzanie uprawnieniami</string>
+    <string name="permission_actions_body">Otwórz ustawienia wybranego wrażliwego uprawnienia albo sprawdź oznaczone aplikacje po kolei.</string>
+    <string name="permission_actions_select_label">Zakres uprawnień</string>
+    <string name="permission_actions_scope_all">Wszystkie wrażliwe uprawnienia</string>
+    <string name="permission_actions_open_manager">Otwórz menedżer uprawnień</string>
+    <string name="permission_actions_review_start">Sprawdź oznaczone aplikacje</string>
+    <string name="permission_actions_open_current">Otwórz bieżącą aplikację</string>
+    <string name="permission_actions_open_current_named">Otwórz %1$s</string>
+    <string name="permission_actions_previous">Poprzednia</string>
+    <string name="permission_actions_next">Następna</string>
+    <string name="permission_actions_review_next">Otwórz następną oznaczoną aplikację (%1$d/%2$d)</string>
+    <string name="permission_actions_status_ready">Wybierz zakres uprawnień, aby rozpocząć.</string>
+    <string name="permission_actions_status_ready_format">Oznaczone aplikacje dla „%1$s”: %2$d</string>
+    <string name="permission_actions_status_active_format">Sprawdzanie aplikacji dla „%1$s”. Teraz: %2$s (%3$d/%4$d)</string>
+    <string name="permission_actions_current_none">Bieżąca aplikacja: nie wybrano</string>
+    <string name="permission_actions_current_format">Bieżąca aplikacja: %1$s (%2$d/%3$d)</string>
+    <string name="permission_actions_no_flagged">Brak oznaczonych aplikacji dla tego zakresu.</string>
+    <string name="permission_actions_review_complete">Zakończono sprawdzanie oznaczonych aplikacji dla tego zakresu.</string>
+    <string name="permission_actions_opening_app">Otwieranie %1$s (%2$d/%3$d)</string>
+    <string name="permission_actions_open_failed">Nie udało się otworzyć ustawień bezpieczeństwa dla %1$s.</string>
+    <string name="permission_actions_manager_open_failed">Nie udało się otworzyć menedżera uprawnień na tym urządzeniu.</string>
+
+    <string name="wifi_security_title_secure">Bezpieczeństwo Wi-Fi: dobre</string>
+    <string name="wifi_security_title_warning">Bezpieczeństwo Wi-Fi: wymaga uwagi</string>
+    <string name="wifi_security_title_info">Nie udało się ukończyć kontroli Wi-Fi</string>
+    <string name="wifi_security_screen_subheader">Sprawdź bezpieczeństwo bieżącego Wi-Fi, pobliskie punkty dostępowe i szczegółowe wyniki kontroli.</string>
+
+    <string name="wifi_safety_score_default">Wynik bezpieczeństwa: --/100</string>
+    <string name="wifi_safety_score_format">Wynik bezpieczeństwa: %1$d/100</string>
+    <string name="wifi_safety_score_unavailable">Wynik bezpieczeństwa: wymagana weryfikacja</string>
+
+    <string name="wifi_score_breakdown_title">Składowe wyniku</string>
+    <string name="wifi_score_breakdown_none">Brak obniżeń wyniku.</string>
+    <string name="wifi_score_breakdown_verification_needed">Ukończ brakujące kontrole, zanim zaczniesz polegać na wyniku liczbowym.</string>
+    <string name="wifi_score_breakdown_total_format">Łącznie: -%1$d</string>
+    <string name="wifi_score_breakdown_chip_format">%1$s: -%2$d</string>
+    <string name="wifi_score_details_title">Szczegóły wyniku bezpieczeństwa</string>
+    <string name="wifi_score_details_areas">Obszary ryzyka</string>
+    <string name="wifi_score_details_checks">Szczegółowe kontrole</string>
+
+    <string name="wifi_security_unavailable">Nie można teraz sprawdzić zabezpieczeń Wi-Fi.</string>
+    <string name="wifi_security_no_network">Nie wykryto aktywnego połączenia z internetem.</string>
+    <string name="wifi_security_not_wifi">Nie korzystasz z Wi-Fi. Połącz się z siecią Wi-Fi, aby przeprowadzić kontrolę.</string>
+    <string name="wifi_security_captive_portal">Ta sieć Wi-Fi wymaga logowania przez stronę. Zachowaj ostrożność do czasu zakończenia logowania.</string>
+    <string name="wifi_security_unvalidated">Ta sieć Wi-Fi nie ma jeszcze potwierdzonego dostępu do internetu.</string>
+    <string name="wifi_security_connected_unknown">Urządzenie jest połączone z Wi-Fi, ale Android nie udostępnił informacji o szyfrowaniu.</string>
+    <string name="wifi_security_missing_permission">Aby wykryć typ zabezpieczeń Wi-Fi w tej wersji Androida, zezwól aplikacji na dostęp do lokalizacji.</string>
+    <string name="wifi_security_location_services_disabled">Włącz usługi lokalizacji, aby sprawdzić szczegóły Wi-Fi i pobliskie sieci.</string>
+    <string name="wifi_security_open_or_wep">Ta sieć Wi-Fi jest otwarta lub używa słabego szyfrowania WEP.</string>
+    <string name="wifi_security_weak_legacy_cipher">Ta sieć Wi-Fi korzysta z przestarzałego i słabszego szyfrowania, np. TKIP.</string>
+    <string name="wifi_security_wps_enabled">Ta sieć Wi-Fi obsługuje WPS. Jeśli to możliwe, wyłącz WPS w ustawieniach routera.</string>
+    <string name="wifi_security_secure">Ta sieć Wi-Fi korzysta z nowoczesnych zabezpieczeń.</string>
+    <string name="wifi_security_legacy">Szczegółowe wykrywanie szyfrowania wymaga Androida 12 lub nowszego. Podstawowe kontrole sieci nadal działają.</string>
+    <string name="wifi_security_trusted_bssid_mismatch">Niezgodność z zaufaną siecią: dla tej samej nazwy sieci wykryto inny punkt dostępowy.</string>
+    <string name="wifi_security_trusted_security_downgrade">Niezgodność z zaufaną siecią: zabezpieczenia są słabsze niż wcześniej.</string>
+
+    <string name="wifi_network_line_default">Sieć: nieznana</string>
+    <string name="wifi_network_line">Sieć: %1$s</string>
+
+    <string name="wifi_available_networks_title_default">Pobliskie sieci Wi-Fi</string>
+    <string name="wifi_available_networks_title">Pobliskie sieci Wi-Fi (%1$d)</string>
+    <string name="wifi_available_networks_subtitle">Szybko porównaj pobliskie punkty dostępowe</string>
+
+    <string name="wifi_trusted_networks_title_default">Zaufane sieci</string>
+    <string name="wifi_trusted_networks_title">Zaufane sieci (%1$d)</string>
+    <string name="wifi_trusted_networks_subtitle">Zarządzaj zapisanymi sieciami i wykrywaniem zmian</string>
+
+    <string name="wifi_nearby_access_needed_title">Skanowanie pobliskich sieci wymaga dostępu</string>
+    <string name="wifi_nearby_empty_title">Brak sieci do wyświetlenia</string>
+    <string name="wifi_nearby_access_action">Zezwól na dostęp</string>
+    <string name="dialog_got_it">Rozumiem</string>
+
+    <string name="wifi_networks_show">Pokaż listę</string>
+    <string name="wifi_networks_hide">Ukryj listę</string>
+    <string name="wifi_current_show_details">Pokaż szczegóły</string>
+    <string name="wifi_current_hide_details">Ukryj szczegóły</string>
+
+    <string name="wifi_nearby_requires_location">Zezwól na dostęp do lokalizacji, aby wyświetlić pobliskie sieci Wi-Fi.</string>
+    <string name="wifi_nearby_enable_location_services">Włącz usługi lokalizacji, aby wyświetlić pobliskie sieci Wi-Fi.</string>
+    <string name="wifi_nearby_unavailable">Skanowanie pobliskich sieci Wi-Fi jest teraz niedostępne na tym urządzeniu.</string>
+    <string name="wifi_nearby_none">Nie znaleziono pobliskich sieci Wi-Fi.</string>
+    <string name="wifi_nearby_results_cached">Wyświetlane są ostatnie zapisane wyniki skanowania.</string>
+    <string name="wifi_nearby_results_stale">Te wyniki skanowania są nieaktualne. Odśwież je przed podjęciem decyzji.</string>
+    <string name="wifi_nearby_showing_current_only">Wyświetlana jest tylko bieżąca sieć Wi-Fi. Zezwól na dostęp do lokalizacji, aby zobaczyć pobliskie sieci.</string>
+
+    <string name="wifi_network_current_unknown_ssid">Połączona sieć Wi-Fi</string>
+    <string name="wifi_network_hidden_ssid">Ukryta sieć</string>
+    <string name="wifi_network_current_short">Bieżąca</string>
+
+    <string name="wifi_signal_format">%1$s · %2$d dBm</string>
+    <string name="wifi_signal_excellent">Doskonały</string>
+    <string name="wifi_signal_good">Dobry</string>
+    <string name="wifi_signal_fair">Średni</string>
+    <string name="wifi_signal_weak">Słaby</string>
+
+    <string name="wifi_trusted_entry_title">Zaufana sieć</string>
+    <string name="wifi_trusted_entry_body">Zapisana do wykrywania zmian w zaufanej sieci.</string>
+    <string name="wifi_trusted_network_details">MAC punktu dostępowego: %1$s | Zabezpieczenia: %2$s</string>
+    <string name="wifi_trust_list_empty">Nie masz jeszcze żadnych zaufanych sieci.</string>
+
+    <string name="wifi_network_identity_with_bssid">%1$s (%2$s)</string>
+    <string name="wifi_network_identity_ssid_only">%1$s</string>
+    <string name="wifi_network_identity_bssid_only">%1$s</string>
+    <string name="wifi_network_unknown">Nazwa sieci niedostępna</string>
+
+    <string name="wifi_internet_access_line_default">Dostęp do internetu: nieznany</string>
+    <string name="wifi_internet_access_line">Dostęp do internetu: %1$s</string>
+    <string name="wifi_internet_access_yes">Tak</string>
+    <string name="wifi_internet_access_no">Nie</string>
+    <string name="wifi_internet_access_unknown">Nieznany</string>
+    <string name="wifi_internet_access_not_applicable">Brak połączenia z Wi-Fi</string>
+
+    <string name="wifi_security_profile_line_default">Profil zabezpieczeń: nieznany</string>
+    <string name="wifi_security_profile_line">Profil zabezpieczeń: %1$s</string>
+
+    <string name="wifi_pmf_line_default">PMF: nieznane</string>
+    <string name="wifi_pmf_line">PMF: %1$s</string>
+
+    <string name="wifi_security_type_line_default">Typ zabezpieczeń: nieznany</string>
+    <string name="wifi_security_reason_line_default">Stan: jeszcze nie sprawdzono</string>
+    <string name="wifi_match_confidence_line_default">Pewność identyfikacji: nieznana</string>
+    <string name="wifi_match_confidence_line">Pewność identyfikacji: %1$s</string>
+    <string name="wifi_security_last_checked_default">Ostatnio sprawdzono: -</string>
+    <string name="wifi_security_type_line">Typ zabezpieczeń: %1$s</string>
+    <string name="wifi_security_reason_line">Stan: %1$s</string>
+    <string name="wifi_security_last_checked_line">Ostatnio sprawdzono: %1$s</string>
+
+    <string name="wifi_trust_detail_default">Zaufany profil: zmiany punktu dostępowego nie są jeszcze monitorowane</string>
+    <string name="wifi_trust_detail_identity_required">Zaufany profil: niedostępny, dopóki Android nie udostępni prawdziwej nazwy Wi-Fi</string>
+    <string name="wifi_trust_detail_stable">Zaufany profil: stabilny</string>
+    <string name="wifi_trust_detail_pending_format">Nowy punkt dostępowy został wykryty %1$d razy. Aby dodać go do zaufanego profilu, musisz go zatwierdzić.</string>
+
+    <string name="wifi_security_type_open">Otwarta</string>
+    <string name="wifi_security_type_wep">WEP</string>
+    <string name="wifi_security_type_secure">Bezpieczna</string>
+    <string name="wifi_security_type_unknown">Szyfrowanie niezweryfikowane</string>
+
+    <string name="wifi_security_profile_open">Otwarta</string>
+    <string name="wifi_security_profile_owe">OWE</string>
+    <string name="wifi_security_profile_wep">WEP</string>
+    <string name="wifi_security_profile_wpa2_psk">WPA2 Personal</string>
+    <string name="wifi_security_profile_wpa3_sae">WPA3 Personal</string>
+    <string name="wifi_security_profile_wpa2_enterprise">WPA2 Enterprise</string>
+    <string name="wifi_security_profile_wpa3_enterprise">WPA3 Enterprise</string>
+    <string name="wifi_security_profile_transition">Tryb przejściowy WPA2/WPA3</string>
+    <string name="wifi_security_profile_unknown">Szyfrowanie niezweryfikowane</string>
+
+    <string name="wifi_pmf_required">Wymagane</string>
+    <string name="wifi_pmf_capable">Opcjonalne</string>
+    <string name="wifi_pmf_absent">Nieobsługiwane przez sieć</string>
+    <string name="wifi_pmf_not_applicable">Nie dotyczy</string>
+    <string name="wifi_pmf_unknown">Nieznane</string>
+
+    <string name="wifi_match_confidence_verified_bssid">Zweryfikowano przez BSSID</string>
+    <string name="wifi_match_confidence_ssid_only_single">Dopasowanie tylko na podstawie SSID</string>
+    <string name="wifi_match_confidence_ambiguous_ssid">Wiele punktów dostępowych o tej samej nazwie</string>
+    <string name="wifi_match_confidence_wifi_info_only">Tylko informacje systemowe Wi-Fi</string>
+    <string name="wifi_match_confidence_unavailable">Nie można ustalić punktu dostępowego</string>
+
+    <string name="wifi_reason_unavailable">Skanowanie niedostępne</string>
+    <string name="wifi_reason_no_network">Brak aktywnego połączenia</string>
+    <string name="wifi_reason_not_wifi">Połączenie przez dane komórkowe, nie Wi-Fi</string>
+    <string name="wifi_reason_captive_portal">Wykryto stronę logowania do sieci</string>
+    <string name="wifi_reason_unvalidated">Brak potwierdzonego dostępu do internetu</string>
+    <string name="wifi_reason_legacy">Ta wersja Androida nie obsługuje szczegółowego wykrywania szyfrowania</string>
+    <string name="wifi_reason_missing_permission">Dostęp do lokalizacji jest wymagany do sprawdzenia szyfrowania</string>
+    <string name="wifi_reason_location_services_disabled">Usługi lokalizacji są wyłączone</string>
+    <string name="wifi_reason_open_or_wep">Słabe zabezpieczenia sieci — otwarta sieć lub WEP</string>
+    <string name="wifi_reason_unknown_security">Brak informacji o szyfrowaniu</string>
+    <string name="wifi_reason_weak_legacy_cipher">Wykryto przestarzałe szyfrowanie TKIP</string>
+    <string name="wifi_reason_wps_enabled">WPS jest włączony w tej sieci</string>
+    <string name="wifi_reason_trusted_fingerprint_changed">Zmienił się profil zaufanej sieci</string>
+
+    <string name="wifi_advanced_checks_title">Kontrole bezpieczeństwa</string>
+    <string name="wifi_advanced_checks_title_with_count">Kontrole bezpieczeństwa (%1$d)</string>
+    <string name="wifi_advanced_checks_none">Brak wyników kontroli bezpieczeństwa.</string>
+    <string name="wifi_advanced_check_title_format">%1$s: %2$s</string>
+
+    <string name="wifi_check_status_safe">BEZPIECZNIE</string>
+    <string name="wifi_check_status_warning">OSTRZEŻENIE</string>
+    <string name="wifi_check_status_danger">ZAGROŻENIE</string>
+
+    <string name="wifi_dimension_encryption">Szyfrowanie</string>
+    <string name="wifi_dimension_trust">Zaufanie</string>
+    <string name="wifi_dimension_validation">Połączenie z internetem</string>
+    <string name="wifi_dimension_legacy">Przestarzałe zabezpieczenia</string>
+    <string name="wifi_dimension_network">Sieć</string>
+    <string name="wifi_dimension_visibility">Zakres weryfikacji</string>
+
+    <string name="wifi_chip_validated_internet">Internet zweryfikowany</string>
+    <string name="wifi_chip_no_internet">Brak internetu</string>
+    <string name="wifi_chip_internet_unknown">Stan internetu nieznany</string>
+    <string name="wifi_chip_not_trusted">Sieć niezaufana</string>
+    <string name="wifi_chip_limited_verification">Nie wszystkie kontrole są dostępne</string>
+
+    <string name="wifi_verification_needed_title">Wymagana weryfikacja</string>
+    <string name="wifi_verification_needed_body">Wynik liczbowy jest ukryty, ponieważ aplikacja nie mogła zweryfikować wszystkich wymaganych informacji.</string>
+    <string name="wifi_chip_pmf_format">PMF: %1$s</string>
+
+    <string name="wifi_nearby_score_chip_format">Wynik: %1$d/100</string>
+    <string name="wifi_nearby_score_details_title">Szczegóły wyniku: %1$s</string>
+    <string name="wifi_nearby_score_details_scan_note">To wynik oparty na skanowaniu pobliskiego punktu dostępowego. Ponieważ urządzenie nie jest z nim połączone, aplikacja może ocenić widoczne zabezpieczenia i informacje o zaufaniu, ale nie może sprawdzić bieżącego dostępu do internetu ani anomalii na trasie sieciowej.</string>
+    <string name="wifi_nearby_score_details_current_note">Ten wynik podsumowuje bezpieczeństwo aktualnego Wi-Fi na liście pobliskich sieci. Uwzględnia zabezpieczenia widoczne podczas skanowania oraz bieżący stan połączenia. Pełne szczegóły są dostępne na głównej karcie sieci.</string>
+
+    <string name="wifi_check_encryption_title">Szyfrowanie i uwierzytelnianie</string>
+    <string name="wifi_check_validation_title">Dostęp do internetu</string>
+    <string name="wifi_check_legacy_router_title">Przestarzałe funkcje routera</string>
+    <string name="wifi_check_trusted_fingerprint_title">Profil zaufanej sieci</string>
+    <string name="wifi_check_security_coverage_title">Zakres weryfikacji zabezpieczeń</string>
+    <string name="wifi_check_identity_coverage_title">Identyfikacja punktu dostępowego</string>
+    <string name="wifi_check_connection_confidence_title">Pewność identyfikacji połączenia</string>
+    <string name="wifi_check_pmf_title">Wymagania PMF</string>
+    <string name="wifi_check_wpa_mode_title">Poziom zabezpieczeń WPA</string>
+    <string name="wifi_check_transition_title">Ryzyko trybu przejściowego</string>
+    <string name="wifi_check_open_owe_title">Ochrona sieci otwartej (OWE)</string>
+    <string name="wifi_check_evil_twin_title">Oznaki fałszywego punktu dostępowego</string>
+    <string name="wifi_check_channel_title">Stabilność kanału i pasma</string>
+    <string name="wifi_check_dhcp_title">Poprawność DHCP i bramy</string>
+    <string name="wifi_check_vpn_posture_title">Stan VPN w ryzykownej sieci Wi-Fi</string>
+    <string name="wifi_check_private_dns_title">Prywatny DNS</string>
+    <string name="wifi_check_route_dns_title">Aktywna trasa i DNS</string>
+    <string name="wifi_check_tls_reachability_title">Dostępność HTTPS/TLS</string>
+    <string name="wifi_check_scan_effectiveness_title">Skuteczność skanowania</string>
+
+    <string name="wifi_reason_trusted_bssid_mismatch">Zaufana sieć korzysta z innego punktu dostępowego</string>
+    <string name="wifi_reason_trusted_security_downgrade">Zabezpieczenia zaufanej sieci zostały osłabione</string>
+    <string name="wifi_reason_secure">Wykryto nowoczesne szyfrowanie</string>
+
+    <string name="wifi_security_grant_permission">Zezwól na dostęp do lokalizacji</string>
+    <string name="wifi_security_enable_location_services">Włącz usługi lokalizacji</string>
+    <string name="wifi_security_permission_denied">Dostęp do lokalizacji jest wymagany do sprawdzenia szyfrowania Wi-Fi.</string>
+    <string name="wifi_security_location_services_resolution_failed">Nie udało się wyświetlić prośby o włączenie lokalizacji. Otwieranie ustawień systemowych.</string>
+
+    <string name="network_scan_refresh">Odśwież skanowanie sieci</string>
+
+    <string name="wifi_auto_vpn_title">Automatyczna ochrona VPN</string>
+    <string name="wifi_auto_vpn_switch_protect">Automatycznie łącz VPN w sieciach Wi-Fi wymagających uwagi lub stwarzających ryzyko</string>
+    <string name="wifi_auto_vpn_switch_unknown">Łącz VPN także w nieznanych lub nie w pełni zweryfikowanych sieciach Wi-Fi</string>
+    <string name="wifi_auto_vpn_switch_disconnect_safe">Automatycznie rozłącz VPN, gdy sieć Wi-Fi jest bezpieczna</string>
+    <string name="wifi_auto_vpn_policy_off">Automatyczna ochrona: wyłączona</string>
+    <string name="wifi_auto_vpn_policy_connect_on_risk">Automatyczna ochrona: połącz VPN w ryzykownej sieci</string>
+    <string name="wifi_auto_vpn_policy_connect_and_disconnect">Automatyczna ochrona: połącz przy ryzyku, rozłącz w bezpiecznej sieci</string>
+    <string name="wifi_auto_vpn_unknown_status_on">Ochrona w nieznanych sieciach: włączona</string>
+    <string name="wifi_auto_vpn_unknown_status_off">Ochrona w nieznanych sieciach: wyłączona</string>
+    <string name="wifi_auto_vpn_disconnect_now">Rozłącz VPN teraz</string>
+    <string name="wifi_auto_vpn_auto_connected">VPN został automatycznie połączony z powodu ryzyka w sieci Wi-Fi.</string>
+    <string name="wifi_auto_vpn_auto_disconnected">VPN został automatycznie rozłączony, ponieważ sieć Wi-Fi jest bezpieczna.</string>
+    <string name="wifi_auto_vpn_permission_required">Automatyczne łączenie VPN wymaga najpierw odpowiedniego zezwolenia. Otwórz ekran VPN, aby je przyznać.</string>
+
+    <string name="wifi_scan_freshness_line_default">Dane skanowania: niedostępne</string>
+    <string name="wifi_scan_freshness_line">Dane skanowania: %1$s · %2$s%3$s</string>
+    <string name="wifi_scan_freshness_fresh">Aktualne</string>
+    <string name="wifi_scan_freshness_cached">Z pamięci</string>
+    <string name="wifi_scan_freshness_stale">Nieaktualne</string>
+    <string name="wifi_scan_freshness_unavailable">Niedostępne</string>
+    <string name="wifi_scan_data_title">Dane skanowania</string>
+    <string name="wifi_scan_chip_fresh">Aktualne skanowanie</string>
+    <string name="wifi_scan_chip_cached">Wyniki z pamięci</string>
+    <string name="wifi_scan_chip_stale">Nieaktualne wyniki</string>
+    <string name="wifi_scan_chip_unavailable">Skanowanie niedostępne</string>
+    <string name="wifi_scan_age_unknown">wiek danych nieznany</string>
+    <string name="wifi_scan_age_seconds">sprzed %1$d s</string>
+    <string name="wifi_scan_age_minutes">sprzed %1$d min</string>
+    <string name="wifi_scan_refresh_deferred"> · Android opóźnił odświeżenie</string>
+    <string name="wifi_scan_refresh_cooldown"> · Następne aktywne odświeżenie za %1$d s</string>
+    <string name="wifi_scan_refresh_rejected"> · Android odrzucił aktywne odświeżenie; wyświetlane są najnowsze dostępne wyniki</string>
+    <string name="wifi_scan_refresh_timed_out"> · Przekroczono czas aktywnego odświeżania; wyświetlane są najnowsze dostępne wyniki</string>
+
+    <string name="wifi_risk_transition_worsened">Poziom ryzyka Wi-Fi wzrósł do %1$s (%2$d/100).</string>
+    <string name="wifi_risk_alert_title">Ostrzeżenie dotyczące Wi-Fi</string>
+    <string name="wifi_risk_alert_message">Poziom ryzyka Wi-Fi wynosi teraz %1$s (%2$d/100).</string>
+    <string name="wifi_risk_channel_name">Alerty bezpieczeństwa Wi-Fi</string>
+    <string name="wifi_risk_channel_description">Powiadomienia o pogorszeniu bezpieczeństwa Wi-Fi w czasie rzeczywistym.</string>
+
+    <string name="wifi_trust_status_line_default">Zaufany profil: brak</string>
+    <string name="wifi_trust_status_line">Zaufany profil: %1$s</string>
+    <string name="wifi_trust_status_with_baseline">Zaufany profil: %1$s\nStan profilu bazowego: %2$s</string>
+    <string name="wifi_trust_baseline_status_line">Stan profilu bazowego: %1$s</string>
+
+    <string name="wifi_trust_status_trusted">Zaufana</string>
+    <string name="wifi_trust_status_not_trusted">Niezaufana</string>
+
+    <string name="wifi_trust_baseline_status_not_trusted">Niezaufana</string>
+    <string name="wifi_trust_baseline_status_stable_verified">Stabilny i zweryfikowany</string>
+    <string name="wifi_trust_baseline_status_stable_profile_only">Stabilny, bez weryfikacji BSSID</string>
+    <string name="wifi_trust_baseline_status_pending">Oczekuje na zatwierdzenie</string>
+    <string name="wifi_trust_baseline_status_changed">Profil uległ zmianie</string>
+    <string name="wifi_trust_baseline_status_downgraded">Zabezpieczenia zostały osłabione</string>
+    <string name="wifi_trust_baseline_status_ambiguous">Niejednoznaczny</string>
+    <string name="wifi_trust_baseline_status_unverified">Niezweryfikowany</string>
+
+    <string name="wifi_trust_summary_not_trusted">Nie zapisano zaufanego profilu tej sieci.</string>
+    <string name="wifi_trust_summary_stable_verified">Profil zaufanej sieci jest stabilny i został zweryfikowany.</string>
+    <string name="wifi_trust_summary_stable_profile_only">Profil zaufanej sieci jest zgodny, ale nie udało się zweryfikować BSSID.</string>
+    <string name="wifi_trust_summary_pending">Wykryto nowy profil sieci, który oczekuje na zatwierdzenie.</string>
+    <string name="wifi_trust_summary_changed">Profil tej zaufanej sieci zmienił się i oczekuje na zatwierdzenie.</string>
+    <string name="wifi_trust_summary_downgraded">Zabezpieczenia tej zaufanej sieci są słabsze niż w zapisanym profilu.</string>
+    <string name="wifi_trust_summary_ambiguous">W pobliżu znajduje się kilka punktów dostępowych o tej samej nazwie, dlatego nie można pewnie zweryfikować zaufanego profilu.</string>
+    <string name="wifi_trust_summary_unverified">Nie udało się teraz w pełni zweryfikować zaufanego profilu.</string>
+
+    <string name="wifi_trust_add_button">Oznacz jako zaufaną</string>
+    <string name="wifi_trust_remove_button">Usuń z zaufanych sieci</string>
+    <string name="wifi_trust_add_short">Zaufaj</string>
+    <string name="wifi_trust_remove_short">Usuń z zaufanych</string>
+    <string name="wifi_trust_approve_current_button">Zatwierdź bieżący profil</string>
+
+    <string name="wifi_trust_added">Sieć została dodana do zaufanych.</string>
+    <string name="wifi_trust_removed">Sieć została usunięta z zaufanych.</string>
+    <string name="wifi_trust_change_approved">Zaufany profil sieci został zaktualizowany.</string>
+    <string name="wifi_trust_unavailable">Połącz się z Wi-Fi, aby zarządzać zaufaniem do sieci.</string>
+    <string name="wifi_trust_identity_required">Android nie udostępnił stabilnej nazwy Wi-Fi, dlatego tej sieci nie można jeszcze oznaczyć jako zaufanej.</string>
+    <string name="wifi_trust_current_only">Do zaufanych można dodać tylko sieć Wi-Fi, z którą urządzenie jest obecnie połączone.</string>
+
+    <string name="wifi_security_trusted_fingerprint_changed">Profil zaufanej sieci zmienił się i nie został jeszcze zatwierdzony.</string>
+    <string name="wifi_security_recommendation_secure">Zalecenie: korzystając z publicznych sieci, pozostaw VPN włączony.</string>
+    <string name="wifi_security_recommendation_warning">Zalecenie: unikaj wykonywania wrażliwych czynności i włącz VPN przed dalszym korzystaniem z sieci.</string>
+    <string name="wifi_security_recommendation_info">Zalecenie: po połączeniu z Wi-Fi odśwież kontrolę i zezwól na dostęp do lokalizacji, jeśli aplikacja o to poprosi.</string>
+
+    <string name="wifi_debug_details_switch">Pokaż szczegóły techniczne (debug)</string>
+    <string name="wifi_debug_details_hint">W wersji debug możesz wyświetlić szczegółowe dane diagnostyczne. Pozostaw tę opcję wyłączoną, aby korzystać z prostszego widoku.</string>
+
+    <string name="wifi_status_icon_safe_desc">Ikona bezpiecznego stanu</string>
+    <string name="wifi_status_icon_warning_desc">Ikona ostrzeżenia</string>
+    <string name="wifi_status_icon_danger_desc">Ikona zagrożenia</string>
+
+    <string name="menu_log_viewer">Podgląd logów</string>
+    <string name="action_login">Zaloguj się</string>
+    <string name="action_logout">Wyloguj się</string>
+    <string name="logout_confirmation_title">Potwierdź wylogowanie</string>
+    <string name="logout_confirmation_message">Wylogować się, rozłączyć VPN i usunąć tę sesję z urządzenia?</string>
+    <string name="cancel">Anuluj</string>
+
+    <string name="welcome_to">Witaj w</string>
+    <string name="resistine_name">Resistine</string>
+    <string name="ai_powered_security">Bezpieczeństwo wspierane przez AI</string>
+    <string name="threat_detection">Wykrywanie zagrożeń</string>
+    <string name="real_time_protection">Ochrona w czasie rzeczywistym</string>
+    <string name="device_security">Bezpieczeństwo urządzenia</string>
+
+    <string name="home_card_status">Stan</string>
+    <string name="home_card_scan">Skanowanie</string>
+    <string name="home_card_control">Ochrona</string>
+    <string name="home_card_enabled">Włączona</string>
+    <string name="home_card_online">Online</string>
+    <string name="home_card_connected">Połączono</string>
+
+    <string name="home_greeting">Dzień dobry</string>
+    <string name="home_headline">Twoje bezpieczeństwo w skrócie</string>
+    <string name="home_overall_protection">Ogólny stan ochrony</string>
+    <string name="home_protected">Chronione</string>
+    <string name="home_verifying">Sprawdzanie VPN</string>
+    <string name="home_action_needed">Wymagana uwaga</string>
+
+    <string name="home_protection_summary">Twoje aktywne połączenie sieciowe jest chronione.</string>
+    <string name="home_protection_verifying">Szyfrowany tunel jest aktywny. Resistine czeka na potwierdzenie połączenia przez serwer WireGuard.</string>
+    <string name="home_protection_attention">VPN jest rozłączony. Sprawdź bezpieczeństwo Wi-Fi i połącz VPN, aby zapewnić pełną ochronę ruchu sieciowego.</string>
+
+    <string name="home_threats">Zagrożenia</string>
+    <string name="home_score">Wynik</string>
+    <string name="home_last_scan">Ostatnie skanowanie</string>
+    <string name="home_today">Dzisiaj</string>
+    <string name="home_protection_tools">Narzędzia ochrony</string>
+    <string name="home_network_protection">Ochrona sieci</string>
+    <string name="home_traffic_protection">Ochrona ruchu</string>
+    <string name="home_vpn_verifying">Sprawdzanie połączenia</string>
+    <string name="home_app_scanner">Skaner aplikacji</string>
+    <string name="home_chatbot">Asystent bezpieczeństwa</string>
+    <string name="home_installed_apps">Analiza zainstalowanych aplikacji</string>
+    <string name="home_chatbot_summary">Asystent bezpieczeństwa AI</string>
+    <string name="home_ready">Gotowe</string>
+    <string name="home_not_ready">Niegotowe</string>
+
+    <string name="apps_screen_title">Bezpieczeństwo aplikacji</string>
+    <string name="apps_screen_subtitle">Sprawdź wykrywalne oznaki ryzyka w zainstalowanych aplikacjach, wraz z jasnym wyjaśnieniem i bezpośrednim dostępem do ustawień uprawnień.</string>
+    <string name="apps_results_title">Zainstalowane aplikacje</string>
+
+    <string name="agent_email_hint">Podaj e-mail używany jako nazwa agenta</string>
+    <string name="btn_register_agent">1. Zarejestruj agenta</string>
+    <string name="btn_connect_agent">2. Połącz agenta w tle</string>
+    <string name="btn_send_log">3. Wyślij log testowy</string>
+    <string name="agent_tip">Wskazówka:\nNajpierw połącz agenta (krok 2) i poczekaj, aż wskaźnik ładowania zniknie. Następnie możesz wysyłać logi (krok 3).</string>
+
+    <!-- Teksty agenta Wazuh -->
+    <string name="wazuh_connecting_to_manager">Łączenie z serwerem (%1$s)…</string>
+    <string name="wazuh_agent_connected_keepalive">Agent jest połączony i utrzymuje połączenie w tle.</string>
+    <string name="wazuh_connection_interrupted">Połączenie zostało przerwane: %1$s</string>
+    <string name="wazuh_cannot_send_log_not_connected">Nie można wysłać logu — agent nie jest połączony.</string>
+    <string name="wazuh_manual_log_sent">Log został wysłany ręcznie (licznik: %1$d)</string>
+    <string name="wazuh_error_sending_log">Błąd podczas wysyłania logu: %1$s</string>
+    <string name="wazuh_server_closed_connection">Serwer zamknął połączenie bez odpowiedzi. Sprawdź, czy authd działa na porcie 1515.</string>
+    <string name="wazuh_authd_server_error">Błąd serwera authd: %1$s</string>
+    <string name="wazuh_invalid_key_format">Serwer zwrócił klucz w nieprawidłowym formacie: %1$s</string>
+    <string name="wazuh_unknown_server_response">Nieznana odpowiedź serwera: %1$s</string>
+    <string name="wazuh_log_file_not_found">Nie znaleziono pliku logu.</string>
+    <string name="wazuh_error_reading_log_file">Błąd podczas odczytu pliku logu.</string>
+
+    <string name="wazuh_log_app_started">Uruchomiono aplikację.</string>
+    <string name="wazuh_log_device_unlocked">Urządzenie zostało odblokowane.</string>
+    <string name="wazuh_log_battery_state_changed">Zmienił się stan baterii</string>
+    <string name="wazuh_log_network_state_changed">Zmienił się stan sieci</string>
+    <string name="wazuh_log_screen_state_changed">Zmienił się stan ekranu</string>
+    <string name="wazuh_log_package_event">Zdarzenie pakietu: %1$s dla %2$s</string>
+    <string name="wazuh_log_system_posture">Kontrola bezpieczeństwa systemu</string>
+    <string name="wazuh_log_device_info">Informacje o urządzeniu</string>
+
+    <string name="wazuh_battery_charging">Ładowanie</string>
+    <string name="wazuh_battery_discharging">Rozładowywanie</string>
+    <string name="wazuh_network_connected">Połączono</string>
+    <string name="wazuh_network_disconnected">Rozłączono</string>
+    <string name="wazuh_network_none">Brak</string>
+
+    <string name="wazuh_connecting">Łączenie z Wazuh…</string>
+    <string name="wazuh_agent_active">Agent Wazuh jest aktywny</string>
+    <string name="wazuh_notification_title">Agent Wazuh</string>
+    <string name="wazuh_stop">Zatrzymaj</string>
+    <string name="wazuh_waiting_for_vpn">Wazuh: oczekiwanie na VPN…</string>
+    <string name="wazuh_service_channel_name">Usługa agenta Wazuh</string>
+
+    <string name="vpn_notification_channel">Połączenie VPN</string>
+    <string name="vpn_notification_channel_description">Utrzymuje aktywny tunel WireGuard i telemetrię ruchu</string>
+    <string name="vpn_notification_title">Resistine VPN</string>
+
+    <string name="agent_status_ready">Stan: gotowy</string>
+    <string name="agent_registered_id">Agent zarejestrowany (ID: %1$s)</string>
+    <string name="agent_registering">Rejestrowanie agenta: %1$s…</string>
+    <string name="agent_registration_success">Rejestracja zakończona pomyślnie!\nID agenta: %1$s</string>
+    <string name="agent_registration_failed">Rejestracja nie powiodła się: %1$s</string>
+    <string name="agent_initiating_connection">Nawiązywanie połączenia…</string>
+    <string name="agent_log_sent">Log SSH został wysłany!</string>
+
+    <string name="device_admin_label">Ochrona urządzenia Resistine</string>
+    <string name="device_admin_description">Umożliwia wykrywanie nieudanych prób odblokowania ekranu i innych zdarzeń związanych z bezpieczeństwem systemu.</string>
+    <string name="wazuh_log_lock_failed">Bezpieczeństwo ekranu blokady: wykryto nieudaną próbę podania hasła.</string>
+    <string name="wazuh_screen_on">Ekran włączony</string>
+    <string name="wazuh_screen_off">Ekran wyłączony</string>
+</resources>
