@@ -23,6 +23,8 @@ import javax.net.ssl.X509TrustManager
  * It communicates over an encrypted TLS socket to request a unique Agent ID and Key.
  * The manager certificate is intentionally not authenticated to match the default
  * Wazuh desktop enrollment behavior.
+ *
+ * @property socketFactory SSL socket factory used for secure communication with authd.
  */
 class WazuhAuthdManager(
     private val socketFactory: SSLSocketFactory = unauthenticatedTlsSocketFactory
@@ -102,10 +104,16 @@ class WazuhAuthdManager(
     }
 
     companion object {
+        /** Connection timeout in milliseconds for authd socket connections. */
         private const val CONNECT_TIMEOUT_MS = 10_000
+
+        /** Read timeout in milliseconds for authd socket streams. */
         private const val READ_TIMEOUT_MS = 15_000
+
+        /** Logging tag for Wazuh authentication. */
         private const val TAG = "WazuhAuth"
 
+        /** Unauthenticated TLS socket factory allowing custom trust handling. */
         private val unauthenticatedTlsSocketFactory: SSLSocketFactory by lazy {
             SSLContext.getInstance("TLS").apply {
                 init(
@@ -116,6 +124,14 @@ class WazuhAuthdManager(
             }.socketFactory
         }
 
+        /**
+         * Builds the enrollment request payload string for the Wazuh authd daemon.
+         *
+         * @param agentName Name of the agent.
+          * @param agentGroup Group assigned to the agent.
+         * @param agentIp Optional agent IP address.
+         * @return Formatted enrollment string.
+         */
         internal fun buildEnrollmentPayload(
             agentName: String,
             agentGroup: String,
@@ -142,6 +158,12 @@ class WazuhAuthdManager(
             }
         }
 
+        /**
+         * Parses the enrollment key response returned by the Wazuh authd daemon.
+         *
+         * @param response Raw response string from authd.
+         * @return A [Pair] containing (Agent ID, Agent Key), or null if parsing fails.
+         */
         internal fun parseEnrollmentResponse(response: String): Pair<String, String>? {
             if (!response.startsWith("OSSEC K:'") || !response.endsWith('\'')) return null
             val content = response.removePrefix("OSSEC K:'").dropLast(1)
@@ -152,6 +174,9 @@ class WazuhAuthdManager(
 
     }
 
+    /**
+     * Trust manager that performs encryption only without validating remote certificates.
+     */
     @SuppressLint("CustomX509TrustManager", "TrustAllX509TrustManager")
     private object EncryptionOnlyTrustManager : X509TrustManager {
         override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) = Unit

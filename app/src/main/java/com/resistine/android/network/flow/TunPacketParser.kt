@@ -4,10 +4,26 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.min
 
+/**
+ * Parser for analyzing IPv4 and IPv6 packets captured from a TUN interface, extracting transport
+ * headers, port numbers, app traffic characteristics, and application-layer protocol evidence.
+ *
+ * @property localIpv4Prefixes Prefixes identifying local IPv4 addresses.
+ * @property localIpv6Prefixes Prefixes identifying local IPv6 addresses.
+ */
 class TunPacketParser(
     private val localIpv4Prefixes: List<String> = listOf("10.", "172.16.", "172.17.", "172.18.", "172.19.", "172.20.", "172.21.", "172.22.", "172.23.", "172.24.", "172.25.", "172.26.", "172.27.", "172.28.", "172.29.", "172.30.", "172.31.", "192.168."),
     private val localIpv6Prefixes: List<String> = listOf("fd", "fe80")
 ) {
+    /**
+     * Parses a raw IP packet byte array into [PacketMetadata].
+     *
+     * @param packet Packet byte array.
+     * @param length Number of valid bytes in the packet.
+     * @param timestampMillis Timestamp in milliseconds.
+     * @param direction Optional explicit packet direction.
+     * @return [PacketMetadata] if parsing succeeds; null otherwise.
+     */
     fun parse(
         packet: ByteArray,
         length: Int,
@@ -24,6 +40,9 @@ class TunPacketParser(
         }
     }
 
+    /**
+     * Parses an IPv4 packet.
+     */
     private fun parseIpv4(
         packet: ByteArray,
         length: Int,
@@ -55,6 +74,9 @@ class TunPacketParser(
         )
     }
 
+    /**
+     * Parses an IPv6 packet.
+     */
     private fun parseIpv6(
         packet: ByteArray,
         length: Int,
@@ -86,6 +108,9 @@ class TunPacketParser(
         )
     }
 
+    /**
+     * Parses source and destination ports from transport headers.
+     */
     private fun parsePorts(packet: ByteArray, offset: Int, protocol: Int, length: Int): Pair<Int, Int> {
         if (offset + 4 > length) return -1 to -1
         return when (protocol) {
@@ -99,6 +124,9 @@ class TunPacketParser(
         }
     }
 
+    /**
+     * Determines the payload offset within the packet.
+     */
     private fun payloadOffset(packet: ByteArray, transportOffset: Int, protocol: Int, length: Int): Int? {
         if (transportOffset >= length) return null
         return when (protocol) {
@@ -114,6 +142,9 @@ class TunPacketParser(
         }
     }
 
+    /**
+     * Resolves IPv6 transport header offset through extension headers.
+     */
     private fun resolveIpv6Transport(packet: ByteArray, length: Int): Ipv6Transport? {
         var nextHeader = packet[6].toInt() and 0xFF
         var offset = 40
@@ -147,6 +178,9 @@ class TunPacketParser(
         return null
     }
 
+    /**
+     * Inspects protocol payloads to extract inspection evidence such as DNS, TLS SNI, and HTTP hosts.
+     */
     private fun inspectProtocolEvidence(
         packet: ByteArray,
         payloadOffset: Int?,
@@ -175,6 +209,9 @@ class TunPacketParser(
         return evidence
     }
 
+    /**
+     * Parses DNS payload queries and responses.
+     */
     private fun parseDns(payload: ByteArray): ProtocolEvidence {
         if (payload.size < 12) return ProtocolEvidence()
         val flags = readUInt16(payload, 2) ?: return ProtocolEvidence()
@@ -193,12 +230,18 @@ class TunPacketParser(
         )
     }
 
+    /**
+     * Parses TCP-wrapped DNS messages.
+     */
     private fun parseTcpDns(payload: ByteArray): ProtocolEvidence {
         val messageLength = readUInt16(payload, 0) ?: return ProtocolEvidence()
         if (messageLength <= 0 || messageLength + 2 > payload.size) return ProtocolEvidence()
         return parseDns(payload.copyOfRange(2, messageLength + 2))
     }
 
+    /**
+     * Parses HTTP request method and host header.
+     */
     private fun parseHttpRequest(payload: ByteArray): ProtocolEvidence {
         val prefix = payload.copyOfRange(0, min(payload.size, 16)).toString(Charsets.ISO_8859_1)
         val method = listOf("GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS").firstOrNull {
@@ -213,6 +256,9 @@ class TunPacketParser(
         return ProtocolEvidence(httpMethod = method, httpHost = host)
     }
 
+    /**
+     * Parses TLS Client Hello extension for SNI and ALPN.
+     */
     private fun parseTlsClientHello(payload: ByteArray): ProtocolEvidence {
         if (payload.size < 5 || payload[0].toInt() != 0x16) return ProtocolEvidence()
         val recordLength = readUInt16(payload, 3) ?: return ProtocolEvidence()
@@ -249,6 +295,9 @@ class TunPacketParser(
         return ProtocolEvidence(tlsSni = sni, tlsAlpn = alpn)
     }
 
+    /**
+     * Parses TLS SNI extension.
+     */
     private fun parseSniExtension(payload: ByteArray, start: Int, end: Int): String? {
         if (start + 5 > end) return null
         var offset = start + 2
@@ -261,6 +310,9 @@ class TunPacketParser(
         return payload.copyOfRange(offset, offset + nameLength).toString(Charsets.US_ASCII)
     }
 
+    /**
+     * Parses TLS ALPN extension.
+     */
     private fun parseAlpnExtension(payload: ByteArray, start: Int, end: Int): String? {
         if (start + 3 > end) return null
         var offset = start + 2
@@ -275,6 +327,9 @@ class TunPacketParser(
         return values.takeIf { it.isNotEmpty() }?.joinToString(",")
     }
 
+    /**
+     * Parses DNS domain name from message buffer.
+     */
     private fun parseDnsName(buffer: ByteArray, offsetStart: Int): Pair<String, Int>? {
         var offset = offsetStart
         val labels = mutableListOf<String>()
@@ -288,11 +343,17 @@ class TunPacketParser(
         return null
     }
 
+    /**
+     * Reads a 16-bit unsigned integer from buffer.
+     */
     private fun readUInt16(buffer: ByteArray, offset: Int): Int? {
         if (offset + 2 > buffer.size) return null
         return ((buffer[offset].toInt() and 0xFF) shl 8) or (buffer[offset + 1].toInt() and 0xFF)
     }
 
+    /**
+     * Maps DNS record type code to string representation.
+     */
     private fun dnsTypeName(type: Int?): String? = when (type) {
         1 -> "A"
         28 -> "AAAA"
@@ -303,15 +364,24 @@ class TunPacketParser(
         else -> type?.toString()
     }
 
+    /**
+     * Converts IPv4 address bytes to string.
+     */
     private fun ipv4String(packet: ByteArray, offset: Int): String {
         return "${packet[offset].toInt() and 0xFF}.${packet[offset + 1].toInt() and 0xFF}.${packet[offset + 2].toInt() and 0xFF}.${packet[offset + 3].toInt() and 0xFF}"
     }
 
+    /**
+     * Converts IPv6 address bytes to string.
+     */
     private fun ipv6String(packet: ByteArray, offset: Int): String {
         val buffer = ByteBuffer.wrap(packet, offset, 16).order(ByteOrder.BIG_ENDIAN)
         return (0 until 8).joinToString(":") { Integer.toHexString(buffer.short.toInt() and 0xFFFF) }
     }
 
+    /**
+     * Internal transport representation for IPv6.
+     */
     private data class Ipv6Transport(
         val protocol: Int,
         val offset: Int

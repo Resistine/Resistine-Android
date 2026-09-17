@@ -32,20 +32,39 @@ import com.resistine.android.ui.vpn.VpnViewModel
  */
 class MainActivity : AppCompatActivity() {
 
+    /** View binding instance for activity_main layout. */
     private lateinit var binding: ActivityMainBinding
+
+    /** Configuration for the action bar navigation UI. */
     private lateinit var appBarConfiguration: AppBarConfiguration
+
+    /** Navigation controller managing app navigation graph. */
     private lateinit var navController: NavController
+
+    /** Flag indicating whether the initial destination has finished animating. */
     private var hasRenderedDestination = false
+
+    /** ViewModel controlling VPN lifecycle and session actions. */
     private val vpnViewModel: VpnViewModel by viewModels()
 
+    /** Set of primary top-level navigation destination IDs. */
     private val primaryDestinations = setOf(
         R.id.nav_home
     )
+
+    /** Set of destination IDs that permit access to the navigation drawer. */
     private val drawerDestinations = primaryDestinations + setOf(
 //        R.id.nav_settings,
         R.id.nav_log_viewer
     )
 
+    /**
+     * Called when the activity is starting. Initializes view bindings, edge-to-edge window insets,
+     * toolbar, navigation component, and destination chrome listeners.
+     *
+     * @param savedInstanceState If the activity is being re-initialized after previously being shut down,
+     *                           this Bundle contains the data it most recently supplied.
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -72,6 +91,11 @@ class MainActivity : AppCompatActivity() {
         configureDestinationChrome(navController)
     }
 
+    /**
+     * Configures toolbar visibility, drawer lock modes, and home button visibility based on the active destination.
+     *
+     * @param navController The active navigation controller.
+     */
     private fun configureDestinationChrome(navController: NavController) {
         navController.addOnDestinationChangedListener { _, destination, _ ->
             val isRouter = destination.id == R.id.nav_router
@@ -99,6 +123,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Navigates back to the home destination if not already present.
+     */
     private fun navigateHome() {
         if (navController.currentDestination?.id == R.id.nav_home) return
         if (!navController.popBackStack(R.id.nav_home, false)) {
@@ -106,6 +133,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Applies system window insets to toolbar, navigation view, and nav host fragments for edge-to-edge support.
+     */
     private fun applySystemBarInsets() {
         val toolbarBaseHeight = resources.getDimensionPixelSize(R.dimen.rs_toolbar_height)
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
@@ -125,6 +155,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Animates alpha and translation when transitioning between navigation destinations.
+     */
     private fun animateDestinationChange() {
         val host = binding.navHostFragmentContentMain
         host.animate().cancel()
@@ -143,11 +176,23 @@ class MainActivity : AppCompatActivity() {
             .start()
     }
 
+    /**
+     * Initialize the contents of the Activity's standard options menu.
+     *
+     * @param menu The options menu in which you place your items.
+     * @return True for the menu to be displayed; false otherwise.
+     */
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.main_menu, menu)
         return true
     }
 
+    /**
+     * Prepare the Screen's standard options menu to be displayed.
+     *
+     * @param menu The options menu as last shown or first initialized.
+     * @return True as the menu should be displayed; false otherwise.
+     */
     override fun onPrepareOptionsMenu(menu: Menu): Boolean {
         val destinationId = navController.currentDestination?.id
         val authDestination = destinationId in setOf(
@@ -165,6 +210,12 @@ class MainActivity : AppCompatActivity() {
         return super.onPrepareOptionsMenu(menu)
     }
 
+    /**
+     * This hook is called whenever an item in your options menu is selected.
+     *
+     * @param item The menu item that was clicked.
+     * @return True if the item click was handled, false otherwise.
+     */
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.action_settings -> {
@@ -185,6 +236,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Displays a confirmation dialog before logging out the current user session.
+     *
+     * @param navController The navigation controller used to redirect to the welcome destination upon logout.
+     */
     private fun showLogoutConfirmationDialog(navController: NavController) {
         MaterialAlertDialogBuilder(this)
             .setTitle(R.string.logout_confirmation_title)
@@ -197,6 +253,11 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    /**
+     * This method is called when the user clicks the Up button from the action bar.
+     *
+     * @return True if navigation was handled successfully.
+     */
     override fun onSupportNavigateUp(): Boolean {
         return navController.navigateUp(appBarConfiguration) || super.onSupportNavigateUp()
     }

@@ -1,6 +1,16 @@
 package com.resistine.android.network.flow
 
+/**
+ * Formatter for converting [FlowRecord] objects into formatted JSON log event strings for Wazuh ingestion.
+ */
 object WazuhFlowEventFormatter {
+
+    /**
+     * Formats a [FlowRecord] into a JSON event string.
+     *
+     * @param record The [FlowRecord] to format.
+     * @return Formatted JSON string.
+     */
     fun format(record: FlowRecord): String {
         val hasPorts = record.protocol == FlowProtocol.TCP || record.protocol == FlowProtocol.UDP
         val fields = linkedMapOf<String, Any?>(
@@ -38,6 +48,9 @@ object WazuhFlowEventFormatter {
         }
     }
 
+    /**
+     * Formats an object value into its JSON representation.
+     */
     private fun jsonValue(value: Any?): String {
         return when (value) {
             null -> "null"
@@ -46,6 +59,9 @@ object WazuhFlowEventFormatter {
         }
     }
 
+    /**
+     * Escapes special characters for JSON string formatting.
+     */
     private fun escape(value: String): String {
         val builder = StringBuilder(value.length + 16)
         value.forEach { char ->

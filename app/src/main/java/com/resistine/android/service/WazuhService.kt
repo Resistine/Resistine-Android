@@ -33,6 +33,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
+/**
+ * Foreground service managing persistent connection, enrollment, and log/flow telemetry streaming to the Wazuh manager.
+ */
 class WazuhService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val retryPolicy = WazuhRetryPolicy()
@@ -44,11 +47,22 @@ class WazuhService : Service() {
     @Volatile
     private var logger: WazuhLogger? = null
 
+    /**
+     * Called when the service is created. Creates the notification channel.
+     */
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
     }
 
+    /**
+     * Called when a command is sent to the service. Manages enrollment and log upload loops.
+     *
+     * @param intent The Intent supplied to startService().
+     * @param flags Additional data about this start request.
+     * @param startId A unique integer representing this specific request to start.
+     * @return Return value indicating how the system should handle service restarts.
+     */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
             stopUploader()
@@ -76,6 +90,11 @@ class WazuhService : Service() {
         return START_STICKY
     }
 
+    /**
+     * Enrolls the agent with the Wazuh manager via authd.
+     *
+     * @return [WazuhAgentCredentials] if enrollment succeeds; null otherwise.
+     */
     private suspend fun enrollAgent(): WazuhAgentCredentials? {
         val configManager = WazuhConfigManager.getInstance(this)
         var failures = 0
@@ -134,6 +153,11 @@ class WazuhService : Service() {
         return null
     }
 
+    /**
+     * Runs the main log upload loop, maintaining connection and streaming pending logs and keepalives.
+     *
+     * @param credentials [WazuhAgentCredentials] for authentication.
+     */
     private suspend fun runUploadLoop(credentials: WazuhAgentCredentials) {
         val configManager = WazuhConfigManager.getInstance(this)
         val logDao = AppDatabase.getDatabase(this).logDao()
@@ -228,6 +252,9 @@ class WazuhService : Service() {
         }
     }
 
+    /**
+     * Extracts agent credentials from intent extras if provided.
+     */
     private fun credentialsFromIntent(intent: Intent?): WazuhAgentCredentials? {
         val id = intent?.getStringExtra(EXTRA_AGENT_ID)
         val key = intent?.getStringExtra(EXTRA_AGENT_KEY)
@@ -236,6 +263,9 @@ class WazuhService : Service() {
         return WazuhAgentCredentials(id, key, name)
     }
 
+    /**
+     * Builds a unique agent name based on device model and Android ID.
+     */
     private fun buildAgentName(): String {
         val model = Build.MODEL.replace(Regex("[^A-Za-z0-9.-]"), "_").take(32)
         val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
@@ -245,16 +275,25 @@ class WazuhService : Service() {
         return "resistine-$model-$deviceId"
     }
 
+    /**
+     * Computes retry delay with random jitter for backoff.
+     */
     private fun retryDelayWithJitter(failures: Int): Long {
         val base = retryPolicy.delayMillis(failures)
         val jitter = Random.nextLong(0L, (base / 4L).coerceAtLeast(1L))
         return base + jitter
     }
 
+    /**
+     * Updates Wazuh connection monitor status.
+     */
     private fun updateStatus(state: WazuhConnectionState, detail: String) {
         WazuhConnectionMonitor.update(state, detail)
     }
 
+    /**
+     * Stops the uploader service and brings down foreground notification.
+     */
     private fun stopUploader(updateMonitor: Boolean = true) {
         isRunning = false
         logger?.disconnect()
@@ -264,6 +303,9 @@ class WazuhService : Service() {
         stopSelf()
     }
 
+    /**
+     * Creates the foreground service notification.
+     */
     private fun createNotification(content: String): Notification {
         val stopIntent = Intent(this, WazuhService::class.java).apply { action = ACTION_STOP }
         val stopPendingIntent = PendingIntent.getService(
@@ -285,11 +327,17 @@ class WazuhService : Service() {
             .build()
     }
 
+    /**
+     * Updates the foreground service notification text.
+     */
     private fun updateNotification(content: String) {
         getSystemService(NotificationManager::class.java)
             .notify(NOTIFICATION_ID, createNotification(content))
     }
 
+    /**
+     * Creates the notification channel for Android O+.
+     */
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -301,6 +349,9 @@ class WazuhService : Service() {
         }
     }
 
+    /**
+     * Checks if a VPN interface is currently active.
+     */
     private fun isVpnActive(): Boolean {
         return runCatching {
             NetworkInterface.getNetworkInterfaces()?.asSequence()?.any { networkInterface ->
@@ -313,6 +364,9 @@ class WazuhService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    /**
+     * Called when the service is destroyed. Cancels coroutine scope and disconnects logger.
+     */
     override fun onDestroy() {
         isRunning = false
         logger?.disconnect()

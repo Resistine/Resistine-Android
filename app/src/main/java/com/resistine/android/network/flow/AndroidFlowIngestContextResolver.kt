@@ -9,10 +9,27 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.util.LinkedHashMap
 
+/**
+ * Functional interface for resolving context metadata for captured network packets.
+ */
 fun interface FlowIngestContextResolver {
+    /**
+     * Resolves ingestion context for a given packet metadata.
+     *
+     * @param packet [PacketMetadata] of the captured packet.
+     * @return Resolved [FlowIngestContext].
+     */
     fun resolve(packet: PacketMetadata): FlowIngestContext
 }
 
+/**
+ * Android-specific implementation of [FlowIngestContextResolver] that resolves active network types
+ * and attributes socket connections to application UIDs and package names.
+ *
+ * @param context Application context.
+ * @param cacheCapacity Maximum number of cached app attributions.
+ * @param networkCacheMillis Cache duration for active network type resolution in milliseconds.
+ */
 class AndroidFlowIngestContextResolver(
     context: Context,
     private val cacheCapacity: Int = DEFAULT_CACHE_CAPACITY,
@@ -37,6 +54,12 @@ class AndroidFlowIngestContextResolver(
         runCatching { resolveNetworkType() }
     }
 
+    /**
+     * Resolves ingestion context including network type, app UID, and package name for a packet.
+     *
+     * @param packet Packet metadata.
+     * @return [FlowIngestContext] containing resolved attributes.
+     */
     @Synchronized
     override fun resolve(packet: PacketMetadata): FlowIngestContext {
         val cacheKey = packet.cacheKey()
@@ -53,6 +76,12 @@ class AndroidFlowIngestContextResolver(
         )
     }
 
+    /**
+     * Resolves app attribution (UID and package name) owning the connection.
+     *
+     * @param packet Packet metadata.
+     * @return [AppAttribution] containing resolved UID and package.
+     */
     private fun resolveAttribution(packet: PacketMetadata): AppAttribution {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return AppAttribution()
         val protocol = when (packet.protocolCode) {
@@ -83,6 +112,11 @@ class AndroidFlowIngestContextResolver(
         )
     }
 
+    /**
+     * Resolves the active network type (WiFi, Cellular, Ethernet, VPN, or Unknown).
+     *
+     * @return [FlowNetworkType].
+     */
     @Suppress("DEPRECATION")
     private fun resolveNetworkType(): FlowNetworkType {
         val now = android.os.SystemClock.elapsedRealtime()
@@ -105,6 +139,12 @@ class AndroidFlowIngestContextResolver(
         return resolved
     }
 
+    /**
+     * Determines network type from network capabilities.
+     *
+     * @param capabilities Network capabilities.
+     * @return [FlowNetworkType].
+     */
     private fun networkType(capabilities: NetworkCapabilities?): FlowNetworkType = when {
         capabilities == null -> FlowNetworkType.UNKNOWN
         capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> FlowNetworkType.WIFI
@@ -114,6 +154,12 @@ class AndroidFlowIngestContextResolver(
         else -> FlowNetworkType.UNKNOWN
     }
 
+    /**
+     * Computes a score for network capabilities to prioritize preferred underlying networks.
+     *
+     * @param capabilities Network capabilities.
+     * @return Integer score.
+     */
     private fun networkScore(capabilities: NetworkCapabilities): Int {
         var score = 0
         if (capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) score += 4
@@ -122,8 +168,19 @@ class AndroidFlowIngestContextResolver(
         return score
     }
 
+    /**
+     * Parses a numeric IP address string into an [InetAddress].
+     *
+     * @param value IP address string.
+     * @return [InetAddress].
+     */
     private fun numericAddress(value: String): InetAddress = InetAddress.getByName(value)
 
+    /**
+     * Generates a cache key for packet metadata.
+     *
+     * @return Cache key string.
+     */
     private fun PacketMetadata.cacheKey(): String = FlowIdentity.canonical(
         ipVersion = ipVersion,
         protocolCode = protocolCode,
@@ -133,6 +190,12 @@ class AndroidFlowIngestContextResolver(
         dstPort = dstPort
     ).shardKey()
 
+    /**
+     * Internal data class representing resolved app attribution.
+     *
+     * @property uid Application UID.
+     * @property packageName Application package name.
+     */
     private data class AppAttribution(
         val uid: Int? = null,
         val packageName: String? = null

@@ -8,6 +8,9 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 
+/**
+ * Manager controlling dynamic application launcher icon switching based on active VPN connection status.
+ */
 object VpnLauncherIconManager : Application.ActivityLifecycleCallbacks {
     private const val PREFERENCES = "launcher_icon_v2"
     private const val KEY_DESIRED_CONNECTED = "desired_connected"
@@ -18,6 +21,11 @@ object VpnLauncherIconManager : Application.ActivityLifecycleCallbacks {
     private var application: Application? = null
     private var startedActivities = 0
 
+    /**
+     * Initializes the launcher icon manager with application lifecycle callbacks.
+     *
+     * @param application Application instance.
+     */
     @Synchronized
     fun initialize(application: Application) {
         if (this.application === application) return
@@ -27,6 +35,12 @@ object VpnLauncherIconManager : Application.ActivityLifecycleCallbacks {
         application.registerActivityLifecycleCallbacks(this)
     }
 
+    /**
+     * Requests a connected or disconnected launcher icon state.
+     *
+     * @param context Application context.
+     * @param connected True for connected icon state; false for disconnected.
+     */
     @Synchronized
     fun requestConnected(context: Context, connected: Boolean) {
         val appContext = context.applicationContext
@@ -39,6 +53,12 @@ object VpnLauncherIconManager : Application.ActivityLifecycleCallbacks {
         }
     }
 
+    /**
+     * Applies the desired launcher icon state when no activities are currently in the foreground.
+     *
+     * @param context Context.
+     * @return True if component states were updated; false otherwise.
+     */
     @Synchronized
     internal fun applyDesiredState(context: Context): Boolean {
         if (startedActivities != 0) return false
@@ -86,6 +106,11 @@ object VpnLauncherIconManager : Application.ActivityLifecycleCallbacks {
         return true
     }
 
+    /**
+     * Resets launcher icon state for testing purposes.
+     *
+     * @param context Context.
+     */
     @Synchronized
     internal fun resetForTest(context: Context) {
         preferences(context).edit().clear().commit()
@@ -101,12 +126,22 @@ object VpnLauncherIconManager : Application.ActivityLifecycleCallbacks {
         )
     }
 
+    /**
+     * Called when an activity has started.
+     *
+     * @param activity The started activity.
+     */
     override fun onActivityStarted(activity: Activity) {
         synchronized(this) {
             startedActivities += 1
         }
     }
 
+    /**
+     * Called when an activity has stopped.
+     *
+     * @param activity The stopped activity.
+     */
     override fun onActivityStopped(activity: Activity) {
         synchronized(this) {
             startedActivities = (startedActivities - 1).coerceAtLeast(0)
@@ -122,9 +157,15 @@ object VpnLauncherIconManager : Application.ActivityLifecycleCallbacks {
     override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
     override fun onActivityDestroyed(activity: Activity) = Unit
 
+    /**
+     * Retrieves shared preferences for launcher icon state.
+     */
     private fun preferences(context: Context) =
         context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
 
+    /**
+     * Maps boolean enabled flag to PackageManager component state int.
+     */
     private fun enabledState(enabled: Boolean) =
         if (enabled) {
             PackageManager.COMPONENT_ENABLED_STATE_ENABLED

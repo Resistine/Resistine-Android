@@ -8,6 +8,13 @@
     <string name="theme_light">Jasny</string>
     <string name="theme_dark">Ciemny</string>
 
+    <string name="settings_language_title">Język aplikacji</string>
+    <string name="settings_language_subtitle">Wybierz preferowany język interfejsu aplikacji.</string>
+    <string name="language_system">Domyślny systemowy</string>
+    <string name="language_english">English</string>
+    <string name="language_czech">Čeština</string>
+    <string name="language_polish">Polski</string>
+
     <string name="settings_vpn_config_title">Konfiguracja VPN</string>
     <string name="settings_config_ready">Konfiguracja jest aktywna</string>
     <string name="settings_config_missing">Brak zapisanej konfiguracji</string>

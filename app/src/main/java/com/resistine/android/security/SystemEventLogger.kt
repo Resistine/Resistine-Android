@@ -7,10 +7,17 @@ import android.content.IntentFilter
 import android.net.ConnectivityManager
 import android.os.BatteryManager
 
+/**
+ * Logger observing system broadcasts (screen state, battery changes, connectivity changes, and package events)
+ * and reporting them to the [WazuhAgent].
+ *
+ * @property context Application context.
+ */
 class SystemEventLogger(private val context: Context) {
 
     private val wazuhAgent = WazuhAgent.getInstance(context)
 
+    /** BroadcastReceiver intercepting system events. */
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
@@ -27,6 +34,9 @@ class SystemEventLogger(private val context: Context) {
         }
     }
 
+    /**
+     * Registers broadcast receivers to start logging system events.
+     */
     fun start() {
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_USER_PRESENT)
@@ -49,10 +59,16 @@ class SystemEventLogger(private val context: Context) {
         logNetworkState()
     }
 
+    /**
+     * Unregisters broadcast receivers to stop logging system events.
+     */
     fun stop() {
         context.unregisterReceiver(receiver)
     }
 
+    /**
+     * Logs current battery level and charging state.
+     */
     private fun logBatteryState(intent: Intent) {
         val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
         val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
@@ -65,6 +81,9 @@ class SystemEventLogger(private val context: Context) {
         }
     }
 
+    /**
+     * Logs current network connectivity state and type.
+     */
     @Suppress("DEPRECATION")
     private fun logNetworkState() {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager

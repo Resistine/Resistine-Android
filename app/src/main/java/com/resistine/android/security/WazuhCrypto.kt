@@ -9,22 +9,35 @@ import javax.crypto.Cipher
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
+/**
+ * Cryptographic utility for building and encrypting Wazuh protocol packets (AES-256-CBC, Zlib compression, MD5 hashing).
+ */
 object WazuhCrypto {
     private val secureRandom = SecureRandom()
 
+    /**
+     * Computes MD5 hash of input byte array.
+     */
     private fun md5(input: ByteArray): ByteArray {
         return MessageDigest.getInstance("MD5").digest(input)
     }
 
+    /**
+     * Computes MD5 hex digest string of input string.
+     */
     private fun md5Hex(input: String): String {
         val bytes = md5(input.toByteArray(Charsets.UTF_8))
         return bytes.joinToString("") { "%02x".format(it) }
     }
 
     /**
-     * @param agentId e.g. "004"
-     * @param rawSharedKey Only the key itself (the 4th part), e.g. "e10adc3949ba..."
-     * @param globalCount Message counter (for simplicity you can send an incrementally increasing number)
+     * Builds and encrypts a Wazuh protocol packet.
+     *
+     * @param agentId Agent ID e.g. "004".
+     * @param rawSharedKey Raw shared agent key.
+     * @param message Message plaintext string.
+     * @param globalCount Message sequence counter.
+     * @return Encrypted packet byte array ready for TCP transmission.
      */
     fun buildPacket(agentId: String, rawSharedKey: String, message: String, globalCount: Long = 1): ByteArray {
         require(agentId.matches(Regex("[0-9]{1,8}"))) { "Invalid Wazuh agent ID" }

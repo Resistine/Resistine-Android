@@ -12,6 +12,11 @@ import java.net.InetSocketAddress
 import java.net.Socket
 import java.util.concurrent.atomic.AtomicLong
 
+/**
+ * Logger managing direct TCP socket connections and encrypted log transmission to a Wazuh manager.
+ *
+ * @param context Application context.
+ */
 class WazuhLogger(private val context: Context) {
     private val connectionLock = Any()
     private val globalCounter = AtomicLong(System.currentTimeMillis() / 1000L)
@@ -22,6 +27,12 @@ class WazuhLogger(private val context: Context) {
     @Volatile
     private var writer: OutputStream? = null
 
+    /**
+     * Packs an encrypted payload into a Wazuh TCP framing format with a 4-byte network byte-order length prefix.
+     *
+     * @param payload Encrypted raw payload bytes.
+     * @return Framed packet bytes.
+     */
     private fun packForWazuhTcp(payload: ByteArray): ByteArray {
         val payloadLength = payload.size
         val finalFrame = ByteArray(4 + payloadLength)
@@ -33,6 +44,16 @@ class WazuhLogger(private val context: Context) {
         return finalFrame
     }
 
+    /**
+     * Connects to the Wazuh manager log ingestion socket and sends startup messages.
+     *
+     * @param serverIp IP address or hostname of the Wazuh manager.
+     * @param agentPort Log ingestion port on the manager.
+     * @param agentId Assigned Wazuh agent ID.
+     * @param rawAgentKey Raw shared agent key.
+     * @param onStatusUpdate Callback invoked with status update messages.
+     * @return True if connection and startup succeed; false otherwise.
+     */
     suspend fun connect(
         serverIp: String,
         agentPort: Int,
@@ -72,11 +93,23 @@ class WazuhLogger(private val context: Context) {
         }
     }
 
+    /**
+     * Checks whether the TCP socket connection is currently active and open.
+     *
+     * @return True if connected; false otherwise.
+     */
     fun isConnected(): Boolean {
         val current = socket ?: return false
         return current.isConnected && !current.isClosed && !current.isOutputShutdown
     }
 
+    /**
+     * Sends the agent startup handshake message.
+     *
+     * @param agentId Assigned Wazuh agent ID.
+     * @param rawAgentKey Raw shared agent key.
+     * @return True if sent successfully; false otherwise.
+     */
     suspend fun sendStartup(agentId: String, rawAgentKey: String): Boolean = withContext(Dispatchers.IO) {
         sendEncryptedMessage(
             agentId = agentId,
@@ -85,6 +118,14 @@ class WazuhLogger(private val context: Context) {
         )
     }
 
+    /**
+     * Sends a keepalive heartbeat message to the manager.
+     *
+     * @param agentId Assigned Wazuh agent ID.
+     * @param rawAgentKey Raw shared agent key.
+     * @param agentName Name of the agent.
+     * @return True if sent successfully; false otherwise.
+     */
     suspend fun sendKeepalive(
         agentId: String,
         rawAgentKey: String,
@@ -99,6 +140,15 @@ class WazuhLogger(private val context: Context) {
         }
     }
 
+    /**
+     * Connects, sends a single operation, and disconnects in one shot.
+     *
+     * @param serverIp Server IP address.
+     * @param agentPort Agent port number.
+     * @param agentId Agent ID.
+     * @param rawAgentKey Agent key.
+     * @return True if successful; false otherwise.
+     */
     suspend fun connectOneShot(
         serverIp: String,
         agentPort: Int,
@@ -106,6 +156,14 @@ class WazuhLogger(private val context: Context) {
         rawAgentKey: String
     ): Boolean = connect(serverIp, agentPort, agentId, rawAgentKey) {}
 
+    /**
+     * Sends a single log message over the established connection.
+     *
+     * @param agentId Agent ID.
+     * @param rawAgentKey Agent key.
+     * @param logMessage The log message string.
+     * @return True if sent successfully; false otherwise.
+     */
     suspend fun sendSingleLog(agentId: String, rawAgentKey: String, logMessage: String): Boolean {
         return withContext(Dispatchers.IO) {
             if (!isConnected()) {
@@ -121,12 +179,23 @@ class WazuhLogger(private val context: Context) {
         }
     }
 
+    /**
+     * Closes the socket connection and releases resources.
+     */
     fun disconnect() {
         synchronized(connectionLock) {
             disconnectLocked()
         }
     }
 
+    /**
+     * Encrypts and transmits a message packet over the TCP socket.
+     *
+     * @param agentId Agent ID.
+     * @param rawAgentKey Agent key.
+     * @param message Plaintext message.
+     * @return True if transmitted successfully; false otherwise.
+     */
     private fun sendEncryptedMessage(agentId: String, rawAgentKey: String, message: String): Boolean {
         return synchronized(connectionLock) {
             val output = writer ?: return@synchronized false
@@ -150,6 +219,9 @@ class WazuhLogger(private val context: Context) {
         }
     }
 
+    /**
+     * Closes socket and writer under synchronization lock.
+     */
     private fun disconnectLocked() {
         runCatching { writer?.close() }
         runCatching { socket?.close() }

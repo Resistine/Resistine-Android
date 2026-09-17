@@ -38,6 +38,7 @@ class SettingsFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         populateEndpointFields()
         bindThemeControls()
+        bindLanguageControls()
         binding.editConfiguration.transformationMethod = PasswordTransformationMethod.getInstance()
         binding.switchShowConfiguration.setOnCheckedChangeListener { _, isChecked ->
             val selection = binding.editConfiguration.selectionStart.coerceAtLeast(0)
@@ -114,6 +115,37 @@ class SettingsFragment : Fragment() {
                     R.id.themeLight -> AppThemeMode.LIGHT
                     else -> AppThemeMode.SYSTEM
                 }
+            )
+        }
+    }
+
+    private var renderingLanguage = false
+
+    private fun bindLanguageControls() {
+        renderingLanguage = true
+        val currentLocales = androidx.appcompat.app.AppCompatDelegate.getApplicationLocales()
+        val tag = if (currentLocales.isEmpty) "" else currentLocales.get(0)?.toLanguageTag().orEmpty()
+
+        binding.languageGroup.check(
+            when {
+                tag.startsWith("cs") -> R.id.langCzech
+                tag.startsWith("pl") -> R.id.langPolish
+                tag.startsWith("en") -> R.id.langEnglish
+                else -> R.id.langSystem
+            }
+        )
+        renderingLanguage = false
+
+        binding.languageGroup.setOnCheckedChangeListener { _, checkedId ->
+            if (renderingLanguage) return@setOnCheckedChangeListener
+            val languageTag = when (checkedId) {
+                R.id.langCzech -> "cs"
+                R.id.langPolish -> "pl"
+                R.id.langEnglish -> "en"
+                else -> ""
+            }
+            androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(
+                androidx.core.os.LocaleListCompat.forLanguageTags(languageTag)
             )
         }
     }

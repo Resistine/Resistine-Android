@@ -2,6 +2,9 @@ package com.resistine.android.network.flow
 
 import java.util.UUID
 
+/**
+ * Key identifying a unique flow by transport protocol, canonical endpoint identity, network type, and app UID/package.
+ */
 private data class FlowKey(
     val protocol: FlowProtocol,
     val identity: TransportFlowIdentity,
@@ -10,6 +13,9 @@ private data class FlowKey(
     val appPackage: String?
 )
 
+/**
+ * Accumulator tracking metrics and timing for an active network flow.
+ */
 private data class FlowAccumulator(
     val startMillis: Long,
     val localIp: String,
@@ -28,6 +34,14 @@ private data class FlowAccumulator(
     var protocolEvidence: ProtocolEvidence = ProtocolEvidence()
 )
 
+/**
+ * Context provided when ingesting packets into the flow aggregator.
+ *
+ * @property networkType Active [FlowNetworkType].
+ * @property appUid Application UID associated with the flow.
+ * @property appPackage Application package name.
+ * @property vpnActive Whether VPN is active.
+ */
 data class FlowIngestContext(
     val networkType: FlowNetworkType = FlowNetworkType.UNKNOWN,
     val appUid: Int? = null,
@@ -35,12 +49,27 @@ data class FlowIngestContext(
     val vpnActive: Boolean = true
 )
 
+/**
+ * Result of ingesting a packet into the flow aggregator.
+ *
+ * @property flushed List of flow records flushed due to capacity or eviction.
+ * @property createdNewFlow True if a new active flow was created.
+ * @property activeFlowCount Total number of currently active flows.
+ */
 data class FlowIngestResult(
     val flushed: List<FlowRecord>,
     val createdNewFlow: Boolean,
     val activeFlowCount: Int
 )
 
+/**
+ * Aggregates individual packet metadata into comprehensive network flow records.
+ *
+ * @param tcpIdleTimeoutMillis Idle timeout for TCP flows in milliseconds.
+ * @param udpIdleTimeoutMillis Idle timeout for UDP flows in milliseconds.
+ * @param hardTimeoutMillis Maximum hard lifetime for active flows in milliseconds.
+ * @param maxActiveFlows Maximum number of concurrent active flows before LRU/capacity flushing.
+ */
 class FlowAggregator(
     private val tcpIdleTimeoutMillis: Long = 60_000L,
     private val udpIdleTimeoutMillis: Long = 30_000L,
@@ -53,6 +82,13 @@ class FlowAggregator(
         require(maxActiveFlows > 0)
     }
 
+    /**
+     * Ingests a packet into the aggregator, updating or creating active flow accumulators.
+     *
+     * @param packet [PacketMetadata] of the parsed packet.
+     * @param context [FlowIngestContext] for the packet.
+     * @return [FlowIngestResult] detailing flushed records and flow status.
+     */
     fun ingest(packet: PacketMetadata, context: FlowIngestContext = FlowIngestContext()): FlowIngestResult {
         val protocol = FlowProtocol.fromCode(packet.protocolCode)
         val key = FlowKey(
@@ -105,10 +141,27 @@ class FlowAggregator(
         )
     }
 
+    /**
+     * Returns the number of currently active flows.
+     *
+     * @return Active flow count.
+     */
     fun activeFlowCount(): Int = activeFlows.size
 
+    /**
+     * Flushes all active flows into completed [FlowRecord] objects.
+     *
+     * @param nowMillis Current timestamp in milliseconds.
+     * @return List of flushed [FlowRecord] items.
+     */
     fun flushAll(nowMillis: Long): List<FlowRecord> = flushInternal(activeFlows.keys.toList(), nowMillis)
 
+    /**
+     * Flushes flows that have exceeded their idle or hard timeouts.
+     *
+     * @param nowMillis Current timestamp in milliseconds.
+     * @return List of expired [FlowRecord] items.
+     */
     fun flushExpired(nowMillis: Long): List<FlowRecord> {
         val expiredKeys = activeFlows.entries
             .filter { (key, value) ->
@@ -119,6 +172,13 @@ class FlowAggregator(
         return flushInternal(expiredKeys, nowMillis)
     }
 
+    /**
+     * Internal method to remove and convert specified flow keys into finalized [FlowRecord] objects.
+     *
+     * @param keys List of [FlowKey] to flush.
+     * @param nowMillis Current timestamp.
+     * @return List of [FlowRecord].
+     */
     private fun flushInternal(keys: List<FlowKey>, nowMillis: Long): List<FlowRecord> {
         return keys.mapNotNull { key ->
             val accumulator = activeFlows.remove(key) ?: return@mapNotNull null

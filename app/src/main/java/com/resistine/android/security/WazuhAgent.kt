@@ -19,18 +19,28 @@ import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
-// Syslog severity levels (RFC 5424)
+/**
+ * Syslog severity levels (RFC 5424).
+ *
+ * @property severity Severity integer level.
+ */
 enum class LogLevel(val severity: Int) {
     EMERGENCY(0), // System is unusable
     ALERT(1),     // Action must be taken immediately
     CRITICAL(2),  // Critical conditions
     ERROR(3),     // Error conditions
-    WARN(4),    // Warning conditions
+    WARN(4),      // Warning conditions
     NOTICE(5),    // Normal but significant condition
     INFO(6),      // Informational messages
     DEBUG(7)      // Debug-level messages
 }
 
+/**
+ * Security agent responsible for recording system logs, security posture checks, device info,
+ * and persisting log entries for Wazuh transmission.
+ *
+ * @param context Application context.
+ */
 class WazuhAgent(private val context: Context) {
 
     private val logFile: File
@@ -47,6 +57,13 @@ class WazuhAgent(private val context: Context) {
         Log.i(TAG, "Log file path: ${logFile.absolutePath}")
     }
 
+    /**
+     * Records a log entry with the specified log level, message, and optional JSON data.
+     *
+     * @param level [LogLevel] severity.
+     * @param message Log message string.
+     * @param data Optional [JSONObject] metadata.
+     */
     fun log(level: LogLevel, message: String, data: JSONObject? = null) {
         val timestamp = dateFormat.format(Date())
 
@@ -92,6 +109,9 @@ class WazuhAgent(private val context: Context) {
         }
     }
 
+    /**
+     * Rotates local log file if it exceeds maximum size.
+     */
     private fun rotateLogIfNeeded() {
         if (logFile.exists() && logFile.length() > MAX_LOG_FILE_SIZE) {
             Log.i(TAG, "Rotating log file (size: ${logFile.length()})")
@@ -107,14 +127,27 @@ class WazuhAgent(private val context: Context) {
         }
     }
 
+    /**
+     * Legacy worker-based upload disabled to prevent connection conflicts.
+     */
     private fun scheduleLogUpload() {
         // Legacy worker-based upload disabled to prevent connection conflicts
     }
 
+    /**
+     * Returns the absolute file path of the local agent log file.
+     *
+     * @return Log file path string.
+     */
     fun getLogFilePath(): String {
         return logFile.absolutePath
     }
 
+    /**
+     * Reads recent logs from the log file.
+     *
+     * @return Formatted JSON string of recent log entries.
+     */
     fun readLogs(): String {
         return try {
             if (logFile.exists()) {
@@ -123,38 +156,56 @@ class WazuhAgent(private val context: Context) {
                 val lastLines = if (lines.size > 200) lines.takeLast(200) else lines
                 "[\n" + lastLines.joinToString(",\n") + "\n]"
             } else {
-                context.getString(R.string.wazuh_log_file_not_found)
+                "Log file not found."
             }
         } catch (e: IOException) {
             Log.e(TAG, "Failed to read log file", e)
-            context.getString(R.string.wazuh_error_reading_log_file)
+            "Error reading log file."
         }
     }
 
+    /**
+     * Logs application startup event along with device info and security posture.
+     */
     fun logAppStart() {
-        log(LogLevel.NOTICE, context.getString(R.string.wazuh_log_app_started))
+        log(LogLevel.NOTICE, "Application started.")
         logDeviceInfo()
         logSystemSecurityPosture()
     }
 
+    /** Logs device unlock event. */
     fun logDeviceUnlock() {
-        log(LogLevel.INFO, context.getString(R.string.wazuh_log_device_unlocked))
+        log(LogLevel.INFO, "Device unlocked.")
     }
 
+    /**
+     * Logs screen state changes (on/off).
+     *
+     * @param isOn True if screen is on; false if off.
+     */
     fun logScreenState(isOn: Boolean) {
         val data = JSONObject()
         data.put("screen_on", isOn)
-        val message = context.getString(if (isOn) R.string.wazuh_screen_on else R.string.wazuh_screen_off)
+        val message = if (isOn) "Screen ON" else "Screen OFF"
         log(LogLevel.DEBUG, message, data)
     }
 
+    /**
+     * Logs package lifecycle events (added, removed, replaced).
+     *
+     * @param action Intent action string.
+     * @param packageName Package name.
+     */
     fun logPackageEvent(action: String, packageName: String) {
         val data = JSONObject()
         data.put("package_name", packageName)
         data.put("action", action)
-        log(LogLevel.NOTICE, context.getString(R.string.wazuh_log_package_event, action, packageName), data)
+        log(LogLevel.NOTICE, "Package event: $action for $packageName", data)
     }
 
+    /**
+     * Logs system security posture checks (ADB enabled, development settings, root status, etc.).
+     */
     fun logSystemSecurityPosture() {
         val data = JSONObject()
         val adbEnabled = Settings.Global.getInt(context.contentResolver, Settings.Global.ADB_ENABLED, 0) != 0
@@ -166,36 +217,52 @@ class WazuhAgent(private val context: Context) {
         data.put("install_non_market_apps", installNonMarketApps)
         data.put("is_rooted", isDeviceRooted())
 
-        log(LogLevel.NOTICE, context.getString(R.string.wazuh_log_system_posture), data)
+        log(LogLevel.NOTICE, "System security posture check", data)
     }
 
+    /**
+     * Logs battery state changes.
+     *
+     * @param level Current battery level.
+     * @param scale Battery scale.
+     * @param isCharging Whether charging.
+     */
     fun logBatteryState(level: Int, scale: Int, isCharging: Boolean) {
         val batteryPct = level * 100 / scale.toFloat()
         val status = if (isCharging) {
-            context.getString(R.string.wazuh_battery_charging)
+            "Charging"
         } else {
-            context.getString(R.string.wazuh_battery_discharging)
+            "Discharging"
         }
         val data = JSONObject()
         data.put("percent", batteryPct.toInt())
         data.put("status", status)
-        log(LogLevel.INFO, context.getString(R.string.wazuh_log_battery_state_changed), data)
+        log(LogLevel.INFO, "Battery state changed", data)
     }
 
+    /**
+     * Logs network state changes.
+     *
+     * @param isConnected Whether connected.
+     * @param networkType Network type string.
+     */
     fun logNetworkState(isConnected: Boolean, networkType: String) {
         val vpnActive = isVpnActive()
         val status = if (isConnected) {
-            context.getString(R.string.wazuh_network_connected)
+            "Connected"
         } else {
-            context.getString(R.string.wazuh_network_disconnected)
+            "Disconnected"
         }
         val data = JSONObject()
         data.put("status", status)
-        data.put("type", if (networkType == "None") context.getString(R.string.wazuh_network_none) else networkType)
+        data.put("type", if (networkType == "None") "None" else networkType)
         data.put("vpn_active", vpnActive)
-        log(LogLevel.INFO, context.getString(R.string.wazuh_log_network_state_changed), data)
+        log(LogLevel.INFO, "Network state changed", data)
     }
 
+    /**
+     * Checks whether a VPN interface is active.
+     */
     private fun isVpnActive(): Boolean {
         return try {
             java.net.NetworkInterface.getNetworkInterfaces()?.asSequence()?.any {
@@ -206,6 +273,9 @@ class WazuhAgent(private val context: Context) {
         }
     }
 
+    /**
+     * Logs device hardware and OS information.
+     */
     private fun logDeviceInfo() {
         val data = JSONObject()
         data.put("manufacturer", Build.MANUFACTURER)
@@ -213,9 +283,12 @@ class WazuhAgent(private val context: Context) {
         data.put("android_version", Build.VERSION.RELEASE)
         data.put("api_level", Build.VERSION.SDK_INT)
         data.put("is_rooted", isDeviceRooted())
-        log(LogLevel.NOTICE, context.getString(R.string.wazuh_log_device_info), data)
+        log(LogLevel.NOTICE, "Device information", data)
     }
 
+    /**
+     * Checks whether the device is rooted by inspecting build tags, su binaries, and execution.
+     */
     private fun isDeviceRooted(): Boolean {
         val buildTags = Build.TAGS
         if (buildTags != null && buildTags.contains("test-keys")) return true
@@ -242,6 +315,12 @@ class WazuhAgent(private val context: Context) {
         @Volatile
         private var INSTANCE: WazuhAgent? = null
 
+        /**
+         * Returns the singleton instance of [WazuhAgent].
+         *
+         * @param context Application context.
+         * @return [WazuhAgent] instance.
+         */
         fun getInstance(context: Context): WazuhAgent {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: WazuhAgent(context.applicationContext).also { INSTANCE = it }

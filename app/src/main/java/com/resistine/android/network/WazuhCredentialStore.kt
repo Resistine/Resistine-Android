@@ -14,6 +14,13 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
+/**
+ * Credentials for a registered Wazuh agent.
+ *
+ * @property agentId Unique agent ID assigned by the manager.
+ * @property agentKey Secret key assigned to the agent.
+ * @property agentName Human-readable agent name.
+ */
 data class WazuhAgentCredentials(
     val agentId: String,
     val agentKey: String,
@@ -26,11 +33,21 @@ data class WazuhAgentCredentials(
     }
 }
 
+/**
+ * Secure store for persisting encrypted Wazuh agent credentials using Android KeyStore and AES-GCM.
+ *
+ * @param context Application context.
+ */
 class WazuhCredentialStore(context: Context) {
     private val appContext = context.applicationContext
     private val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val legacyPrefs = appContext.getSharedPreferences(LEGACY_PREFS_NAME, Context.MODE_PRIVATE)
 
+    /**
+     * Loads and decrypts stored Wazuh agent credentials.
+     *
+     * @return [WazuhAgentCredentials] if available and valid, or null.
+     */
     @Synchronized
     fun load(): WazuhAgentCredentials? {
         val encrypted = prefs.getString(KEY_CIPHERTEXT, null)
@@ -49,6 +66,11 @@ class WazuhCredentialStore(context: Context) {
         return legacy
     }
 
+    /**
+     * Encrypts and saves Wazuh agent credentials.
+     *
+     * @param credentials The [WazuhAgentCredentials] to persist.
+     */
     @Synchronized
     fun save(credentials: WazuhAgentCredentials) {
         val cipher = Cipher.getInstance(CIPHER_TRANSFORMATION)
@@ -63,12 +85,20 @@ class WazuhCredentialStore(context: Context) {
         legacyPrefs.edit().clear().apply()
     }
 
+    /**
+     * Clears all stored Wazuh credentials.
+     */
     @Synchronized
     fun clear() {
         clearEncryptedValues()
         legacyPrefs.edit().clear().apply()
     }
 
+    /**
+     * Loads legacy unencrypted credentials.
+     *
+     * @return [WazuhAgentCredentials] if present in legacy prefs.
+     */
     private fun loadLegacy(): WazuhAgentCredentials? {
         val id = legacyPrefs.getString(LEGACY_AGENT_ID, null)
         val key = legacyPrefs.getString(LEGACY_AGENT_KEY, null)
@@ -77,6 +107,13 @@ class WazuhCredentialStore(context: Context) {
         return WazuhAgentCredentials(id, key, name)
     }
 
+    /**
+     * Decrypts ciphertext credentials using AES-GCM.
+     *
+     * @param encodedIv Base64-encoded initialization vector.
+     * @param encrypted Base64-encoded ciphertext.
+     * @return Decrypted [WazuhAgentCredentials].
+     */
     private fun decrypt(encodedIv: String, encrypted: String): WazuhAgentCredentials {
         val cipher = Cipher.getInstance(CIPHER_TRANSFORMATION)
         val iv = Base64.decode(encodedIv, Base64.NO_WRAP)
@@ -85,6 +122,11 @@ class WazuhCredentialStore(context: Context) {
         return decode(plaintext)
     }
 
+    /**
+     * Retrieves or generates an AES encryption key stored in the Android KeyStore.
+     *
+     * @return [SecretKey] instance.
+     */
     private fun getOrCreateKey(): SecretKey {
         val keyStore = KeyStore.getInstance(ANDROID_KEY_STORE).apply { load(null) }
         (keyStore.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return it }
@@ -104,6 +146,12 @@ class WazuhCredentialStore(context: Context) {
         }
     }
 
+    /**
+     * Serializes agent credentials into a byte array.
+     *
+     * @param credentials The credentials to encode.
+     * @return Byte array representation.
+     */
     private fun encode(credentials: WazuhAgentCredentials): ByteArray {
         return ByteArrayOutputStream().use { bytes ->
             DataOutputStream(bytes).use { output ->
@@ -115,6 +163,12 @@ class WazuhCredentialStore(context: Context) {
         }
     }
 
+    /**
+     * Deserializes agent credentials from a byte array.
+     *
+     * @param bytes Byte array to decode.
+     * @return Decoded [WazuhAgentCredentials].
+     */
     private fun decode(bytes: ByteArray): WazuhAgentCredentials {
         return DataInputStream(ByteArrayInputStream(bytes)).use { input ->
             WazuhAgentCredentials(
@@ -125,6 +179,9 @@ class WazuhCredentialStore(context: Context) {
         }
     }
 
+    /**
+     * Clears encrypted credential preferences.
+     */
     private fun clearEncryptedValues() {
         check(prefs.edit().clear().commit()) { "Could not clear Wazuh agent credentials" }
     }

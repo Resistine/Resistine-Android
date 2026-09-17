@@ -5,14 +5,34 @@ import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
 
+/**
+ * Binary codec for efficiently encoding and decoding flow segments and records.
+ */
 object FlowBinaryCodec {
-    const val FILE_MAGIC: Int = 0x5253464C // RSFL
+    /** Magic number identifying Resistine flow segment files ('RSFL'). */
+    const val FILE_MAGIC: Int = 0x5253464C
+
+    /** File format version. */
     const val FILE_VERSION: Short = 1
+
+    /** Schema version. */
     const val SCHEMA_VERSION: Short = 1
+
+    /** Record type code for flow records. */
     const val RECORD_TYPE_FLOW: Byte = 1
+
+    /** Record version. */
     const val RECORD_VERSION: Byte = 1
+
+    /** Number of bytes in a flow segment file header. */
     const val FILE_HEADER_BYTES: Int = 16
 
+    /**
+     * Writes the binary file header to the output stream.
+     *
+     * @param output [DataOutputStream] target.
+     * @param createdAtMillis Creation timestamp in milliseconds.
+     */
     fun writeFileHeader(output: DataOutputStream, createdAtMillis: Long = System.currentTimeMillis()) {
         output.writeInt(FILE_MAGIC)
         output.writeShort(FILE_VERSION.toInt())
@@ -20,6 +40,12 @@ object FlowBinaryCodec {
         output.writeLong(createdAtMillis)
     }
 
+    /**
+     * Encodes a [FlowRecord] into a binary byte array.
+     *
+     * @param record The [FlowRecord] to encode.
+     * @return Encoded byte array.
+     */
     fun encodeRecord(record: FlowRecord): ByteArray {
         val payloadBytes = ByteArrayOutputStream()
         DataOutputStream(payloadBytes).use { out ->
@@ -62,6 +88,12 @@ object FlowBinaryCodec {
         }
     }
 
+    /**
+     * Decodes a binary payload into a [FlowRecord].
+     *
+     * @param bytes Binary payload byte array.
+     * @return Decoded [FlowRecord].
+     */
     fun decodeRecord(bytes: ByteArray): FlowRecord {
         DataInputStream(ByteArrayInputStream(bytes)).use { input ->
             val id = input.readUtfString()
@@ -115,12 +147,18 @@ object FlowBinaryCodec {
         }
     }
 
+    /**
+     * Writes a UTF-8 string to the data output stream.
+     */
     private fun DataOutputStream.writeUtfString(value: String) {
         val bytes = value.toByteArray(Charsets.UTF_8)
         writeInt(bytes.size)
         write(bytes)
     }
 
+    /**
+     * Writes a nullable UTF-8 string to the data output stream.
+     */
     private fun DataOutputStream.writeNullableUtfString(value: String?) {
         if (value == null) {
             writeInt(-1)
@@ -129,6 +167,9 @@ object FlowBinaryCodec {
         }
     }
 
+    /**
+     * Reads a UTF-8 string from the data input stream.
+     */
     private fun DataInputStream.readUtfString(): String {
         val length = readInt()
         require(length >= 0) { "Negative string length for non-null value" }
@@ -137,6 +178,9 @@ object FlowBinaryCodec {
         return bytes.toString(Charsets.UTF_8)
     }
 
+    /**
+     * Reads a nullable UTF-8 string from the data input stream.
+     */
     private fun DataInputStream.readNullableUtfString(): String? {
         val length = readInt()
         if (length < 0) return null
@@ -145,4 +189,3 @@ object FlowBinaryCodec {
         return bytes.toString(Charsets.UTF_8)
     }
 }
-

@@ -5,24 +5,45 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import org.json.JSONObject
 
+/**
+ * Diagnostics monitor tracking and persisting packet pipeline telemetry snapshots.
+ */
 object FlowTelemetryDiagnosticsMonitor {
     private const val PREFERENCES = "flow_telemetry_diagnostics"
     private const val LAST_SNAPSHOT = "last_pipeline_snapshot"
 
     private val mutableSnapshot = MutableLiveData(PacketPipelineSnapshot.empty())
+
+    /** LiveData observing pipeline diagnostic snapshots. */
     val snapshot: LiveData<PacketPipelineSnapshot> = mutableSnapshot
 
+    /**
+     * Initializes the diagnostics monitor, loading last saved snapshot if available.
+     *
+     * @param context Application context.
+     */
     @Synchronized
     fun initialize(context: Context) {
         if (mutableSnapshot.value != PacketPipelineSnapshot.empty()) return
         mutableSnapshot.value = load(context)
     }
 
+    /**
+     * Begins a new diagnostics session, publishing an empty snapshot.
+     *
+     * @param context Application context.
+     */
     @Synchronized
     fun beginSession(context: Context) {
         publish(context, PacketPipelineSnapshot.empty())
     }
 
+    /**
+     * Publishes a pipeline snapshot and persists it to shared preferences.
+     *
+     * @param context Application context.
+     * @param snapshot The [PacketPipelineSnapshot] to publish.
+     */
     @Synchronized
     fun publish(context: Context, snapshot: PacketPipelineSnapshot) {
         mutableSnapshot.postValue(snapshot)
@@ -32,6 +53,12 @@ object FlowTelemetryDiagnosticsMonitor {
             .apply()
     }
 
+    /**
+     * Loads the last persisted pipeline snapshot from preferences.
+     *
+     * @param context Application context.
+     * @return [PacketPipelineSnapshot].
+     */
     fun load(context: Context): PacketPipelineSnapshot {
         val encoded = context.applicationContext
             .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
@@ -41,6 +68,9 @@ object FlowTelemetryDiagnosticsMonitor {
             .getOrDefault(PacketPipelineSnapshot.empty())
     }
 
+    /**
+     * Serializes a snapshot to JSON.
+     */
     private fun PacketPipelineSnapshot.toJson() = JSONObject().apply {
         put("packetsRead", packetsRead)
         put("bytesRead", bytesRead)
@@ -62,6 +92,9 @@ object FlowTelemetryDiagnosticsMonitor {
         put("telemetryReaderFailures", telemetryReaderFailures)
     }
 
+    /**
+     * Deserializes a JSONObject into a pipeline snapshot.
+     */
     private fun JSONObject.toPipelineSnapshot() = PacketPipelineSnapshot(
         packetsRead = optLong("packetsRead"),
         bytesRead = optLong("bytesRead"),

@@ -4,6 +4,13 @@ import android.content.Context
 import android.content.SharedPreferences
 import java.security.KeyStore
 
+/**
+ * Represents a Wazuh manager network endpoint configuration.
+ *
+ * @property host Server hostname or IP address.
+ * @property authPort Port number for agent authentication/enrollment (authd).
+ * @property logPort Port number for secure log delivery.
+ */
 data class WazuhManagerEndpoint(
     val host: String,
     val authPort: Int,
@@ -13,6 +20,9 @@ data class WazuhManagerEndpoint(
         validate()
     }
 
+    /**
+     * Validates endpoint parameters ensuring valid host format and ports.
+     */
     internal fun validate() {
         require(host.isNotBlank()) { "Manager host is required" }
         require(host == host.trim()) { "Manager host must not contain surrounding whitespace" }
@@ -25,10 +35,14 @@ data class WazuhManagerEndpoint(
     }
 
     private companion object {
+        /** Regex pattern validating IPv4, IPv6, or DNS hostnames. */
         val HOST_PATTERN = Regex("[A-Za-z0-9._:-]+")
     }
 }
 
+/**
+ * Manager for persistent Wazuh server connection configuration settings.
+ */
 class WazuhConfigManager(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
@@ -48,18 +62,26 @@ class WazuhConfigManager(context: Context) {
         }
     }
 
+    /** IP address or hostname of the Wazuh manager. */
     var serverIp: String
         get() = prefs.getString(KEY_SERVER_IP, "10.49.64.53") ?: "10.49.64.53"
         set(value) = prefs.edit().putString(KEY_SERVER_IP, value).apply()
 
+    /** Port number for Wazuh agent enrollment/authd. */
     var authPort: Int
         get() = prefs.getInt(KEY_AUTH_PORT, 1515)
         set(value) = prefs.edit().putInt(KEY_AUTH_PORT, value).apply()
 
+    /** Port number for Wazuh agent log streaming. */
     var logPort: Int
         get() = prefs.getInt(KEY_LOG_PORT, 1514)
         set(value) = prefs.edit().putInt(KEY_LOG_PORT, value).apply()
 
+    /**
+     * Constructs a [WazuhManagerEndpoint] from current configuration settings.
+     *
+     * @return Configured [WazuhManagerEndpoint].
+     */
     fun endpoint(): WazuhManagerEndpoint {
         return WazuhManagerEndpoint(
             host = serverIp,
@@ -68,6 +90,11 @@ class WazuhConfigManager(context: Context) {
         )
     }
 
+    /**
+     * Updates stored configuration endpoint settings.
+     *
+     * @param endpoint The new [WazuhManagerEndpoint] settings.
+     */
     fun updateEndpoint(endpoint: WazuhManagerEndpoint) {
         prefs.edit()
             .putString(KEY_SERVER_IP, endpoint.host.trim())
@@ -89,6 +116,12 @@ class WazuhConfigManager(context: Context) {
         @Volatile
         private var INSTANCE: WazuhConfigManager? = null
 
+        /**
+         * Returns the singleton instance of [WazuhConfigManager].
+         *
+         * @param context Application context.
+         * @return [WazuhConfigManager] instance.
+         */
         fun getInstance(context: Context): WazuhConfigManager {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: WazuhConfigManager(context.applicationContext).also { INSTANCE = it }

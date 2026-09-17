@@ -40,6 +40,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
+/**
+ * Coordinator bridging WireGuard backend telemetry callbacks and packet ingestion with the flow telemetry pipeline,
+ * local database queue, and Wazuh delivery service.
+ *
+ * @param context Application context.
+ * @param onHealthMessage Callback invoked with health messages.
+ */
 class WireGuardFlowTelemetryCoordinator(
     context: Context,
     private val onHealthMessage: (String) -> Unit = {}
@@ -73,6 +80,9 @@ class WireGuardFlowTelemetryCoordinator(
     @Volatile
     private var lastSnapshot: PacketPipelineSnapshot? = null
 
+    /**
+     * Starts the telemetry session, initializing pipelines, coroutine scopes, and background tasks.
+     */
     @Synchronized
     fun start() {
         if (activePipeline.get() != null) return
@@ -117,6 +127,9 @@ class WireGuardFlowTelemetryCoordinator(
         prepareWazuhDeliveryForHandshake()
     }
 
+    /**
+     * Called when the WireGuard tunnel handshake has been confirmed.
+     */
     @Synchronized
     fun onTunnelConfirmed() {
         if (activePipeline.get() == null) return
@@ -125,6 +138,11 @@ class WireGuardFlowTelemetryCoordinator(
         }
     }
 
+    /**
+     * Stops the telemetry coordinator and session, flushing pending records and stopping background workers.
+     *
+     * @return Final [PacketPipelineSnapshot].
+     */
     suspend fun stop(): PacketPipelineSnapshot? = stopMutex.withLock {
         val pipeline = activePipeline.getAndSet(null)
         if (pipeline == null && sessionScope == null) {
@@ -152,11 +170,25 @@ class WireGuardFlowTelemetryCoordinator(
         snapshot
     }
 
+    /**
+     * Returns a snapshot of current pipeline statistics.
+     *
+     * @return [PacketPipelineSnapshot] or null.
+     */
     fun snapshot(): PacketPipelineSnapshot? {
         sessionStats?.updateSegmentQueueDepth(sessionWriter?.queueDepth() ?: 0)
         return sessionStats?.snapshot() ?: lastSnapshot
     }
 
+    /**
+     * Ingests a packet into the active pipeline.
+     *
+     * @param packet Packet byte array.
+     * @param length Length in bytes.
+     * @param direction [PacketDirection].
+     * @param timestampMillis Timestamp in milliseconds.
+     * @return [PacketTelemetryResult].
+     */
     override fun ingest(
         packet: ByteArray,
         length: Int,
@@ -167,6 +199,11 @@ class WireGuardFlowTelemetryCoordinator(
         return pipeline.ingest(packet, length, direction, timestampMillis)
     }
 
+    /**
+     * Callback invoked when native packets are dropped.
+     *
+     * @param count Number of dropped packets.
+     */
     override fun onNativePacketDrops(count: Long) {
         if (count <= 0L) return
         sessionStats?.updateNativeTelemetryDropped(count)
@@ -174,21 +211,42 @@ class WireGuardFlowTelemetryCoordinator(
         onHealthMessage("Telemetry dropped $count packets under load")
     }
 
+    /**
+     * Callback invoked when the telemetry reader fails.
+     *
+     * @param error [Throwable] error.
+     */
     override fun onTelemetryReaderFailure(error: Throwable) {
         sessionStats?.recordTelemetryReaderFailure()
         Log.e(TAG, "WireGuard telemetry reader failed", error)
         onHealthMessage("Telemetry reader failure: ${error.message ?: error.javaClass.simpleName}")
     }
 
+    /**
+     * Callback invoked with native queue statistics.
+     *
+     * @param depth Queue depth.
+     * @param highWater High water mark.
+     */
     override fun onNativeQueueStats(depth: Long, highWater: Long) {
         sessionStats?.updateNativeQueueStats(depth, highWater)
     }
 
+    /**
+     * Updates native statistics with explicit drops.
+     *
+     * @param depth Queue depth.
+     * @param highWater High water mark.
+     * @param dropped Dropped packet count.
+     */
     fun updateNativeStats(depth: Long, highWater: Long, dropped: Long) {
         onNativeQueueStats(depth, highWater)
         sessionStats?.updateNativeTelemetryDropped(dropped)
     }
 
+    /**
+     * Queues a flow event message for Wazuh persistence.
+     */
     private fun queueFlow(queue: Channel<String>, stats: PacketPipelineStats, message: String) {
         stats.recordWazuhQueued()
         if (queue.trySend(message).isFailure) {
@@ -198,6 +256,9 @@ class WireGuardFlowTelemetryCoordinator(
         }
     }
 
+    /**
+     * Persists queued Wazuh messages into the Room database.
+     */
     private suspend fun persistWazuhQueue(queue: Channel<String>) {
         for (message in queue) {
             sessionStats?.recordWazuhDequeued()
@@ -217,11 +278,17 @@ class WireGuardFlowTelemetryCoordinator(
         }
     }
 
+    /**
+     * Publishes pipeline diagnostics.
+     */
     private fun publishDiagnostics(stats: PacketPipelineStats, writer: AsyncFlowSegmentWriter) {
         stats.updateSegmentQueueDepth(writer.queueDepth())
         FlowTelemetryDiagnosticsMonitor.publish(appContext, stats.snapshot())
     }
 
+    /**
+     * Configures Wazuh delivery based on settings.
+     */
     private fun configureWazuhDelivery() {
         when (FlowWazuhDeliveryStore.fromContext(appContext).load()) {
             FlowWazuhDeliveryMode.LOCAL_QUEUE_ONLY -> {
@@ -256,6 +323,9 @@ class WireGuardFlowTelemetryCoordinator(
         }
     }
 
+    /**
+     * Prepares Wazuh delivery state prior to handshake.
+     */
     private fun prepareWazuhDeliveryForHandshake() {
         when (FlowWazuhDeliveryStore.fromContext(appContext).load()) {
             FlowWazuhDeliveryMode.LOCAL_QUEUE_ONLY -> configureWazuhDelivery()
@@ -269,11 +339,17 @@ class WireGuardFlowTelemetryCoordinator(
         }
     }
 
+    /**
+     * Reports a Wazuh configuration error.
+     */
     private fun reportWazuhConfigurationError(detail: String) {
         WazuhConnectionMonitor.update(WazuhConnectionState.ERROR, detail)
         onHealthMessage(detail)
     }
 
+    /**
+     * Stops the Wazuh uploader service.
+     */
     private fun stopWazuhUploader() {
         appContext.stopService(Intent(appContext, WazuhService::class.java))
         WazuhConnectionMonitor.update(WazuhConnectionState.STOPPED, "Uploader stopped")

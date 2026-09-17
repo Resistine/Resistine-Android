@@ -7,6 +7,13 @@
     <string name="theme_system">System</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
+
+    <string name="settings_language_title">App language</string>
+    <string name="settings_language_subtitle">Choose your preferred language for the app interface.</string>
+    <string name="language_system">System default</string>
+    <string name="language_english">English</string>
+    <string name="language_czech">Čeština</string>
+    <string name="language_polish">Polski</string>
     <string name="settings_vpn_config_title">VPN configuration</string>
     <string name="settings_config_ready">Active configuration available</string>
     <string name="settings_config_missing">No registered configuration is available</string>

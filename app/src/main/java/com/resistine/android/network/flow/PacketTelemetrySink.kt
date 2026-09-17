@@ -1,5 +1,8 @@
 package com.resistine.android.network.flow
 
+/**
+ * Enumeration of packet telemetry ingestion results.
+ */
 enum class PacketTelemetryResult {
     ACCEPTED,
     PARSE_REJECTED,
@@ -13,6 +16,15 @@ enum class PacketTelemetryResult {
  * Buffers may be reused by the caller after this method returns.
  */
 fun interface PacketTelemetrySink {
+    /**
+     * Ingests a packet buffer.
+     *
+     * @param packet Packet byte array.
+     * @param length Length of the packet in bytes.
+     * @param direction [PacketDirection] (outbound or inbound).
+     * @param timestampMillis Timestamp in milliseconds.
+     * @return [PacketTelemetryResult].
+     */
     fun ingest(
         packet: ByteArray,
         length: Int,

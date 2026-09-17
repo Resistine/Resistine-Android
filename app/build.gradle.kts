@@ -78,11 +78,15 @@ android {
     }
 
     // Dokka V2 configuration for multiple formats
-//    dokka {
-//        dokkaPublications.register("gfm") {
-//            // For generating Markdown (GFM)
-//        }
-//    }
+    dokka {
+        dokkaSourceSets.clear()
+        dokkaSourceSets.register("main") {
+            sourceRoots.from(file("src/main/java"))
+        }
+        dokkaPublications.register("gfm") {
+            outputDirectory.set(layout.buildDirectory.dir("dokka/gfm"))
+        }
+    }
 }
 
 tasks.register<Exec>("buildWireGuardTelemetryNative") {
