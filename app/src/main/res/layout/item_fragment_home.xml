@@ -13,7 +13,9 @@
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
-        android:layout_height="76dp"
+        android:layout_height="wrap_content"
+        android:minHeight="76dp"
+        android:paddingVertical="@dimen/rs_space_12"
         android:paddingHorizontal="@dimen/rs_space_16">
 
         <ImageView
@@ -33,6 +35,9 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="@dimen/rs_space_16"
+            android:maxLines="1"
+            android:ellipsize="end"
+            app:layout_constrainedWidth="true"
             app:layout_constraintBottom_toTopOf="@id/textView_fragment_summary"
             app:layout_constraintEnd_toStartOf="@id/textView_fragment_status"
             app:layout_constraintStart_toEndOf="@id/imageView_fragment_icon"
@@ -46,6 +51,9 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="@dimen/rs_space_16"
+            android:maxLines="1"
+            android:ellipsize="end"
+            app:layout_constrainedWidth="true"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@id/textView_fragment_status"
             app:layout_constraintStart_toEndOf="@id/imageView_fragment_icon"

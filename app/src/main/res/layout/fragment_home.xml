@@ -41,7 +41,8 @@
 
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
-                android:layout_height="188dp"
+                android:layout_height="wrap_content"
+                android:minHeight="188dp"
                 android:background="@drawable/bg_resistine_hero"
                 android:padding="@dimen/rs_space_24">
 
