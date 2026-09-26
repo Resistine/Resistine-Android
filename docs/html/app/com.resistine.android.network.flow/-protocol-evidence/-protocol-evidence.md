@@ -1,0 +1,6 @@
+//[app](../../../index.md)/[com.resistine.android.network.flow](../index.md)/[ProtocolEvidence](index.md)/[ProtocolEvidence](-protocol-evidence.md)
+
+# ProtocolEvidence
+
+[androidJvm]\
+constructor(dnsQueryName: [String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html)? = null, dnsQueryType: [String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html)? = null, dnsResponseCode: [Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html)? = null, dnsAnswerValue: [String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html)? = null, tlsSni: [String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html)? = null, tlsAlpn: [String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html)? = null, httpHost: [String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html)? = null, httpMethod: [String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html)? = null)

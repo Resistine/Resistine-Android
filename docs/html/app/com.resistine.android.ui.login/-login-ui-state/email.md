@@ -1,0 +1,6 @@
+//[app](../../../index.md)/[com.resistine.android.ui.login](../index.md)/[LoginUiState](index.md)/[email](email.md)
+
+# email
+
+[androidJvm]\
+val [email](email.md): [String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html)?

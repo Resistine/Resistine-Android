@@ -1,0 +1,6 @@
+//[app](../../../index.md)/[com.resistine.android.network.flow](../index.md)/[PacketMetadata](index.md)/[PacketMetadata](-packet-metadata.md)
+
+# PacketMetadata
+
+[androidJvm]\
+constructor(timestampMillis: [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html), ipVersion: [Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html), protocolCode: [Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html), srcIp: [String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html), srcPort: [Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html), dstIp: [String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html), dstPort: [Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html), bytes: [Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html), outbound: [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html), payloadBytes: [Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html) = 0, protocolEvidence: [ProtocolEvidence](../-protocol-evidence/index.md) = ProtocolEvidence())

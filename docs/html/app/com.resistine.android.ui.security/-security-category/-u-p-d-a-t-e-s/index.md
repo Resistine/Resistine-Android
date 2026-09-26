@@ -1,0 +1,14 @@
+//[app](../../../../index.md)/[com.resistine.android.ui.security](../../index.md)/[SecurityCategory](../index.md)/[UPDATES](index.md)
+
+# UPDATES
+
+[androidJvm]\
+[UPDATES](index.md)
+
+## Properties
+
+| Name | Summary |
+|---|---|
+| [name](../../../com.resistine.android.ui.wifi/-wifi-risk-dimension/-v-i-s-i-b-i-l-i-t-y/index.md#-372974862%2FProperties%2F1606452474) | [androidJvm]<br>val [name](../../../com.resistine.android.ui.wifi/-wifi-risk-dimension/-v-i-s-i-b-i-l-i-t-y/index.md#-372974862%2FProperties%2F1606452474): [String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html) |
+| [ordinal](../../../com.resistine.android.ui.wifi/-wifi-risk-dimension/-v-i-s-i-b-i-l-i-t-y/index.md#-739389684%2FProperties%2F1606452474) | [androidJvm]<br>val [ordinal](../../../com.resistine.android.ui.wifi/-wifi-risk-dimension/-v-i-s-i-b-i-l-i-t-y/index.md#-739389684%2FProperties%2F1606452474): [Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html) |
+| [title](../title.md) | [androidJvm]<br>val [title](../title.md): [String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html) |

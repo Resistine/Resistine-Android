@@ -1,0 +1,6 @@
+//[app](../../../index.md)/[com.resistine.android.ui.wifi](../index.md)/[WifiSecuritySignals](index.md)/[WifiSecuritySignals](-wifi-security-signals.md)
+
+# WifiSecuritySignals
+
+[androidJvm]\
+constructor(profile: [WifiSecurityProfile](../-wifi-security-profile/index.md), isTransitionMode: [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html), isOwe: [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html), isOpenPlain: [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html), isWpa2Personal: [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html), isWpa3Personal: [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html), isWpa2Enterprise: [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html), isWpa3Enterprise: [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html), isWep: [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html))

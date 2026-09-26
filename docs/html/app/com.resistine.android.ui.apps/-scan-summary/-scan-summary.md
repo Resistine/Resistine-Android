@@ -1,0 +1,6 @@
+//[app](../../../index.md)/[com.resistine.android.ui.apps](../index.md)/[ScanSummary](index.md)/[ScanSummary](-scan-summary.md)
+
+# ScanSummary
+
+[androidJvm]\
+constructor(total: [Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html), noConcern: [Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html), review: [Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html), urgentReview: [Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html), lastScanAt: [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html)?, isScanned: [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html), durationMillis: [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html)? = null, evaluatedCount: [Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html) = 0, inventoryReloaded: [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html) = false)

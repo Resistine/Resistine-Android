@@ -1,0 +1,6 @@
+//[app](../../../index.md)/[com.resistine.android.ui.apps](../index.md)/[AppScanResult](index.md)/[AppScanResult](-app-scan-result.md)
+
+# AppScanResult
+
+[androidJvm]\
+constructor(score: [Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html), verdict: [RiskVerdict](../-risk-verdict/index.md), badges: [List](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/-list/index.html)&lt;[Badge](../-badge/index.md)&gt;, highRiskPermissions: [List](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/-list/index.html)&lt;[String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html)&gt; = emptyList(), provenance: [InstallProvenance](../-install-provenance/index.md) = InstallProvenance.UNKNOWN, installerPackage: [String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html)? = null, identityConfidence: [AppIdentityConfidence](../-app-identity-confidence/index.md) = AppIdentityConfidence.UNVERIFIED, scannedAtMillis: [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html) = 0)

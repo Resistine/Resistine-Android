@@ -79,12 +79,16 @@ android {
 
     // Dokka V2 configuration for multiple formats
     dokka {
-        dokkaSourceSets.clear()
-        dokkaSourceSets.register("main") {
-            sourceRoots.from(file("src/main/java"))
+        dokkaSourceSets {
+            named("release") {
+                suppress.set(true)
+            }
+        }
+        dokkaPublications.named("html") {
+            outputDirectory.set(rootProject.file("docs/html"))
         }
         dokkaPublications.register("gfm") {
-            outputDirectory.set(layout.buildDirectory.dir("dokka/gfm"))
+            outputDirectory.set(rootProject.file("markdown"))
         }
     }
 }
@@ -165,5 +169,5 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
 
     // Dokka GFM (Markdown) support
-//    dokkaPlugin(libs.dokka.gfm.plugin)
+    dokkaPlugin(libs.dokka.gfm.plugin)
 }

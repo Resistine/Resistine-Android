@@ -1,0 +1,6 @@
+//[app](../../../index.md)/[com.resistine.android.ui.wifi](../index.md)/[WifiConnectionDiagnostics](index.md)/[WifiConnectionDiagnostics](-wifi-connection-diagnostics.md)
+
+# WifiConnectionDiagnostics
+
+[androidJvm]\
+constructor(privateDnsActive: [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html)? = null, privateDnsServerName: [String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html)? = null, dnsServers: [List](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/-list/index.html)&lt;[String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html)&gt; = emptyList(), hasDefaultRoute: [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html) = false, activeRouteUsesVpn: [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html) = false, validatedByAndroid: [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html) = false, tlsProbeStatus: [TlsProbeStatus](../-tls-probe-status/index.md) = TlsProbeStatus.NOT_CONFIGURED, tlsProbeLatencyMillis: [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html)? = null, tlsProbeDetail: [String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html)? = null)
